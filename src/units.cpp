@@ -36,14 +36,33 @@ namespace onika
 
   namespace physics
   {
-
     ONIKA_CU_GLOBAL_VARIABLE UnitSystem g_internal_unit_system = { { ONIKA_INTERNAL_UNIT_SYSTEM } };
     
     void set_internal_unit_system( const UnitSystem & ius )
     {
       g_internal_unit_system = ius;
     }
-    
+
+    UnitClass unit_class_from_name(const std::string& unit_class_str)
+    {
+      for(int i=0 ; i<=NUMBER_OF_UNIT_CLASSES ; i++) if( unit_class_str == g_unit_class_str[i] ) return UnitClass(i);
+      return OTHER;
+    }
+
+    UnitDefinition unit_from_symbol( const std::string& s )
+    {
+      if( s.empty() ) return no_unity;
+      for(int i=0;i<number_of_units;i++) if( s == all_units[i].m_short_name ) return all_units[i];
+      return unknown;
+    }
+
+    UnitDefinition unit_from_name( const std::string& s )
+    {
+      if( s.empty() ) return no_unity;
+      for(int i=0;i<number_of_units;i++) if( s == all_units[i].m_name ) return all_units[i];
+      return unknown;
+    }
+
     Quantity make_quantity( double value , const std::string& units_and_powers )
     {
       std::string p_unities = units_and_powers;

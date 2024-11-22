@@ -72,15 +72,15 @@ namespace onika
      * unit classes as strings
      */
     static inline constexpr const char* g_unit_class_str[NUMBER_OF_UNIT_CLASSES+1] = {
-      "LENGTH",
-      "MASS",
-      "TIME",
-      "CHARGE",
-      "TEMP",
-      "AMOUNT",
-      "LUMINOUS",
-      "ANGLE",
-      "ENERGY"
+      "length",
+      "mass",
+      "time",
+      "charge",
+      "temp",
+      "amount",
+      "luminous",
+      "angle",
+      "energy"
     };
     
     // shortcuts to particular values
@@ -125,7 +125,7 @@ namespace onika
     static inline constexpr UnitDefinition microsecond        = { TIME     , 1.0e-6                  , "us"       , "microsecond" };
     static inline constexpr UnitDefinition nanosecond         = { TIME     , 1.0e-9                  , "ns"       , "nanosecond" };
     static inline constexpr UnitDefinition picosecond         = { TIME     , 1.0e-12                 , "ps"       , "picosecond" };
-    static inline constexpr UnitDefinition fetosecond         = { TIME     , 1.0e-15                 , "fs"       , "fetosecond" };
+    static inline constexpr UnitDefinition fetosecond         = { TIME     , 1.0e-15                 , "fs"       , "femtosecond" };
 
     //Electric current
     static inline constexpr UnitDefinition coulomb            = { CHARGE   , 1.0                     , "C"        , "coulomb" };
@@ -204,12 +204,9 @@ namespace onika
     /*
      * return a unit definition given a unit's short name
      */
-    inline UnitDefinition unit_from_symbol( const std::string& s )
-    {
-      if( s.empty() ) return no_unity;
-      for(int i=0;i<number_of_units;i++) if( s == all_units[i].m_short_name ) return all_units[i];
-      return unknown;
-    }
+    UnitClass unit_class_from_name(const std::string& s);
+    UnitDefinition unit_from_name(const std::string& s);
+    UnitDefinition unit_from_symbol(const std::string& s);
 
     /*
      * International System units
@@ -425,6 +422,31 @@ namespace onika
 
 namespace YAML
 {
+  template<> struct convert< onika::physics::UnitSystem >
+  {
+    static inline Node encode(const onika::physics::UnitSystem& us)
+    {
+      using namespace onika::physics;
+      Node node(NodeType::Map);
+      for(int i=0;i<=NUMBER_OF_UNIT_CLASSES;i++)
+      {
+        node[g_unit_class_str[i]] = us.m_units[i].m_name;
+      }
+      return node;
+    }
+
+    static inline bool decode(const Node& node, onika::physics::UnitSystem& us)
+    {
+      using namespace onika::physics;
+      if( ! node.IsMap() ) return false;
+      for(int i=0;i<=NUMBER_OF_UNIT_CLASSES;i++)
+      {
+        us.m_units[i] = unit_from_name( node[g_unit_class_str[i]].as<std::string>() );
+      }
+      return true;
+    }
+  };
+
   template<> struct convert< onika::physics::Quantity >
   {
     static inline Node encode(const onika::physics::Quantity& q)
