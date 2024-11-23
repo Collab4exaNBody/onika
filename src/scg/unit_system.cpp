@@ -50,11 +50,11 @@ namespace onika { namespace scg
       {
         lout << "Internal unit system for default conversions" << std::endl;
         lout << "+-------------+-------------------+--------+" << std::endl;
-        lout << "|    Type     |        Unit       | Symbol |" << std::endl;
+        lout << "| Type        | Unit              | Symbol |" << std::endl;
         lout << "+-------------+-------------------+--------+" << std::endl;
         for(int i=0;i<=onika::physics::NUMBER_OF_UNIT_CLASSES;i++)
         {
-          lout << format_string("|%12s |%18s |%7s |",
+          lout << format_string("| %-12s| %-18s| %-7s|",
                   std::string(onika::physics::g_unit_class_str[i]) ,
                   std::string(unit_system->m_units[i].m_name) ,
                   std::string(unit_system->m_units[i].m_short_name) ) << std::endl;
