@@ -59,9 +59,9 @@ namespace onika
       MASS,
       TIME,
       CHARGE,
-      TEMP,
+      TEMPERATURE,
       AMOUNT,
-      LUMINOUS,
+      LUMINOSITY,
       ANGLE,
       ENERGY,
       NUMBER_OF_UNIT_CLASSES = ENERGY,
@@ -107,56 +107,56 @@ namespace onika
     /***************** All units available *******************************/
     /*********************************************************************/
 
-    //length
-    static inline constexpr UnitDefinition meter              = { LENGTH   , 1.0                     , "m"        , "meter" };
-    static inline constexpr UnitDefinition millimeter         = { LENGTH   , 1.0e-3                  , "mm"       , "millimeter" };
-    static inline constexpr UnitDefinition micron             = { LENGTH   , 1.0e-6                  , "um"       , "micron" };
-    static inline constexpr UnitDefinition nanometer          = { LENGTH   , 1.0e-9                  , "nm"       , "nanometer" };
-    static inline constexpr UnitDefinition angstrom           = { LENGTH   , 1.0e-10                 , "ang"      , "angstrom" };
+    // length
+    static inline constexpr UnitDefinition meter              = { LENGTH     , 1.0                     , "m"        , "meter" };
+    static inline constexpr UnitDefinition millimeter         = { LENGTH     , 1.0e-3                  , "mm"       , "millimeter" };
+    static inline constexpr UnitDefinition micron             = { LENGTH     , 1.0e-6                  , "um"       , "micron" };
+    static inline constexpr UnitDefinition nanometer          = { LENGTH     , 1.0e-9                  , "nm"       , "nanometer" };
+    static inline constexpr UnitDefinition angstrom           = { LENGTH     , 1.0e-10                 , "ang"      , "angstrom" };
     
-    //mass
-    static inline constexpr UnitDefinition kilogram           = { MASS     , 1.0                     , "kg"       , "kilogram" };
-    static inline constexpr UnitDefinition gram               = { MASS     , 1.0e-3                  , "g"        , "gram" };
-    static inline constexpr UnitDefinition atomic_mass_unit   = { MASS     , 1.660539040e-27         , "Da"       , "Dalton" };
+    // mass
+    static inline constexpr UnitDefinition kilogram           = { MASS       , 1.0                     , "kg"       , "kilogram" };
+    static inline constexpr UnitDefinition gram               = { MASS       , 1.0e-3                  , "g"        , "gram" };
+    static inline constexpr UnitDefinition atomic_mass_unit   = { MASS       , 1.660539040e-27         , "Da"       , "Dalton" };
     
-    //time
-    static inline constexpr UnitDefinition hour               = { TIME     , 3600                    , "h"        , "hour" };
-    static inline constexpr UnitDefinition second             = { TIME     , 1.0                     , "s"        , "second" };
-    static inline constexpr UnitDefinition microsecond        = { TIME     , 1.0e-6                  , "us"       , "microsecond" };
-    static inline constexpr UnitDefinition nanosecond         = { TIME     , 1.0e-9                  , "ns"       , "nanosecond" };
-    static inline constexpr UnitDefinition picosecond         = { TIME     , 1.0e-12                 , "ps"       , "picosecond" };
-    static inline constexpr UnitDefinition fetosecond         = { TIME     , 1.0e-15                 , "fs"       , "femtosecond" };
+    // time
+    static inline constexpr UnitDefinition hour               = { TIME       , 3600                    , "h"        , "hour" };
+    static inline constexpr UnitDefinition second             = { TIME       , 1.0                     , "s"        , "second" };
+    static inline constexpr UnitDefinition microsecond        = { TIME       , 1.0e-6                  , "us"       , "microsecond" };
+    static inline constexpr UnitDefinition nanosecond         = { TIME       , 1.0e-9                  , "ns"       , "nanosecond" };
+    static inline constexpr UnitDefinition picosecond         = { TIME       , 1.0e-12                 , "ps"       , "picosecond" };
+    static inline constexpr UnitDefinition fetosecond         = { TIME       , 1.0e-15                 , "fs"       , "femtosecond" };
 
-    //Electric current
-    static inline constexpr UnitDefinition coulomb            = { CHARGE   , 1.0                     , "C"        , "coulomb" };
-    static inline constexpr UnitDefinition elementary_charge  = { CHARGE   , elementaryChargeCoulomb , "e-"       , "elementary_charge" };
+    // Electric current
+    static inline constexpr UnitDefinition coulomb            = { CHARGE     , 1.0                     , "C"        , "coulomb" };
+    static inline constexpr UnitDefinition elementary_charge  = { CHARGE     , elementaryChargeCoulomb , "e-"       , "elementary_charge" };
 
-    //temperature
-    static inline constexpr UnitDefinition kelvin             = { TEMP     , 1.0                     , "K"        , "kelvin" };
-    static inline constexpr UnitDefinition celsius            = { TEMP     , 1.0                     , "°"        , "celsius" }; // should never be used
+    // temperature
+    static inline constexpr UnitDefinition kelvin             = { TEMPERATURE, 1.0                     , "K"        , "kelvin" };
+    static inline constexpr UnitDefinition celsius            = { TEMPERATURE, 1.0                     , "°"        , "celsius" }; // should never be used
 
-    //amount of substance
-    static inline constexpr UnitDefinition mol                = { AMOUNT   , 1.0                     , "mol"      , "mol" };
-    static inline constexpr UnitDefinition particle           = { AMOUNT   , 1.0e-23 / 6.02214076    , "particle" , "particle" }; 
+    // amount of substance
+    static inline constexpr UnitDefinition mol                = { AMOUNT     , 1.0                     , "mol"      , "mol" };
+    static inline constexpr UnitDefinition particle           = { AMOUNT     , 1.0e-23 / 6.02214076    , "particle" , "particle" }; 
 
-    //luminous intensity
-    static inline constexpr UnitDefinition candela            = { LUMINOUS , 1.0                     , "cd"       , "candela" };
+    // luminosity
+    static inline constexpr UnitDefinition candela            = { LUMINOSITY , 1.0                     , "cd"       , "candela" };
 
     // angle
-    static inline constexpr UnitDefinition radian             = { ANGLE    , 1.0                     , "rad"      , "radian" };
-    static inline constexpr UnitDefinition degree             = { ANGLE    , M_PI/180.0              , "degree"   , "degree" };
+    static inline constexpr UnitDefinition radian             = { ANGLE      , 1.0                     , "rad"      , "radian" };
+    static inline constexpr UnitDefinition degree             = { ANGLE      , M_PI/180.0              , "degree"   , "degree" };
 
     // energy
-    static inline constexpr UnitDefinition joule              = { ENERGY   , 1.0                     , "J"        , "joule" };
-    static inline constexpr UnitDefinition electron_volt      = { ENERGY   , elementaryChargeCoulomb , "eV"       , "electron_volt" };
-    static inline constexpr UnitDefinition calorie            = { ENERGY   , 4.1868                  , "cal"      , "calorie" };
-    static inline constexpr UnitDefinition kcalorie           = { ENERGY   , 4186.8                  , "kcal"     , "kcalorie" };
+    static inline constexpr UnitDefinition joule              = { ENERGY     , 1.0                     , "J"        , "joule" };
+    static inline constexpr UnitDefinition electron_volt      = { ENERGY     , elementaryChargeCoulomb , "eV"       , "electron_volt" };
+    static inline constexpr UnitDefinition calorie            = { ENERGY     , 4.1868                  , "cal"      , "calorie" };
+    static inline constexpr UnitDefinition kcalorie           = { ENERGY     , 4186.8                  , "kcal"     , "kcalorie" };
     
     // unit less
-    static inline constexpr UnitDefinition no_unity           = { OTHER    , 1.0                     , ""         , "" };
+    static inline constexpr UnitDefinition no_unity           = { OTHER      , 1.0                     , ""         , "" };
 
     // unknown
-    static inline constexpr UnitDefinition unknown            = { OTHER    , undefined_value         , ""         , "unknow" };
+    static inline constexpr UnitDefinition unknown            = { OTHER      , undefined_value         , ""         , "unknow" };
 
     /*********************************************************************/
     /*********************************************************************/
@@ -166,13 +166,13 @@ namespace onika
      */
     struct UnitSystem
     {
-      UnitDefinition m_units[NUMBER_OF_UNIT_CLASSES];      
+      UnitDefinition m_units[NUMBER_OF_UNIT_CLASSES+1];      
       inline const UnitDefinition& length() const { return m_units[LENGTH]; }
       inline const UnitDefinition& time() const { return m_units[TIME]; }
       inline const UnitDefinition& charge() const { return m_units[CHARGE]; }
-      inline const UnitDefinition& temperature() const { return m_units[TEMP]; }
+      inline const UnitDefinition& temperature() const { return m_units[TEMPERATURE]; }
       inline const UnitDefinition& amount() const { return m_units[AMOUNT]; }
-      inline const UnitDefinition& luminance() const { return m_units[LUMINOUS]; }
+      inline const UnitDefinition& luminosity() const { return m_units[LUMINOSITY]; }
       inline const UnitDefinition& angle() const { return m_units[ANGLE]; }
       inline const UnitDefinition& energy() const { return m_units[ENERGY]; }
     };
@@ -182,7 +182,7 @@ namespace onika
      */
     struct UnitPowers
     {
-      double m_powers[NUMBER_OF_UNIT_CLASSES] = { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. };
+      double m_powers[NUMBER_OF_UNIT_CLASSES+1] = { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. };
     };
       
     // list of all available unit definitions
@@ -419,6 +419,7 @@ namespace onika
 
 #include <yaml-cpp/yaml.h>
 #include <sstream>
+#include <onika/log.h>
 
 namespace YAML
 {
@@ -438,7 +439,10 @@ namespace YAML
     static inline bool decode(const Node& node, onika::physics::UnitSystem& us)
     {
       using namespace onika::physics;
-      if( ! node.IsMap() ) return false;
+      if( ! node.IsMap() )
+      {
+        onika::fatal_error() << "YAML node is not a map as expected when converting to onika::physics::UnitSystem" << std::endl << std::flush;
+      }
       for(int i=0;i<=NUMBER_OF_UNIT_CLASSES;i++)
       {
         us.m_units[i] = unit_from_name( node[g_unit_class_str[i]].as<std::string>() );

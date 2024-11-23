@@ -113,7 +113,7 @@ namespace onika
     void
     finalize( const onika::app::ApplicationConfiguration & configuration
                         , std::shared_ptr<onika::scg::OperatorNode> simulation_graph
-                        , onika::trace::TraceOutputFormat * otf );
+                        , onika::trace::TraceOutputFormat * otf, bool external_mpi_init );
 
     std::pair< std::vector<std::string> , YAML::Node >
     parse_command_args( int argc, char const * const argv[] );

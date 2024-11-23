@@ -32,14 +32,14 @@ namespace onika { namespace scg
   class ApplicationUnitSystem : public onika::scg::OperatorNode
   {
     using UnitSystem = onika::physics::UnitSystem;
-    static inline constexpr UnitSystem default_internal_unit_system()
+    static inline UnitSystem default_internal_unit_system()
     {
       using namespace onika::physics;
       return { { ONIKA_INTERNAL_UNIT_SYSTEM } };
     }
   
-    ADD_SLOT( UnitSystem , unit_system , INPUT_OUTPUT , default_internal_unit_system() , DocString{"Defines default internal unit system used for quantity conversions whe no unit system specified."} );
-    ADD_SLOT( bool       , verbose     , INPUT        , false , DocString{"If true prints a report of defined internal units used by default."} );
+    ADD_SLOT( UnitSystem , unit_system , INPUT , default_internal_unit_system() , DocString{"Defines default internal unit system used for quantity conversions whe no unit system specified."} );
+    ADD_SLOT( bool       , verbose     , INPUT , false , DocString{"If true prints a report of defined internal units used by default."} );
 
   public:
 
@@ -48,12 +48,13 @@ namespace onika { namespace scg
       onika::physics::set_internal_unit_system( *unit_system );
       if( *verbose )
       {
+        lout << "Internal unit system for default conversions" << std::endl;
         lout << "+-------------+-------------------+--------+" << std::endl;
         lout << "|    Type     |        Unit       | Symbol |" << std::endl;
         lout << "+-------------+-------------------+--------+" << std::endl;
         for(int i=0;i<=onika::physics::NUMBER_OF_UNIT_CLASSES;i++)
         {
-          lout << format_string("| %12s| %18s | %7s |",
+          lout << format_string("|%12s |%18s |%7s |",
                   std::string(onika::physics::g_unit_class_str[i]) ,
                   std::string(unit_system->m_units[i].m_name) ,
                   std::string(unit_system->m_units[i].m_short_name) ) << std::endl;

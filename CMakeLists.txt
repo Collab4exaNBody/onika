@@ -209,7 +209,7 @@ if(ONIKA_USE_CUDA)
   set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} cudart)
   set(ONIKA_CUDA_COMPILE_FLAGS "--Werror;cross-execution-space-call;--extended-lambda" CACHE STRING "Cuda extra flags")
   set(ONIKA_COMPILE_FEATURES ${ONIKA_COMPILE_FEATURES} cuda_std_17)
-  message(STATUS "onika uses CUDA v${CMAKE_CUDA_COMPILER_VERSION} , arch=${CMAKE_CUDA_ARCHITECTURES} , root=${CUDA_ROOT}")
+  message(STATUS "Onika uses CUDA v${CMAKE_CUDA_COMPILER_VERSION} , arch=${CMAKE_CUDA_ARCHITECTURES} , root=${CUDA_ROOT}")
 endif()
 
 

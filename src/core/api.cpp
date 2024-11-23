@@ -131,7 +131,7 @@ namespace onika
     void
     end(std::shared_ptr<ApplicationContext> ctx)
     {
-      onika::app::finalize( * (ctx->m_configuration.get()) , ctx->m_simulation_graph , ctx->m_prof_trace );
+      onika::app::finalize( * (ctx->m_configuration.get()) , ctx->m_simulation_graph , ctx->m_prof_trace , ctx->m_mpi_external_init );
     }
     
     void
@@ -152,7 +152,8 @@ namespace onika
     void
     finalize( const onika::app::ApplicationConfiguration & configuration
                         , std::shared_ptr<onika::scg::OperatorNode> simulation_graph
-                        , onika::trace::TraceOutputFormat * otf )
+                        , onika::trace::TraceOutputFormat * otf
+                        , bool external_mpi_init )
     {
       using namespace onika::scg;
     
@@ -178,6 +179,8 @@ namespace onika
       // free all resources before exit
       simulation_graph->apply_graph( [](OperatorNode* op){ op->free_all_resources(); } );
       simulation_graph = nullptr;
+
+      if( ! external_mpi_init ) MPI_Finalize();
     }
 
     std::pair< std::vector<std::string> , YAML::Node >
@@ -477,7 +480,6 @@ namespace onika
       MPI_Comm_size(app_world_comm, &nb_procs);
 
       // scoped variable that properly finalizes MPI upon main function exit
-      struct MpiScopedFinalizer { bool finalize_on_exit=true; ~MpiScopedFinalizer() { if(finalize_on_exit) MPI_Finalize(); } } mpi_finalize_on_scope_exit = { !external_mpi_init };
       if( configuration.mpimt && mt_support != MPI_THREAD_MULTIPLE && rank==0 )
       {
         lerr<<"Warning: no MPI_THREAD_MULTIPLE support. Concurrent calls to mpi API will fail."<<std::endl;
