@@ -76,9 +76,9 @@ namespace onika
       "mass",
       "time",
       "charge",
-      "temp",
+      "temperature",
       "amount",
-      "luminous",
+      "luminosity",
       "angle",
       "energy"
     };

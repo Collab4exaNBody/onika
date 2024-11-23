@@ -445,9 +445,9 @@ namespace onika
     std::tuple<int,int,int,int>
     initialize_mpi( const onika::app::ApplicationConfiguration & configuration , int argc, char const * const in_argv[], MPI_Comm app_world_comm )
     {
-      std::vector<char*> argv_vec(argc,nullptr);
-      for(int a=0;a<argc;a++) argv_vec[a] = strdup(in_argv[a]);
-      char ** argv = argv_vec.data();
+      char** argv = new char* [argc+1];
+      argv[argc] = nullptr;
+      for(int a=0;a<argc;a++) argv[a] = strdup(in_argv[a]);
 
       // ============= MPI Initialization =============
       int rank=0, nb_procs=0;
@@ -470,8 +470,8 @@ namespace onika
           MPI_Init(&argc, &argv);
         }
       }
-      for(int a=0;a<argc;a++) free( argv_vec[a] );
-      argv_vec.clear(); argv=nullptr;
+      for(int a=0;a<argc;a++) free( argv[a] );
+      delete [] argv;
       
       MPI_Comm_rank(app_world_comm, &rank);
       MPI_Comm_size(app_world_comm, &nb_procs);

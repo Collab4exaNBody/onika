@@ -1,0 +1,19 @@
+configuration:
+  logging:
+    debug: true
+
+simulation:
+  - message: "--== Onika v1.0 ==--"
+  - unit_system:
+      verbose: true
+      unit_system:
+        length: meter
+        mass: kilogram
+        time: second
+        charge: coulomb
+        temp: kelvin
+        amount: mol
+        luminous: candela
+        angle: radian
+        energy: joule
+
