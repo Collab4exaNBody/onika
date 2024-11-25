@@ -1,6 +1,6 @@
 # Onika
 
-![](doc/logo.jpg)
+![](doc/logo.png)
 
 Onika (Object Network Interface for Knit Applications), is a component based HPC software platform to build numerical simulation codes.
 
