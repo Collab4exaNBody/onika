@@ -33,12 +33,12 @@ namespace onika { namespace math
   template <typename _T>
   static inline constexpr _T bit_rotl (_T _v, int _b)
   {
+    // C++ 20 version
 #if __cplusplus > 201703L
-    return std::rotl( v , int(b) );
+    return static_cast<_T>( std::rotl( static_cast< std::make_unsigned_t<_T> >( _v ) , _b ) );
 #else
     using T = std::make_unsigned_t<_T>;
     T v = static_cast<T>(_v);
-
     static_assert(std::is_integral<T>::value, "rotate of non-integral type");
     static_assert(! std::is_signed<T>::value, "rotate of signed type");
     constexpr unsigned int num_bits {std::numeric_limits<T>::digits};

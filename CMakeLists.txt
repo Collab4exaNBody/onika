@@ -18,13 +18,13 @@
 # ======================================
 # === Parallel Data Movement library ===
 # ======================================
-cmake_minimum_required (VERSION 3.18)
+cmake_minimum_required (VERSION 3.26)
 
 # ========================================
 # === Compiler toolchain configuration ===
 # ========================================
 # C++ standard
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -52,7 +52,7 @@ SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-set(ONIKA_COMPILE_FEATURES cxx_std_17)
+set(ONIKA_COMPILE_FEATURES cxx_std_20)
 
 # ============================
 # === OpenMP configuration ===
@@ -192,7 +192,7 @@ if(ONIKA_USE_HIP)
   endif()
   set(ONIKA_HIP_COMPILE_FLAGS "-Werror=return-local-addr;-Werror=return-stack-address;-Werror=return-type" CACHE STRING "HIP extra flags")
   set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} roctx64)
-  set(ONIKA_COMPILE_FEATURES ${ONIKA_COMPILE_FEATURES} hip_std_17)
+  set(ONIKA_COMPILE_FEATURES ${ONIKA_COMPILE_FEATURES} hip_std_20)
   message(STATUS "Onika uses HIP ${CMAKE_HIP_COMPILER_VERSION}")
 endif()
 
@@ -208,7 +208,7 @@ if(ONIKA_USE_CUDA)
   set(ONIKA_LIBRARY_DIRS ${CUDA_ROOT}/lib64)
   set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} cudart)
   set(ONIKA_CUDA_COMPILE_FLAGS "--Werror;cross-execution-space-call;--extended-lambda" CACHE STRING "Cuda extra flags")
-  set(ONIKA_COMPILE_FEATURES ${ONIKA_COMPILE_FEATURES} cuda_std_17)
+  set(ONIKA_COMPILE_FEATURES ${ONIKA_COMPILE_FEATURES} cuda_std_20)
   message(STATUS "Onika uses CUDA v${CMAKE_CUDA_COMPILER_VERSION} , arch=${CMAKE_CUDA_ARCHITECTURES} , root=${CUDA_ROOT}")
 endif()
 
@@ -376,6 +376,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/onika-config.cmake DESTINATION ${CMAKE
 install(TARGETS onika DESTINATION lib)
 install(TARGETS ${ONIKA_APPLICATIONS} DESTINATION bin)
 install(DIRECTORY include/onika DESTINATION include)
+install(DIRECTORY data DESTINATION data)
 
 # ==================
 # === test suite ===
