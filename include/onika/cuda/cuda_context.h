@@ -53,6 +53,7 @@ template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyAr
 #define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2)            hipEventElapsedTime(&T,EVT1,EVT2)
 #define ONIKA_CU_MEMSET(p,v,n,...)                     hipMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY(d,s,n,...)                     hipMemcpyAsync(d,s,n,hipMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
+#define ONIKA_CU_MEMCPY_TO_SYMBOL(d,s,n,...)           hipMemcpyToSymbol(d,s,n,hipMemcpyHostToDevice OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY_KIND(d,s,n,k,...)              hipMemcpyAsync(d,s,n,k OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_GET_DEVICE_COUNT(iPtr)	               hipGetDeviceCount(iPtr)
 #define ONIKA_CU_SET_DEVICE(id)	                       hipSetDevice(id)
@@ -101,6 +102,7 @@ static inline constexpr auto onikaMemcpyHostToDevice         = hipMemcpyHostToDe
 #define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2)            cudaEventElapsedTime(&T,EVT1,EVT2)
 #define ONIKA_CU_MEMSET(p,v,n,...)                     cudaMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY(d,s,n,...)                     cudaMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
+#define ONIKA_CU_MEMCPY_TO_SYMBOL(d,s,n,...)           cudaMemcpyToSymbol(d,s,n,cudaMemcpyHostToDevice OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY_KIND(d,s,n,k,...)              cudaMemcpyAsync(d,s,n,k OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_GET_DEVICE_COUNT(iPtr)	               cudaGetDeviceCount(iPtr)
 #define ONIKA_CU_SET_DEVICE(id)	                       cudaSetDevice(id)
@@ -150,19 +152,20 @@ static inline constexpr int onikaErrorNotReady = 0;
 #define cudaStreamAddCallback _fake_cuda_api_noop
 #define cudaStreamCreate _fake_cuda_api_noop
 
-#define ONIKA_CU_PROF_RANGE_PUSH            _fake_cuda_api_noop
-#define ONIKA_CU_PROF_RANGE_POP             _fake_cuda_api_noop
-#define ONIKA_CU_MEM_PREFETCH               _fake_cuda_api_noop
-#define ONIKA_CU_CREATE_STREAM_NON_BLOCKING _fake_cuda_api_noop
-#define ONIKA_CU_STREAM_ADD_CALLBACK        _fake_cuda_api_noop
-#define ONIKA_CU_CREATE_EVENT(EVT)          _fake_cuda_api_noop(EVT=nullptr)
-#define ONIKA_CU_DESTROY_EVENT(EVT)         _fake_cuda_api_noop(EVT=nullptr)
-#define ONIKA_CU_STREAM_EVENT(EVT,STREAM)   _fake_cuda_api_noop(EVT,STREAM)
-#define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) _fake_cuda_api_noop(T=0.0f)
-#define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM) _fake_cuda_api_noop(STREAM)
-#define ONIKA_CU_EVENT_QUERY(EVT)           (onikaSuccess)
-#define ONIKA_CU_MEMSET(p,v,n,...)          std::memset(p,v,n)
-#define ONIKA_CU_MEMCPY(d,s,n,...)          std::memcpy(d,s,n)
+#define ONIKA_CU_PROF_RANGE_PUSH             _fake_cuda_api_noop
+#define ONIKA_CU_PROF_RANGE_POP              _fake_cuda_api_noop
+#define ONIKA_CU_MEM_PREFETCH                _fake_cuda_api_noop
+#define ONIKA_CU_CREATE_STREAM_NON_BLOCKING  _fake_cuda_api_noop
+#define ONIKA_CU_STREAM_ADD_CALLBACK         _fake_cuda_api_noop
+#define ONIKA_CU_CREATE_EVENT(EVT)           _fake_cuda_api_noop(EVT=nullptr)
+#define ONIKA_CU_DESTROY_EVENT(EVT)          _fake_cuda_api_noop(EVT=nullptr)
+#define ONIKA_CU_STREAM_EVENT(EVT,STREAM)    _fake_cuda_api_noop(EVT,STREAM)
+#define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2)  _fake_cuda_api_noop(T=0.0f)
+#define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  _fake_cuda_api_noop(STREAM)
+#define ONIKA_CU_EVENT_QUERY(EVT)            (onikaSuccess)
+#define ONIKA_CU_MEMSET(p,v,n,...)           std::memset(p,v,n)
+#define ONIKA_CU_MEMCPY(d,s,n,...)           std::memcpy(d,s,n)
+#define ONIKA_CU_MEMCPY_TO_SYMBOL(d,s,n,...) std::memcpy(d,s,n)
 #define ONIKA_CU_NAME_STR "GPU "
 #endif // ONIKA_CUDA_VERSION
 

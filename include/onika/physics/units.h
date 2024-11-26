@@ -216,12 +216,8 @@ namespace onika
     /*
      * Internal unit system, as defined by application via ONIKA_INTERNAL_UNIT_SYSTEM predefined macro
      */
-    extern ONIKA_CU_GLOBAL_VARIABLE UnitSystem g_internal_unit_system;
     void set_internal_unit_system( const UnitSystem & ius );
-    ONIKA_HOST_DEVICE_FUNC static inline const UnitSystem& internal_unit_system()
-    {
-      return g_internal_unit_system;
-    }
+    const UnitSystem& internal_unit_system();
 
     /*
      * A Quantity is a value expressed with a certain set of units (at most one unit per unit class) and associated powers

@@ -241,8 +241,9 @@ namespace onika { namespace cuda { namespace _details {
 #   else
 #   define ONIKA_DEVICE_KERNEL_BOUNDS(MaxThreadsPerBlock,MinBlocksPerSM) /**/
 #   endif
-#   define ONIKA_HOST_DEVICE_FUNC __host__ __device__
+#   define ONIKA_HOST_FUNC __host__ 
 #   define ONIKA_DEVICE_FUNC __device__
+#   define ONIKA_HOST_DEVICE_FUNC __host__ __device__
 #   define ONIKA_BUILTIN_ASSUME_ALIGNED(p,a) p
 #   define ONIKA_CU_LAUNCH_KERNEL(GDIM,BDIM,SHMEM,STREAM,FUNC, ... ) FUNC <<< GDIM , BDIM , SHMEM , STREAM >>> ( __VA_ARGS__ )
 
@@ -250,11 +251,12 @@ namespace onika { namespace cuda { namespace _details {
 #   else
 /************** begin of HOST code definitions ***************/
 
+#   define ONIKA_HOST_FUNC /**/
 #   define ONIKA_DEVICE_FUNC /**/
+#   define ONIKA_HOST_DEVICE_FUNC /**/
 #   define ONIKA_STATIC_INLINE_KERNEL static inline
 #   define ONIKA_DEVICE_KERNEL_FUNC /**/
 #   define ONIKA_DEVICE_KERNEL_BOUNDS(MaxThreadsPerBlock,MinBlocksPerSM) /**/
-#   define ONIKA_HOST_DEVICE_FUNC /**/
 #   define ONIKA_BUILTIN_ASSUME_ALIGNED(p,a) __builtin_assume_aligned(p,a)
 #   define ONIKA_CU_LAUNCH_KERNEL(GDIM,BDIM,SHMEM,STREAM,FUNC, ... ) do{ \
 	FAKE_USE_OF_VARIABLES(__VA_ARGS__) \

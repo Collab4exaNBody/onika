@@ -36,11 +36,16 @@ namespace onika
 
   namespace physics
   {
-    ONIKA_CU_GLOBAL_VARIABLE UnitSystem g_internal_unit_system = { { ONIKA_INTERNAL_UNIT_SYSTEM } };
+    static UnitSystem g_internal_unit_system = { { ONIKA_INTERNAL_UNIT_SYSTEM } };
     
     void set_internal_unit_system( const UnitSystem & ius )
     {
       g_internal_unit_system = ius;
+    }
+    
+    const UnitSystem& internal_unit_system()
+    {
+      return g_internal_unit_system;
     }
 
     UnitClass unit_class_from_name(const std::string& unit_class_str)

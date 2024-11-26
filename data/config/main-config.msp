@@ -1,6 +1,6 @@
 configuration:
   logging:
-    debug: true
+    debug: false
 
 simulation:
   - message: |

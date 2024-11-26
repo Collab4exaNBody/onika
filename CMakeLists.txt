@@ -330,7 +330,12 @@ set(ONIKA_PRIVATE_LIBRARIES tinyexpr)
 set(ONIKA_COMPILE_OPTIONS -Wall ${OpenMP_CXX_FLAGS})
 
 # compile main lib
-file(GLOB_RECURSE onika_SRCS src/*.cpp src/*.cu)
+file(GLOB_RECURSE onika_CXX_SRCS src/*.cpp)
+file(GLOB_RECURSE onika_CU_SRCS src/*.cu)
+if(NOT ONIKA_BUILD_CUDA)
+    set_source_files_properties(${onika_CU_SRCS} PROPERTIES LANGUAGE CXX)
+endif()
+set(onika_SRCS ${onika_CXX_SRCS} ${onika_CU_SRCS})
 add_library(onika SHARED ${onika_SRCS})
 target_include_directories(onika PUBLIC ${ONIKA_INCLUDE_DIRS})
 target_compile_definitions(onika PUBLIC ${ONIKA_COMPILE_DEFINITIONS})
@@ -355,6 +360,9 @@ set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_RUN ${CMAKE_INSTALL_PREFIX}
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(onika_DIR ${CMAKE_INSTALL_PREFIX})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(onika_FOUND TRUE)\n")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/onika-config.cmake "${ONIKA_CONFIG_DATA}")
+
+# generate build directory local config file for testing purposes
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/.build-config.msp "configuration:\n  config_dir: ${CMAKE_CURRENT_SOURCE_DIR}/data/config\n\n")
 
 # compile tools and apps
 file(GLOB app_sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/apps ${CMAKE_CURRENT_SOURCE_DIR}/apps/*.cpp)

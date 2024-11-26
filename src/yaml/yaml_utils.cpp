@@ -212,12 +212,12 @@ namespace onika
       bool has_local_config_file = false;
       if( std::ifstream(local_default_include_file).good() )
       {
-        std::cout<<"found workdir pre-config file '"<<local_default_include_file<<"'"<<std::endl;
+        ldbg << "found workdir pre-config file '"<<local_default_include_file<<"'"<<std::endl;
         YAML::Node node = yaml_load_file_abort_on_except( local_default_include_file );
         if( node["configuration"] ) if( node["configuration"]["config_dir"] )
         {
           std::string config_dir = node["configuration"]["config_dir"].as<string>();
-          std::cout<<"overload config dir with '"<<config_dir<<"'"<<std::endl;
+          ldbg << "overload config dir with '"<<config_dir<<"'"<<std::endl;
           set_install_config_dir( config_dir );
         }
         has_local_config_file = true;
@@ -225,7 +225,7 @@ namespace onika
 
       // find path to the main base config file 'main-config.msp'
       string default_include_file = config_file_path("main-config.msp",workdir);
-      std::cout << "default_include_file = "<<default_include_file<<std::endl;
+      ldbg << "default_include_file = "<<default_include_file<<std::endl;
           
       vector<string> files;
       prefix_config_file_includes( files , default_include_file , workdir );
