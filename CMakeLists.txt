@@ -46,13 +46,19 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(RunCommand)
 include(DebugTests)
 include(GenerateBenchmarkSOATL)
+include(OnikaPlugin)
 
-SET(CMAKE_SKIP_BUILD_RPATH FALSE)
-SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) 
-SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+# export necessary cmake includes to onika-config.cmake
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}list(APPEND CMAKE_MODULE_PATH \"${CMAKE_INSTALL_PREFIX}/cmake\")\ninclude(RunCommand)\ninclude(OnikaPlugin)\n")
 
+# configure project build and link preferences
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) 
+set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set(ONIKA_COMPILE_FEATURES cxx_std_20)
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debug)
+
 
 # ============================
 # === OpenMP configuration ===
@@ -259,30 +265,30 @@ endif()
 # ============================
 # === MPI configuration ===
 # ============================
-if(MPI_CXX_INCLUDE_PATH AND MPI_CXX_LIBRARIES)
-  message(STATUS "Found MPI_CXX_INCLUDE_PATH and MPI_CXX_LIBRARIES variables, skip find_package(MPI REQUIRED)")
+if(MPI_CXX_INCLUDE_PATH AND MPI_CXX_LIBRARIES AND NOT MPI_FOUND)
+  message(STATUS "MPI_CXX_INCLUDE_PATH and MPI_CXX_LIBRARIES forced, skip find_package(MPI REQUIRED)")
   message(STATUS "MPI_CXX_INCLUDE_PATH = ${MPI_CXX_INCLUDE_PATH}")
   message(STATUS "MPI_CXX_LIBRARIES    = ${MPI_CXX_LIBRARIES}")
   set(MPI_CXX_FOUND ON)
-  # for export to onika-config file)
-  if(MPIEXEC_EXECUTABLE)
-    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_EXECUTABLE ${MPIEXEC_EXECUTABLE})\n")
-  endif()
-  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPI_CXX_INCLUDE_PATH ${MPI_CXX_INCLUDE_PATH})\n")
-  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPI_CXX_LIBRARIES ${MPI_CXX_LIBRARIES})\n")
-  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPI_CXX_FOUND ON)\n")
+  set(ONIKA_CONFIG_IMPORT_MPI "set(MPI_CXX_INCLUDE_PATH ${MPI_CXX_INCLUDE_PATH})\nset(MPI_CXX_LIBRARIES ${MPI_CXX_LIBRARIES})\nset(MPI_CXX_FOUND ON)")
 else()
   find_package(MPI REQUIRED)
   message(STATUS "MPIEXEC_EXECUTABLE = ${MPIEXEC_EXECUTABLE}")
   # for export to onika-config file)
-  if(MPIEXEC_EXECUTABLE)
-    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_EXECUTABLE ${MPIEXEC_EXECUTABLE})\n")
-  endif()
-  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(OpenMP REQUIRED)\n")
+  set(ONIKA_CONFIG_IMPORT_MPI "find_package(MPI REQUIRED)")
 endif()
 set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${MPI_CXX_INCLUDE_PATH})
 
-
+# for export to onika-config file)
+if(MPIEXEC_EXECUTABLE)
+  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_EXECUTABLE ${MPIEXEC_EXECUTABLE})\n")
+endif()
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}${ONIKA_CONFIG_IMPORT_MPI}\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_MAX_NUMPROCS ${MPIEXEC_MAX_NUMPROCS})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_PREFLAGS ${MPIEXEC_PREFLAGS})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_NUMCORE_FLAG ${MPIEXEC_NUMCORE_FLAG})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_NUMPROC_FLAG ${MPIEXEC_NUMPROC_FLAG})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_PREFLAGS_DBG ${MPIEXEC_PREFLAGS_DBG})\n")
 
 # ===================================
 # ====== Global parameters ==========
@@ -291,7 +297,7 @@ if(ONIKA_INTERNAL_UNIT_SYSTEM)
   list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_INTERNAL_UNIT_SYSTEM=${ONIKA_INTERNAL_UNIT_SYSTEM})
 endif()
 set(ONIKA_DEFAULT_CONFIG_DIR "${CMAKE_INSTALL_PREFIX}/share/config")
-set(ONIKA_DEFAULT_PLUGIN_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+set(ONIKA_DEFAULT_PLUGIN_DIR "${CMAKE_INSTALL_PREFIX}/plugins")
 list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_VERSION="${CMAKE_PROJECT_VERSION}" ONIKA_DEFAULT_CONFIG_DIR="${ONIKA_DEFAULT_CONFIG_DIR}" ONIKA_DEFAULT_DATA_DIRS=".:${CMAKE_INSTALL_PREFIX}/share/data" ONIKA_DEFAULT_PLUGIN_DIR="${ONIKA_DEFAULT_PLUGIN_DIR}")
 
 
@@ -303,15 +309,19 @@ add_library(tinyexpr STATIC thirdparty/tinyexpr/tinyexpr.c)
 target_compile_options(tinyexpr PRIVATE -fPIC)
 
 # YAML
-if(YAML_CPP_INCLUDE_DIR AND YAML_CPP_LIBRARIES)
+if(YAML_CPP_INCLUDE_DIR AND YAML_CPP_LIBRARIES AND NOT yaml-cpp_FOUND)
   message(STATUS "YAML manually configured :")
   message(STATUS "\tYAML_CPP_INCLUDE_DIR = ${YAML_CPP_INCLUDE_DIR}")
   message(STATUS "\tYAML_CPP_LIBRARIES   = ${YAML_CPP_LIBRARIES}")
+  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(YAML_CPP_INCLUDE_DIR ${YAML_CPP_INCLUDE_DIR})\n")
+  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(YAML_CPP_LIBRARIES ${YAML_CPP_LIBRARIES})\n")
 else()
   find_package(yaml-cpp REQUIRED)
-endif()
-if(yaml-cpp_DIR)
-  message(STATUS "yaml-cpp_DIR = ${yaml-cpp_DIR}")
+  if(yaml-cpp_DIR)
+    message(STATUS "yaml-cpp_DIR = ${yaml-cpp_DIR}")
+    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(yaml-cpp_DIR ${yaml-cpp_DIR})\n")
+    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(yaml-cpp REQUIRED)\n")    
+  endif()
 endif()
 
 
@@ -362,14 +372,18 @@ set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(onika_FOUND TRUE)\n")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/onika-config.cmake "${ONIKA_CONFIG_DATA}")
 
 # generate build directory local config file for testing purposes
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/.build-config.msp "configuration:\n  config_dir: ${CMAKE_CURRENT_SOURCE_DIR}/data/config\n\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/.build-config.msp "configuration:\n  plugin_dir: ./plugins\n  config_dir: ${CMAKE_CURRENT_SOURCE_DIR}/data/config\n\n")
+
+# generate helper script to setup environment
+set(ONIKA_SETUP_ENV_COMMANDS "${ONIKA_SETUP_ENV_COMMANDS}" CACHE STRING "Environment setup commands")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh "# Onika environment setup, as it was set during installation.\n# Please run this script before compiling your plugins or running your app.\n${ONIKA_SETUP_ENV_COMMANDS}\n")
 
 # compile tools and apps
 file(GLOB app_sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/apps ${CMAKE_CURRENT_SOURCE_DIR}/apps/*.cpp)
 unset(ONIKA_APPLICATIONS)
 foreach(APPSRC ${app_sources})
   get_filename_component(APPNAME ${APPSRC} NAME_WLE)
-  message(STATUS "Onika found application ${APPNAME}")
+  message(STATUS "Found application ${APPNAME}")
   list(APPEND ONIKA_APPLICATIONS ${APPNAME})
   add_executable(${APPNAME} apps/${APPNAME}.cpp)
   target_compile_options(${APPNAME} PUBLIC ${ONIKA_COMPILE_OPTIONS})
@@ -379,10 +393,15 @@ foreach(APPSRC ${app_sources})
   target_link_libraries(${APPNAME} PUBLIC ${ONIKA_LIBRARIES_USER})
 endforeach()
 
+# compile contributed plugins
+add_subdirectory(plugins)
+
 # install files
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/onika-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunCommand.cmake DESTINATION cmake)
 install(TARGETS onika DESTINATION lib)
 install(TARGETS ${ONIKA_APPLICATIONS} DESTINATION bin)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh DESTINATION bin)
 install(DIRECTORY include/onika DESTINATION include)
 install(DIRECTORY data DESTINATION data)
 
@@ -395,7 +414,7 @@ if(ONIKA_ENABLE_TESTS)
   file(GLOB test_sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/tests ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp)
   foreach(TESTSRC ${test_sources})
     get_filename_component(TESTNAME ${TESTSRC} NAME_WLE)
-    message(STATUS "onika found test ${TESTNAME}")
+    message(STATUS "Found test ${TESTNAME}")
     add_executable(${TESTNAME} tests/${TESTNAME}.cpp)
     target_compile_options(${TESTNAME} PUBLIC ${ONIKA_COMPILE_OPTIONS})
     target_compile_definitions(${TESTNAME} PUBLIC ${ONIKA_COMPILE_DEFINITIONS})
