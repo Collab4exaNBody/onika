@@ -403,7 +403,7 @@ install(TARGETS onika DESTINATION lib)
 install(TARGETS ${ONIKA_APPLICATIONS} DESTINATION bin)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh DESTINATION bin)
 install(DIRECTORY include/onika DESTINATION include)
-install(DIRECTORY data DESTINATION data)
+install(DIRECTORY data DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 # ==================
 # === test suite ===

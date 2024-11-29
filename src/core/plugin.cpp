@@ -23,6 +23,7 @@ under the License.
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <regex>
 #include <dlfcn.h>
 
 #include <onika/plugin.h>
@@ -134,14 +135,24 @@ namespace onika
     using std::endl;
     size_t n_loaded = 0;
 
+    //lout << "load_plugins : plugin path env = "<<plugin_path_env()<<" , direcetory count = "<<plugin_files_or_directories.size() <<std::endl;
+
     std::vector<std::string> plugin_files;
     for( const string& p : plugin_files_or_directories )
     {
+      //lout<<"scan plugin path "<< p << std::endl;
       if( std::filesystem::status(p).type() == std::filesystem::file_type::directory )
       {
         for (auto it{std::filesystem::directory_iterator(p)}; it != std::filesystem::directory_iterator(); ++it)
         {
-          if( std::filesystem::status(it->path()).type() == std::filesystem::file_type::regular ) plugin_files.push_back( it->path().string() );
+          if( std::filesystem::status(it->path()).type() == std::filesystem::file_type::regular )
+          {
+            const std::string filepath = it->path().string();
+            //const std::string regexp_str = format_string( g_plugin_to_dynlib_format , p , ".*" );
+            //const std::regex mexp( regexp_str );
+//            std::cout<<"plugin lib '"<<filepath<<"' macthes '"<<regexp_str<<"' = " << std::regex_match(filepath, mexp) << std::endl;
+            if( std::regex_match(filepath,std::regex(format_string(g_plugin_to_dynlib_format,p,".*"))) ) plugin_files.push_back( filepath );
+          }
         }
       }
       else

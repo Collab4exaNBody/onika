@@ -18,6 +18,7 @@ under the License.
 */
 
 #include <onika/app/api.h>
+#include <filesystem>
 #include <fenv.h>
 
 // dummy function to be used as a breakpoint marker just before simulation is ran
@@ -44,7 +45,6 @@ namespace onika
     {
       m_simulation_graph->set_multiple_run( yn );
     }
-
 
     std::shared_ptr<ApplicationContext>
     init( int argc, char const * const argv[] )
@@ -535,32 +535,32 @@ namespace onika
       }
       if( configuration.plugin_db.empty() )
       {
-        configuration.plugin_db = configuration.plugin_dir + "/../plugins_db.msp";
+        configuration.plugin_db = "plugins.db";
       }
-      
-      if( ! quiet_plugin_register() )
+            
+      // configure plugin DB generation if requested (or the data base cannot be found)
+      if( std::filesystem::status(configuration.plugin_db).type() == std::filesystem::file_type::not_found )
       {
-        lout << "search path = "<<configuration.plugin_dir << std::endl;
-        lout << "data base   = "<<configuration.plugin_db << std::endl;
+        configuration.generate_plugins_db = true;
       }
 
-      if( ! quiet_plugin_register() ) { lout << "+ <builtin>" << std::endl; }
+      if( ! quiet_plugin_register() )
+      {
+        lout << "* plugin_dir="<<configuration.plugin_dir << " , plugin_db="<<configuration.plugin_db << " , generate_plugins_db="<<configuration.generate_plugins_db <<std::endl;
+      }
       
+      if( ! quiet_plugin_register() ) { lout << "+ <builtin>" << std::endl; }      
       OperatorSlotBase::enable_registration();
       OperatorNodeFactory::instance()->enable_registration();
-      
-      // configure plugin DB generation if requested (or the data base cannot be found)
-      
+
       const onika::PluginDBMap* plugin_db = nullptr;
       if( configuration.generate_plugins_db )
       {
-        lout << "Writing plugins DB to " << configuration.plugin_db << std::endl;
         onika::generate_plugin_db( configuration.plugin_db );
         onika::load_plugins();
       }
       else
       {
-        ldbg << "Reading plugins DB from " << configuration.plugin_db << std::endl;
         plugin_db = & onika::read_plugin_db( configuration.plugin_db );
       }
 
