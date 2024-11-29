@@ -79,8 +79,9 @@ namespace onika
       onika::app::print_host_system_info( onika::lout, configuration, nb_procs, cpucount, cpu_hw_threads, cpu_ids, n_gpus);
 
       // ============= plugins initialization ============  
-      const auto [ plugin_db , may_run_simulation ] = onika::app::initialize_plugins( configuration );
-      if( ! may_run_simulation ) { ctx->m_return_code=0; return ctx; }
+      const auto [ plugin_db , plugin_db_updated ] = onika::app::initialize_plugins( configuration );
+      if( plugin_db_updated ) { lout << "* plugin scan complete, continue ..."<<std::endl; }
+      //if( ! may_run_simulation ) { ctx->m_return_code=0; return ctx; }
 
       // ============= unit tests ============  
       const auto [ n_passed , n_failed ] = onika::app::run_embedded_tests( configuration );
@@ -556,6 +557,7 @@ namespace onika
       const onika::PluginDBMap* plugin_db = nullptr;
       if( configuration.generate_plugins_db )
       {
+        lout << "* scan for plugins ..." << std::endl;
         onika::generate_plugin_db( configuration.plugin_db );
         onika::load_plugins();
       }
@@ -568,7 +570,7 @@ namespace onika
 
       plugins_loaded_breakpoint();
       
-      return { plugin_db , ! configuration.generate_plugins_db };
+      return { plugin_db , configuration.generate_plugins_db };
     }
     
     std::pair<int,int> 
