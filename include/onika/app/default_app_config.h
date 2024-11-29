@@ -115,7 +115,7 @@ namespace onika
       ONIKA_APP_CONFIG_Item( bool          , omp_nested          , false , "enables OpenMP nesting");
       ONIKA_APP_CONFIG_Item( StringIntMap  , omp_max_threads_filter      , {}                             , "list of regular expressions matching paths of operators with forbidden access to the GPU" );
 
-      ONIKA_APP_CONFIG_Item( std::string   , plugin_dir          , onika::default_plugin_search_dir() , "plugin directory");  
+      ONIKA_APP_CONFIG_Item( std::string   , plugin_dir          , onika::plugin_path_env() , "plugin search path");  
       ONIKA_APP_CONFIG_Item( std::string   , plugin_db           , ""    , "plugin dictionary file");
       ONIKA_APP_CONFIG_Item( StringVector  , plugins             , {}    , "list of plugins forced to load");
       ONIKA_APP_CONFIG_Item( bool          , generate_plugins_db , false , "generate plugin data base and exit");

@@ -22,6 +22,7 @@ under the License.
 #include <fstream>
 #include <string>
 #include <vector>
+#include <filesystem>
 #include <dlfcn.h>
 
 #include <onika/plugin.h>
@@ -35,7 +36,7 @@ under the License.
 namespace onika
 {
   static std::string g_plugin_to_dynlib_format = PLUGIN_DYNLIB_FORMAT ;
-  static std::string g_plugin_default_dir = ONIKA_DEFAULT_PLUGIN_DIR;
+  static std::vector<std::string> g_plugin_search_dirs;
   static std::set<std::string> g_loaded_dynlibs;
   static std::string g_loading_plugin;
   static std::string g_plugin_db_filename;
@@ -45,14 +46,31 @@ namespace onika
   void set_quiet_plugin_register(bool b) { g_quiet_plugin_register = b; }
   bool quiet_plugin_register() { return g_quiet_plugin_register; }
 
-  void set_default_plugin_search_dir(const std::string& default_dir)
+  void set_plugin_search_dirs(const std::string& str)
   {
-    g_plugin_default_dir = default_dir;
+    g_plugin_search_dirs.clear();
+    std::string::size_type s = 0;
+    std::string::size_type e = str.find(':');
+    while( e != std::string::npos )
+    {
+      if( e != s ) { g_plugin_search_dirs.push_back( str.substr( s , e - s ) ); }
+      s = e + 1;
+      e = str.find(':',s);
+    } 
+    e = str.length();
+    if( e != s ) { g_plugin_search_dirs.push_back( str.substr(s,e-s) ); }
   }
 
-  const std::string& default_plugin_search_dir()
+  const std::vector<std::string>& plugin_search_dirs()
   {
-    return g_plugin_default_dir;
+    return g_plugin_search_dirs;
+  }
+
+  std::string plugin_path_env()
+  {
+    std::string s;
+    for(const auto& dirpath : g_plugin_search_dirs) { if(!s.empty()) s+=":"; s+=dirpath; }
+    return s;
   }
 
   void generate_plugin_db( const std::string& filename )
@@ -110,40 +128,44 @@ namespace onika
     return handle != nullptr;
   }
 
-  size_t load_plugins( const std::vector<std::string> & plugin_files , bool verbose )
+  size_t load_plugins( const std::vector<std::string> & plugin_files_or_directories )
   {
     using std::string;
     using std::endl;
     size_t n_loaded = 0;
-            
-    std::string loading_plugin_backup = g_loading_plugin;
 
-    for( const string& p : plugin_files )
+    std::vector<std::string> plugin_files;
+    for( const string& p : plugin_files_or_directories )
     {
-      g_loading_plugin = p;
-    
-      std::string fp = format_string( g_plugin_to_dynlib_format , g_plugin_default_dir , p );
-      
-#     ifndef NDEBUG
-      const std::string& pname = fp;
-#     else
-      const std::string& pname = p;
-#     endif
-      lout<<"+ "<<pname<<endl;
-
-      if( ! load_plugin_priv( fp ) )
+      if( std::filesystem::status(p).type() == std::filesystem::file_type::directory )
       {
-        lerr<<"Warning, could not load plugin "<<p<<endl;
+        for (auto it{std::filesystem::directory_iterator(p)}; it != std::filesystem::directory_iterator(); ++it)
+        {
+          if( std::filesystem::status(it->path()).type() == std::filesystem::file_type::regular ) plugin_files.push_back( it->path().string() );
+        }
       }
       else
       {
-        ++ n_loaded;
+        plugin_files.push_back(p);
       }
     }
-    //if(!verbose) { lout<<"                                                                                     "<<endl; }
 
+    std::string loading_plugin_backup = g_loading_plugin;
+    for( const string& p : plugin_files )
+    {
+      g_loading_plugin = p;
+      std::string fp = p;
+      auto it = plugin_search_dirs().begin();
+      while( it != plugin_search_dirs().end() && std::filesystem::status(fp).type() == std::filesystem::file_type::not_found )
+      {
+        fp = format_string( g_plugin_to_dynlib_format , *it , p );
+        ++ it;
+      }
+      if( ! quiet_plugin_register() ) lout<<"+ "<<fp<<endl;
+      if( ! load_plugin_priv( fp ) ) { lerr<<"Warning, could not load plugin "<<p<<endl; }
+      else { ++ n_loaded; }
+    }
     g_loading_plugin = loading_plugin_backup;
-    
     return n_loaded;
   }
 

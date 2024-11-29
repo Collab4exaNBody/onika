@@ -137,17 +137,16 @@ namespace onika
     void
     initialize()
     {
-      const char * confpath = std::getenv("ONIKA_CONFIG_PATH");
-      if( confpath != nullptr )
-      {
-        std::cout<<"set config path from ONIKA_CONFIG_PATH env to '"<<confpath<<"'"<<std::endl;
-        set_install_config_dir( confpath );
-      }
+      // reads influencial environment variables
+      const char * confpath = std::getenv("ONIKA_CONFIG_PATH"); // to look for .msp distributed files
+      if( confpath != nullptr ) set_install_config_dir( confpath );
 
-      const char * datapath = std::getenv("ONIKA_DATA_PATH");
+      const char * datapath = std::getenv("ONIKA_DATA_PATH"); // to look for data files whse filename is resolved through onika::data_file_path( relative_or_absolute_path )
       if( datapath != nullptr ) set_data_file_dirs( datapath );
-    }
 
+      const char * pluginpath = std::getenv("ONIKA_PLUGIN_PATH"); // where to look for component plugins to load
+      if( pluginpath != nullptr ) set_plugin_search_dirs( pluginpath );
+    }
 
     void
     finalize( const onika::app::ApplicationConfiguration & configuration
@@ -525,18 +524,39 @@ namespace onika
     {
       using namespace onika::scg;
 
-      if( configuration.plugin_db.empty() ) { configuration.plugin_db = configuration.plugin_dir + "/plugins_db.msp"; }
-      if( configuration.debug.files ) { lout << "plugins search path is "<<configuration.plugin_dir << std::endl << std::endl; }
-      
       // enable/disable verbosity for plugins load
-      onika::set_quiet_plugin_register( ! configuration.debug.plugins );
+      onika::set_quiet_plugin_register( !configuration.debug.plugins && !configuration.debug.files );
 
-      // configure plugin DB generation if requested
+      if( ! quiet_plugin_register() ) { lout << "============= plugins ===========" << std::endl; }
+
+      if( ! configuration.plugin_dir.empty() )
+      {
+        onika::set_plugin_search_dirs( configuration.plugin_dir );
+      }
+      if( configuration.plugin_db.empty() )
+      {
+        configuration.plugin_db = configuration.plugin_dir + "/../plugins_db.msp";
+      }
+      
+      if( ! quiet_plugin_register() )
+      {
+        lout << "search path = "<<configuration.plugin_dir << std::endl;
+        lout << "data base   = "<<configuration.plugin_db << std::endl;
+      }
+
+      if( ! quiet_plugin_register() ) { lout << "+ <builtin>" << std::endl; }
+      
+      OperatorSlotBase::enable_registration();
+      OperatorNodeFactory::instance()->enable_registration();
+      
+      // configure plugin DB generation if requested (or the data base cannot be found)
+      
       const onika::PluginDBMap* plugin_db = nullptr;
       if( configuration.generate_plugins_db )
       {
         lout << "Writing plugins DB to " << configuration.plugin_db << std::endl;
         onika::generate_plugin_db( configuration.plugin_db );
+        onika::load_plugins();
       }
       else
       {
@@ -544,23 +564,12 @@ namespace onika
         plugin_db = & onika::read_plugin_db( configuration.plugin_db );
       }
 
-      // load plugins and register builtin factories
-      if( configuration.debug.plugins ) { lout << "============= plugins ===========" << std::endl << "+ <builtin>" << std::endl; }
-      OperatorSlotBase::enable_registration();
-      OperatorNodeFactory::instance()->enable_registration();
-      onika::set_default_plugin_search_dir( configuration.plugin_dir );
-      if( ! configuration.plugins.empty() ) 
-      {
-        onika::load_plugins( configuration.plugins , configuration.debug.plugins );
-      }
-      if( configuration.debug.plugins ) { lout << "=================================" << std::endl << std::endl; }
+      if( ! quiet_plugin_register() ) { lout << "=================================" << std::endl << std::endl; }
 
       plugins_loaded_breakpoint();
       
       return { plugin_db , ! configuration.generate_plugins_db };
     }
-    
-    
     
     std::pair<int,int> 
     run_embedded_tests( const onika::app::ApplicationConfiguration & configuration )
