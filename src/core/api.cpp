@@ -117,7 +117,7 @@ namespace onika
       ctx->m_prof_trace = otf;
       ctx->m_need_profiling = configuration_needs_profiling;
       ctx->m_plugin_db = plugin_db;
-      ctx->m_plugin_db_generate_mode = ! may_run_simulation;
+      ctx->m_plugin_db_generate_mode = plugin_db_updated;
       ctx->m_simulation_graph = simulation_graph;
       
       return ctx;
