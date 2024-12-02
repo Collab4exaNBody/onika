@@ -49,7 +49,7 @@ include(GenerateBenchmarkSOATL)
 include(OnikaPlugin)
 
 # export necessary cmake includes to onika-config.cmake
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}list(APPEND CMAKE_MODULE_PATH \"${CMAKE_INSTALL_PREFIX}/cmake\")\ninclude(RunCommand)\ninclude(OnikaPlugin)\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}list(APPEND CMAKE_MODULE_PATH \"${CMAKE_INSTALL_PREFIX}/cmake\")\ninclude(RunCommand)\ninclude(OnikaPlugin)\ninclude(AddRegressionTestDir)\n")
 
 # configure project build and link preferences
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
