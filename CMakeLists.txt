@@ -15,10 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# ======================================
-# === Parallel Data Movement library ===
-# ======================================
-cmake_minimum_required (VERSION 3.26)
+
+
+cmake_minimum_required(VERSION 3.26)
 
 # ========================================
 # === Compiler toolchain configuration ===
@@ -37,7 +36,6 @@ set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_CXX_EXTENSIONS ${CMAKE_CXX_
 # === project definition ===
 # ==========================
 project(onika VERSION 1.2 LANGUAGES C CXX)
-
 
 # =======================================
 # === CMake & toolchain configuration ===
@@ -398,7 +396,7 @@ add_subdirectory(plugins)
 
 # install files
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/onika-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunCommand.cmake DESTINATION cmake)
+install(DIRECTORY cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(TARGETS onika DESTINATION lib)
 install(TARGETS ${ONIKA_APPLICATIONS} DESTINATION bin)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh DESTINATION bin)
