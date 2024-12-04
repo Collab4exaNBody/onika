@@ -325,11 +325,11 @@ target_include_directories(tinyexpr PUBLIC thirdparty/tinyexpr)
 list(APPEND ONIKA_LIBRARIES tinyexpr)
 install(TARGETS tinyexpr DESTINATION lib)
 install(FILES thirdparty/tinyexpr/tinyexpr.h DESTINATION thirdparty/tinyexpr)
-set(ONIKA_CONFIG_DATA "\n# Thirdparty library tinyexpr is redistributed and imported\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}\n# Thirdparty library tinyexpr is redistributed and imported\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}add_library(tinyexpr STATIC IMPORTED GLOBAL)\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set_target_properties(tinyexpr PROPERTIES IMPORTED_CONFIGURATIONS Release)\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set_target_properties(tinyexpr PROPERTIES IMPORTED_LOCATION_RELEASE ${CMAKE_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}tinyexpr${CMAKE_STATIC_LIBRARY_SUFFIX})\n")
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}target_include_directories(tinyexpr INTERFACE ${CMAKE_INSTALL_PREFIX}/thirdparty/tinyexpr\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}target_include_directories(tinyexpr INTERFACE ${CMAKE_INSTALL_PREFIX}/thirdparty/tinyexpr)\n")
 
 # YAML
 if(YAML_CPP_INCLUDE_DIR AND YAML_CPP_LIBRARIES AND NOT yaml-cpp_FOUND)
