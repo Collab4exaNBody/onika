@@ -61,9 +61,12 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debu
 # ============================
 # === OpenMP configuration ===
 # ============================
+
 # OpenMP with task and ompt support is appreciated
 # packages and tools
 find_package(OpenMP REQUIRED)
+list(APPEND ONIKA_LIBRARIES ${OpenMP_CXX_LIBRARIES})
+list(APPEND ONIKA_COMPILE_OPTIONS ${OpenMP_CXX_FLAGS})
 
 # for export to onika-config file)
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(OpenMP REQUIRED)\n")
@@ -162,13 +165,22 @@ if(ONIKA_ENABLE_HIP)
     else()
       set(ONIKA_HIP_VERSION "${CMAKE_HIP_COMPILER_VERSION}")
     endif()
-    set(ONIKA_CUDA_COMPILE_DEFINITIONS ONIKA_CUDA_VERSION=${CMAKE_HIP_COMPILER_VERSION} ONIKA_HIP_VERSION=${ONIKA_HIP_VERSION})
+
+    # common compile definitions and features
+    set(ONIKA_GPU_COMPILE_DEFINITIONS ONIKA_CUDA_VERSION=${CMAKE_HIP_COMPILER_VERSION} ONIKA_HIP_VERSION=${ONIKA_HIP_VERSION})
+    set(ONIKA_GPU_COMPILE_FEATURES hip_std_20)
+    set(ONIKA_GPU_LIBRARIES roctx64)
+
+    # HIP specific compile options
+    set(ONIKA_HIP_COMPILE_FLAGS "-Werror=return-local-addr;-Werror=return-stack-address;-Werror=return-type" CACHE STRING "HIP extra flags")
+    message(STATUS "Onika uses HIP ${CMAKE_HIP_COMPILER_VERSION}")
 
     # for export to onika-config file
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}list(APPEND CMAKE_MODULE_PATH \"${ROCM_INSTALL_ROOT}/share/rocm/cmake\")\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_HIP_ARCHITECTURES ${CMAKE_HIP_ARCHITECTURES})\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(ROCM REQUIRED)\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}enable_language(HIP)\n")
+    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_HIP_COMPILE_FLAGS ${ONIKA_HIP_COMPILE_FLAGS})\n")
   endif()
 else()
   set(ONIKA_USE_HIP OFF)
@@ -177,7 +189,30 @@ else()
     set(CMAKE_CUDA_ARCHITECTURES "86" CACHE STRING "Cuda target architecture(s)")
     find_package(CUDA REQUIRED)
     enable_language(CUDA)
-    set(ONIKA_CUDA_COMPILE_DEFINITIONS ONIKA_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION})
+
+    message(STATUS "CUDA_DIR=${CUDA_DIR} , CUDA_ROOT=${CUDA_ROOT}")
+
+    if(NOT CUDA_SDK_ROOT_DIR)
+      if(CMAKE_CUDA_COMPILER)
+        get_filename_component(CUDA_BIN ${CMAKE_CUDA_COMPILER} DIRECTORY)
+        set(CUDA_SDK_ROOT_DIR ${CUDA_BIN}/..)
+        cmake_path(ABSOLUTE_PATH CUDA_SDK_ROOT_DIR NORMALIZE)
+      else()
+        message(FATAL_ERROR "Cannot recover Cuda SDK root directory")
+      endif()
+    endif()
+#    message(STATUS "CUDA_SDK_ROOT_DIR = ${CUDA_SDK_ROOT_DIR}")
+
+    # common compile definitions and features
+    set(ONIKA_GPU_COMPILE_DEFINITIONS ONIKA_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION})
+    set(ONIKA_GPU_COMPILE_FEATURES cuda_std_20)
+    set(ONIKA_GPU_INCLUDE_DIRS ${CUDA_SDK_ROOT_DIR}/include)
+    set(ONIKA_GPU_LIBRARY_DIRS ${CUDA_SDK_ROOT_DIR}/lib64)
+    set(ONIKA_GPU_LIBRARIES cudart)
+
+    # CUDA specific compile options
+    set(ONIKA_CUDA_COMPILE_FLAGS "--Werror;cross-execution-space-call;--extended-lambda" CACHE STRING "Cuda extra flags")
+    message(STATUS "Onika uses CUDA v${CMAKE_CUDA_COMPILER_VERSION} , arch=${CMAKE_CUDA_ARCHITECTURES} , root=${CUDA_SDK_ROOT_DIR}")
 
     # for export to onika-config file
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CUDA_SDK_ROOT_DIR ${CUDA_SDK_ROOT_DIR})\n")
@@ -185,37 +220,16 @@ else()
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES})\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(CUDA REQUIRED)\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}enable_language(CUDA)\n")
+    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_CUDA_COMPILE_FLAGS ${ONIKA_CUDA_COMPILE_FLAGS})\n")
   endif()
 endif()
 
-list(APPEND ONIKA_COMPILE_DEFINITIONS ${ONIKA_CUDA_COMPILE_DEFINITIONS})
-
-if(ONIKA_USE_HIP)
-  if(NOT CMAKE_HIP_COMPILER)
-    enable_language(HIP)
-  endif()
-  set(ONIKA_HIP_COMPILE_FLAGS "-Werror=return-local-addr;-Werror=return-stack-address;-Werror=return-type" CACHE STRING "HIP extra flags")
-  set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} roctx64)
-  set(ONIKA_COMPILE_FEATURES ${ONIKA_COMPILE_FEATURES} hip_std_20)
-  message(STATUS "Onika uses HIP ${CMAKE_HIP_COMPILER_VERSION}")
-endif()
-
-if(ONIKA_USE_CUDA)
-  if(NOT CMAKE_CUDA_COMPILER_VERSION)
-    find_package(CUDA REQUIRED)
-    enable_language(CUDA)
-    message(STATUS "Cuda version : ${CMAKE_CUDA_COMPILER_VERSION}")
-  endif()
-  get_filename_component(CUDA_BIN ${CMAKE_CUDA_COMPILER} DIRECTORY)
-  set(CUDA_ROOT ${CUDA_BIN}/..)
-  set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CUDA_ROOT}/include ${CUDA_ROOT}/samples/common/inc)
-  set(ONIKA_LIBRARY_DIRS ${CUDA_ROOT}/lib64)
-  set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} cudart)
-  set(ONIKA_CUDA_COMPILE_FLAGS "--Werror;cross-execution-space-call;--extended-lambda" CACHE STRING "Cuda extra flags")
-  set(ONIKA_COMPILE_FEATURES ${ONIKA_COMPILE_FEATURES} cuda_std_20)
-  message(STATUS "Onika uses CUDA v${CMAKE_CUDA_COMPILER_VERSION} , arch=${CMAKE_CUDA_ARCHITECTURES} , root=${CUDA_ROOT}")
-endif()
-
+# add GPU flags and compile features
+list(APPEND ONIKA_COMPILE_FEATURES ${ONIKA_GPU_COMPILE_FEATURES})
+list(APPEND ONIKA_COMPILE_DEFINITIONS ${ONIKA_GPU_COMPILE_DEFINITIONS})
+list(APPEND ONIKA_INCLUDE_DIRS ${ONIKA_GPU_INCLUDE_DIRS})
+list(APPEND ONIKA_LIBRARIES ${ONIKA_GPU_LIBRARIES})
+list(APPEND ONIKA_LIBRARY_DIRS ${ONIKA_GPU_LIBRARY_DIRS})
 
 # Memory alignment settings
 set(ONIKA_DEFAULT_ALIGNMENT "-1" CACHE STRING "Default field array alignment (-1 for autodetect)")
@@ -259,7 +273,6 @@ if(ONIKA_MEMORY_ZERO_ALLOC)
 endif()
 
 
-
 # ============================
 # === MPI configuration ===
 # ============================
@@ -268,17 +281,19 @@ if(MPI_CXX_INCLUDE_PATH AND MPI_CXX_LIBRARIES AND NOT MPI_FOUND)
   message(STATUS "MPI_CXX_INCLUDE_PATH = ${MPI_CXX_INCLUDE_PATH}")
   message(STATUS "MPI_CXX_LIBRARIES    = ${MPI_CXX_LIBRARIES}")
   set(MPI_CXX_FOUND ON)
+  # for export to onika-config file
   set(ONIKA_CONFIG_IMPORT_MPI "set(MPI_CXX_INCLUDE_PATH ${MPI_CXX_INCLUDE_PATH})\nset(MPI_CXX_LIBRARIES ${MPI_CXX_LIBRARIES})\nset(MPI_CXX_FOUND ON)")
 else()
   find_package(MPI REQUIRED)
-  message(STATUS "MPIEXEC_EXECUTABLE = ${MPIEXEC_EXECUTABLE}")
-  # for export to onika-config file)
+  # for export to onika-config file
   set(ONIKA_CONFIG_IMPORT_MPI "find_package(MPI REQUIRED)")
 endif()
-set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${MPI_CXX_INCLUDE_PATH})
+list(APPEND ONIKA_INCLUDE_DIRS ${MPI_CXX_INCLUDE_PATH})
+list(APPEND ONIKA_LIBRARIES ${MPI_CXX_LIBRARIES})
 
 # for export to onika-config file)
 if(MPIEXEC_EXECUTABLE)
+  message(STATUS "MPIEXEC_EXECUTABLE = ${MPIEXEC_EXECUTABLE}")
   set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_EXECUTABLE ${MPIEXEC_EXECUTABLE})\n")
 endif()
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}${ONIKA_CONFIG_IMPORT_MPI}\n")
@@ -302,9 +317,19 @@ list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_VERSION="${CMAKE_PROJECT_VERSION}" O
 # =====================================
 # === third party and external libs ===
 # =====================================
+
 # tinyexpr
 add_library(tinyexpr STATIC thirdparty/tinyexpr/tinyexpr.c)
 target_compile_options(tinyexpr PRIVATE -fPIC)
+target_include_directories(tinyexpr PUBLIC thirdparty/tinyexpr)
+list(APPEND ONIKA_LIBRARIES tinyexpr)
+install(TARGETS tinyexpr DESTINATION lib)
+install(FILES thirdparty/tinyexpr/tinyexpr.h DESTINATION thirdparty/tinyexpr)
+set(ONIKA_CONFIG_DATA "\n# Thirdparty library tinyexpr is redistributed and imported\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}add_library(tinyexpr STATIC IMPORTED GLOBAL)\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set_target_properties(tinyexpr PROPERTIES IMPORTED_CONFIGURATIONS Release)\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set_target_properties(tinyexpr PROPERTIES IMPORTED_LOCATION_RELEASE ${CMAKE_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}tinyexpr${CMAKE_STATIC_LIBRARY_SUFFIX})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}target_include_directories(tinyexpr INTERFACE ${CMAKE_INSTALL_PREFIX}/thirdparty/tinyexpr\n")
 
 # YAML
 if(YAML_CPP_INCLUDE_DIR AND YAML_CPP_LIBRARIES AND NOT yaml-cpp_FOUND)
@@ -313,29 +338,26 @@ if(YAML_CPP_INCLUDE_DIR AND YAML_CPP_LIBRARIES AND NOT yaml-cpp_FOUND)
   message(STATUS "\tYAML_CPP_LIBRARIES   = ${YAML_CPP_LIBRARIES}")
   set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(YAML_CPP_INCLUDE_DIR ${YAML_CPP_INCLUDE_DIR})\n")
   set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(YAML_CPP_LIBRARIES ${YAML_CPP_LIBRARIES})\n")
+  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}list(APPEND ONIKA_INCLUDE_DIRS \${YAML_CPP_INCLUDE_DIR})\n")
 else()
-  find_package(yaml-cpp REQUIRED)
+  find_package(yaml-cpp REQUIRED)  
   if(yaml-cpp_DIR)
     message(STATUS "yaml-cpp_DIR = ${yaml-cpp_DIR}")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(yaml-cpp_DIR ${yaml-cpp_DIR})\n")
-    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(yaml-cpp REQUIRED)\n")    
   endif()
+  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(yaml-cpp REQUIRED)\n")    
 endif()
+list(APPEND ONIKA_LIBRARIES ${YAML_CPP_LIBRARIES})
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}list(APPEND ONIKA_LIBRARIES \${YAML_CPP_LIBRARIES})\n")
 
 
 # =====================================
 # === Onika lib build configuration ===
 # =====================================
 
-# setup include dirs
-set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/tinyexpr)
-
-# setup thirdparty and additional libraries used by onika
-set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} ${YAML_CPP_LIBRARIES} ${MPI_CXX_LIBRARIES} ${OpenMP_CXX_LIBRARIES} dl)
-set(ONIKA_PRIVATE_LIBRARIES tinyexpr)
-
-# compile options 
-set(ONIKA_COMPILE_OPTIONS -Wall ${OpenMP_CXX_FLAGS})
+# finally, add overall invariant compile options and dependent libraries
+list(APPEND ONIKA_LIBRARIES dl)
+list(APPEND ONIKA_COMPILE_OPTIONS -Wall)
 
 # compile main lib
 file(GLOB_RECURSE onika_CXX_SRCS src/*.cpp)
@@ -345,28 +367,39 @@ if(NOT ONIKA_BUILD_CUDA)
 endif()
 set(onika_SRCS ${onika_CXX_SRCS} ${onika_CU_SRCS})
 add_library(onika SHARED ${onika_SRCS})
-target_include_directories(onika PUBLIC ${ONIKA_INCLUDE_DIRS})
+target_include_directories(onika PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${ONIKA_INCLUDE_DIRS})
 target_compile_definitions(onika PUBLIC ${ONIKA_COMPILE_DEFINITIONS})
-target_compile_options(onika PUBLIC ${ONIKA_COMPILE_OPTIONS})
+target_compile_options(onika PUBLIC ${ONIKA_COMPILE_OPTIONS} $<$<COMPILE_LANGUAGE:CUDA>:${ONIKA_CUDA_COMPILE_FLAGS}> $<$<COMPILE_LANGUAGE:HIP>:${ONIKA_HIP_COMPILE_FLAGS}>)
 target_compile_features(onika PUBLIC ${ONIKA_COMPILE_FEATURES})
 target_link_directories(onika PUBLIC ${ONIKA_LIBRARY_DIRS})
-target_link_libraries(onika PUBLIC ${ONIKA_LIBRARIES} PRIVATE ${ONIKA_PRIVATE_LIBRARIES})
+target_link_libraries(onika PUBLIC ${ONIKA_LIBRARIES})
 
 # Generate config file
-list(APPEND ONIKA_INCLUDE_DIRS_USER ${CMAKE_INSTALL_PREFIX}/include ${ONIKA_INCLUDE_DIRS})
-list(APPEND ONIKA_LIBRARY_DIRS_USER ${CMAKE_INSTALL_PREFIX}/lib ${ONIKA_LIBRARY_DIRS})
-list(APPEND ONIKA_LIBRARIES_USER onika ${ONIKA_LIBRARIES})
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}\n# Configure and import pre-compiled onika library with all its public properties\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_COMPILE_OPTIONS ${ONIKA_COMPILE_OPTIONS})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_COMPILE_FEATURES ${ONIKA_COMPILE_FEATURES})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_COMPILE_DEFINITIONS ${ONIKA_COMPILE_DEFINITIONS})\n")
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS_USER})\n")
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_LIBRARY_DIRS ${ONIKA_LIBRARY_DIRS_USER})\n")
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES_USER})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_INCLUDE_DIRS ${CMAKE_INSTALL_PREFIX}/include ${ONIKA_INCLUDE_DIRS})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_LIBRARY_DIRS ${CMAKE_INSTALL_PREFIX}/lib ${ONIKA_LIBRARY_DIRS})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_LINKED_LIBRARIES ${ONIKA_LIBRARIES})\n")
+
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}add_library(onika SHARED IMPORTED GLOBAL)\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set_target_properties(onika PROPERTIES IMPORTED_CONFIGURATIONS Release)\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set_target_properties(onika PROPERTIES IMPORTED_LOCATION_RELEASE ${CMAKE_INSTALL_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}onika${CMAKE_SHARED_LIBRARY_SUFFIX})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}target_compile_options(onika INTERFACE \${ONIKA_COMPILE_OPTIONS})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}target_compile_features(onika INTERFACE \${ONIKA_COMPILE_FEATURES})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}target_compile_definitions(onika INTERFACE \${ONIKA_COMPILE_DEFINITIONS})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}target_include_directories(onika INTERFACE \${ONIKA_INCLUDE_DIRS})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}target_link_directories(onika INTERFACE \${ONIKA_LIBRARY_DIRS})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}target_link_libraries(onika INTERFACE \${ONIKA_LINKED_LIBRARIES})\n")
+
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_LIBRARIES onika)\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_BUILD_CUDA ${ONIKA_BUILD_CUDA})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_ENABLE_HIP ${ONIKA_ENABLE_HIP})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_RUN ${CMAKE_INSTALL_PREFIX}/bin/onikarun)\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(onika_DIR ${CMAKE_INSTALL_PREFIX})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(onika_FOUND TRUE)\n")
+
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/onika-config.cmake "${ONIKA_CONFIG_DATA}")
 
 # generate build directory local config file for testing purposes
@@ -384,11 +417,7 @@ foreach(APPSRC ${app_sources})
   message(STATUS "Found application ${APPNAME}")
   list(APPEND ONIKA_APPLICATIONS ${APPNAME})
   add_executable(${APPNAME} apps/${APPNAME}.cpp)
-  target_compile_options(${APPNAME} PUBLIC ${ONIKA_COMPILE_OPTIONS})
-  target_compile_definitions(${APPNAME} PUBLIC ${ONIKA_COMPILE_DEFINITIONS})
-  target_include_directories(${APPNAME} PUBLIC ${ONIKA_INCLUDE_DIRS_USER})
-  target_link_directories(${APPNAME} PUBLIC ${ONIKA_LIBRARY_DIRS_USER})
-  target_link_libraries(${APPNAME} PUBLIC ${ONIKA_LIBRARIES_USER})
+  target_link_libraries(${APPNAME} PRIVATE onika)
 endforeach()
 
 # compile contributed plugins
@@ -414,11 +443,7 @@ if(ONIKA_ENABLE_TESTS)
     get_filename_component(TESTNAME ${TESTSRC} NAME_WLE)
     message(STATUS "Found test ${TESTNAME}")
     add_executable(${TESTNAME} tests/${TESTNAME}.cpp)
-    target_compile_options(${TESTNAME} PUBLIC ${ONIKA_COMPILE_OPTIONS})
-    target_compile_definitions(${TESTNAME} PUBLIC ${ONIKA_COMPILE_DEFINITIONS})
-    target_include_directories(${TESTNAME} PUBLIC ${ONIKA_INCLUDE_DIRS_USER})
-    target_link_directories(${TESTNAME} PUBLIC ${ONIKA_LIBRARY_DIRS_USER})
-    target_link_libraries(${TESTNAME} PUBLIC ${ONIKA_LIBRARIES_USER})
+    target_link_libraries(${TESTNAME} PRIVATE onika)
   endforeach()
 
   enable_testing()
