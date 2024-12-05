@@ -49,6 +49,7 @@ namespace onika
 
   void set_plugin_search_dirs(const std::string& str)
   {
+    std::cout << "set_plugin_search_dirs('"<<str<<"')" << std::endl;
     g_plugin_search_dirs.clear();
     std::string::size_type s = 0;
     std::string::size_type e = str.find(':');
@@ -60,6 +61,10 @@ namespace onika
     } 
     e = str.length();
     if( e != s ) { g_plugin_search_dirs.push_back( str.substr(s,e-s) ); }
+
+    std::cout << "g_plugin_search_dirs =";
+    for(const auto& p:g_plugin_search_dirs) std::cout<<" "<<p;
+    std::cout<<std::endl;
   }
 
   const std::vector<std::string>& plugin_search_dirs()
@@ -77,6 +82,7 @@ namespace onika
   void generate_plugin_db( const std::string& filename )
   {
     g_plugin_db_filename = filename;
+    //std::cout << "empty "<<g_plugin_db_filename<<std::endl;
     std::ofstream fout(g_plugin_db_filename); // zero file
   }
 
@@ -84,6 +90,7 @@ namespace onika
   {
     if( !g_plugin_db_filename.empty() && !g_loading_plugin.empty() )
     {
+      //std::cout << "plugin append : "<< g_loading_plugin << " " << itemCategory << " " << itemName << std::endl;
       std::ofstream fout(g_plugin_db_filename, std::ios::app);
       fout << g_loading_plugin << " " << itemCategory << " " << itemName << std::endl;
     }
@@ -103,12 +110,11 @@ namespace onika
     }
     return g_plugin_db;
   }
-  
+
   const std::string& suggest_plugin_for( const std::string& itemCategory, const std::string& itemName )
   {
     return g_plugin_db[itemCategory][itemName];
   }
-
 
   const std::set<std::string>& loaded_plugins()
   {
@@ -117,6 +123,7 @@ namespace onika
 
   static bool load_plugin_priv( const std::string& filePath)
   {
+    std::cout << "load plugin lib "<<filePath<<std::endl;
   	void* handle = dlopen(filePath.c_str(), RTLD_NOW|RTLD_GLOBAL);
   	if( handle == nullptr )
   	{

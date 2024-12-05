@@ -50,16 +50,18 @@ namespace onika { namespace scg
   */
   size_t OperatorNodeFactory::register_factory( const std::string& name, OperatorNodeCreateFunction creator )
   {
+    //std::cout << "register_factory("<<name<<",...) m_registration_enabled="<< m_registration_enabled<<" quiet="<<onika::quiet_plugin_register() <<std::endl;
     if( ! m_registration_enabled )
     {
       m_defered_creators_to_register.push_back( {name,creator} );
       return 0;
     }
   
+    onika::plugin_db_register( "operator" , name );
+
     if( ! onika::quiet_plugin_register() && m_creators.find(name) == m_creators.end() )
     {
       lout<<"  operator    "<< name << std::endl;
-      onika::plugin_db_register( "operator" , name );
     }
 
     if( m_creators.find(name) != m_creators.end() )
