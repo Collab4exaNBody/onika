@@ -377,8 +377,13 @@ target_compile_options(onika PUBLIC ${ONIKA_COMPILE_OPTIONS} $<$<COMPILE_LANGUAG
 target_compile_features(onika PUBLIC ${ONIKA_COMPILE_FEATURES})
 target_link_directories(onika PUBLIC ${ONIKA_LIBRARY_DIRS})
 target_link_libraries(onika PUBLIC ${ONIKA_LIBRARIES})
+install(TARGETS onika DESTINATION lib)
 
-# Generate config file
+# finalize cmake package file and install it
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "\n# Setup user build directory to hold plugin shared libraries in '' directory and built plugins in ''\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "file(MAKE_DIRECTORY \${PROJECT_BINARY_DIR}/lib)\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "file(MAKE_DIRECTORY \${PROJECT_BINARY_DIR}/plugins)\n")
+
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "\n# Configure and import pre-compiled onika library with all its public properties\n")
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(ONIKA_COMPILE_OPTIONS ${ONIKA_COMPILE_OPTIONS})\n")
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(ONIKA_COMPILE_FEATURES ${ONIKA_COMPILE_FEATURES})\n")
@@ -404,12 +409,16 @@ file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(ONIKA_RUN ${CMAKE_INSTALL_PREFIX}/bin/on
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(onika_DIR ${CMAKE_INSTALL_PREFIX})\n")
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(onika_FOUND TRUE)\n")
 
-# generate build directory local config file for testing purposes
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/.build-config.msp "configuration:\n  plugin_dir: ./plugins\n  config_dir: ${CMAKE_CURRENT_SOURCE_DIR}/data/config\n\n")
+install(FILES ${ONIKA_CMAKE_PACKAGE} DESTINATION ${CMAKE_INSTALL_PREFIX})
 
-# generate helper script to setup environment
+# generate helper script to setup environment from installed location
 set(ONIKA_SETUP_ENV_COMMANDS "${ONIKA_SETUP_ENV_COMMANDS}" CACHE STRING "Environment setup commands")
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh "# Onika environment setup, as it was set during installation.\n# Please run this script before compiling your plugins or running your app.\n${ONIKA_SETUP_ENV_COMMANDS}\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh "# Onika environment setup, as it was set during installation.\n# Please run this script before compiling your plugins or running your app.\n${ONIKA_SETUP_ENV_COMMANDS}\n[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:\$LD_LIBRARY_PATH\n[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib\nexport LD_LIBRARY_PATH\n")
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
+
+# generate helper script to setup environment to allow run from build directory
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh "# Onika environment setup, as it was set during installation.\n# Please run this script before compiling your plugins or running your app.\n${ONIKA_SETUP_ENV_COMMANDS}\n[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}:\$LD_LIBRARY_PATH\n[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}\nexport LD_LIBRARY_PATH\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/.build-config.msp "configuration:\n  plugin_dir: ./plugins\n  config_dir: ${CMAKE_CURRENT_SOURCE_DIR}/data/config\n\n")
 
 # compile tools and apps
 file(GLOB app_sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/apps ${CMAKE_CURRENT_SOURCE_DIR}/apps/*.cpp)
@@ -417,20 +426,16 @@ unset(ONIKA_APPLICATIONS)
 foreach(APPSRC ${app_sources})
   get_filename_component(APPNAME ${APPSRC} NAME_WLE)
   message(STATUS "Found application ${APPNAME}")
-  list(APPEND ONIKA_APPLICATIONS ${APPNAME})
   add_executable(${APPNAME} apps/${APPNAME}.cpp)
   target_link_libraries(${APPNAME} PRIVATE onika)
+  install(TARGETS ${APPNAME} DESTINATION bin)
 endforeach()
 
 # compile contributed plugins
 add_subdirectory(plugins)
 
-# install files
-install(FILES ${ONIKA_CMAKE_PACKAGE} DESTINATION ${CMAKE_INSTALL_PREFIX})
+# install other files and directories directly copied from sources
 install(DIRECTORY cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
-install(TARGETS onika DESTINATION lib)
-install(TARGETS ${ONIKA_APPLICATIONS} DESTINATION bin)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh DESTINATION bin)
 install(DIRECTORY include/onika DESTINATION include)
 install(DIRECTORY data DESTINATION ${CMAKE_INSTALL_PREFIX})
 
