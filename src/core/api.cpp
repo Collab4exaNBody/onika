@@ -544,6 +544,32 @@ namespace onika
       {
         configuration.generate_plugins_db = true;
       }
+      else
+      {
+        if( ! quiet_plugin_register() ) lout << "* check plugin DB against search path ..." << std::endl;
+        onika::read_plugin_db( configuration.plugin_db );
+        auto db_time = std::filesystem::last_write_time(configuration.plugin_db);
+        std::set<std::string> plugin_files_scanned;
+        for(const auto& c:*get_plugin_db()) for(const auto& i:c.second) plugin_files_scanned.insert( i.second );
+        auto available_plugin_files = plugin_files_from_search_directories(plugin_search_dirs());
+        for(const auto& pf:available_plugin_files)
+        {
+          if( plugin_files_scanned.find(pf) == plugin_files_scanned.end() )
+          {
+            if( ! quiet_plugin_register() ) lout << "* plugin DB is missing "<<pf << std::endl;
+            configuration.generate_plugins_db = true;
+          }
+          else
+          {
+            if(std::filesystem::last_write_time(pf) > db_time)
+            {
+              if( ! quiet_plugin_register() ) lout << "* plugin DB is outdated for "<<pf << std::endl;
+              configuration.generate_plugins_db = true;
+            }
+          }
+        }
+      }
+
 
       if( ! quiet_plugin_register() )
       {
@@ -554,23 +580,23 @@ namespace onika
       OperatorSlotBase::enable_registration();
       OperatorNodeFactory::instance()->enable_registration();
 
-      const onika::PluginDBMap* plugin_db = nullptr;
       if( configuration.generate_plugins_db )
       {
-        lout << "* scan for plugins ..." << std::endl;
+        if( ! quiet_plugin_register() ) lout << "* scan for plugins ..." << std::endl;
         onika::generate_plugin_db( configuration.plugin_db );
         onika::load_plugins();
       }
       else
       {
-        plugin_db = & onika::read_plugin_db( configuration.plugin_db );
+        if( ! quiet_plugin_register() ) lout << "* read plugins DB ..." << std::endl;
+        onika::read_plugin_db( configuration.plugin_db );
       }
 
-      if( ! quiet_plugin_register() ) { lout << "=================================" << std::endl << std::endl; }
+      if( ! quiet_plugin_register() ) lout << "=================================" << std::endl << std::endl;
 
       plugins_loaded_breakpoint();
       
-      return { plugin_db , configuration.generate_plugins_db };
+      return { get_plugin_db() , configuration.generate_plugins_db };
     }
     
     std::pair<int,int> 

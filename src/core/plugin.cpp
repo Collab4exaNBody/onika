@@ -96,8 +96,9 @@ namespace onika
     }
   }
 
-  const PluginDBMap & read_plugin_db( const std::string& filename )
+  void read_plugin_db( const std::string& filename )
   {
+    g_plugin_db.clear();
     std::ifstream fin(filename);
     while( fin )
     {
@@ -108,7 +109,11 @@ namespace onika
         g_plugin_db[c][i] = p;
       }
     }
-    return g_plugin_db;
+  }
+
+  const PluginDBMap * get_plugin_db()
+  {
+    return & g_plugin_db;
   }
 
   const std::string& suggest_plugin_for( const std::string& itemCategory, const std::string& itemName )
@@ -136,16 +141,10 @@ namespace onika
     return handle != nullptr;
   }
 
-  size_t load_plugins( const std::vector<std::string> & plugin_files_or_directories )
+  std::vector<std::string> plugin_files_from_search_directories(const std::vector<std::string> & plugin_files_or_directories)
   {
-    using std::string;
-    using std::endl;
-    size_t n_loaded = 0;
-
-    //lout << "load_plugins : plugin path env = "<<plugin_path_env()<<" , direcetory count = "<<plugin_files_or_directories.size() <<std::endl;
-
     std::vector<std::string> plugin_files;
-    for( const string& p : plugin_files_or_directories )
+    for( const std::string& p : plugin_files_or_directories )
     {
       //lout<<"scan plugin path "<< p << std::endl;
       if( std::filesystem::status(p).type() == std::filesystem::file_type::directory )
@@ -167,9 +166,15 @@ namespace onika
         plugin_files.push_back(p);
       }
     }
+    return plugin_files;
+  }
+
+  size_t load_plugins( const std::vector<std::string> & plugin_files )
+  {
+    size_t n_loaded = 0;
 
     std::string loading_plugin_backup = g_loading_plugin;
-    for( const string& p : plugin_files )
+    for( const std::string& p : plugin_files )
     {
       g_loading_plugin = p;
       std::string fp = p;
@@ -179,8 +184,8 @@ namespace onika
         fp = format_string( g_plugin_to_dynlib_format , *it , p );
         ++ it;
       }
-      if( ! quiet_plugin_register() ) lout<<"+ "<<fp<<endl;
-      if( ! load_plugin_priv( fp ) ) { lerr<<"Warning, could not load plugin "<<p<<endl; }
+      if( ! quiet_plugin_register() ) lout<<"+ "<<fp<<std::endl;
+      if( ! load_plugin_priv( fp ) ) { lerr<<"Warning, could not load plugin "<<p<<std::endl; }
       else { ++ n_loaded; }
     }
     g_loading_plugin = loading_plugin_backup;

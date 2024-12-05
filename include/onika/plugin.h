@@ -31,19 +31,20 @@ namespace onika
   void plugin_db_register( const std::string& itemCategory, const std::string& itemName );
 
   using PluginDBMap = std::map< std::string , std::map< std::string,std::string> >;
-  const PluginDBMap & read_plugin_db( const std::string& filename );
+  void read_plugin_db( const std::string& filename );
+  const PluginDBMap * get_plugin_db();
   const std::string& suggest_plugin_for( const std::string& itemCategory, const std::string& itemName );
 
   void set_plugin_search_dirs(const std::string& default_dir);
   const std::vector<std::string>& plugin_search_dirs();
   std::string plugin_path_env(); // concatenated version with paths separated by ':' , as given through ONIKA_PLUGIN_PATH env
 
-
   void set_quiet_plugin_register(bool b);
   bool quiet_plugin_register();
 
   // load a set of pluings, return the number of successfuly loaded
-  size_t load_plugins( const std::vector<std::string> & plugin_files = plugin_search_dirs() );
+  std::vector<std::string> plugin_files_from_search_directories(const std::vector<std::string> & plugin_files_or_directories);
+  size_t load_plugins( const std::vector<std::string> & plugin_files = plugin_files_from_search_directories(plugin_search_dirs()) );
 
   // list of successfuly loaded plugins
   const std::set<std::string>& loaded_plugins();
