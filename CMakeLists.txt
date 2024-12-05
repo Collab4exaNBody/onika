@@ -377,6 +377,7 @@ target_compile_options(onika PUBLIC ${ONIKA_COMPILE_OPTIONS} $<$<COMPILE_LANGUAG
 target_compile_features(onika PUBLIC ${ONIKA_COMPILE_FEATURES})
 target_link_directories(onika PUBLIC ${ONIKA_LIBRARY_DIRS})
 target_link_libraries(onika PUBLIC ${ONIKA_LIBRARIES})
+set_target_properties(onika PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 install(TARGETS onika DESTINATION lib)
 
 # finalize cmake package file and install it
@@ -417,17 +418,25 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh "# Onika environment set
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
 
 # generate helper script to setup environment to allow run from build directory
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh "# Onika environment setup, as it was set during installation.\n# Please run this script before compiling your plugins or running your app.\n${ONIKA_SETUP_ENV_COMMANDS}\n[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}:\$LD_LIBRARY_PATH\n[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}\nexport LD_LIBRARY_PATH\n")
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/.build-config.msp "configuration:\n  plugin_dir: ./plugins\n  config_dir: ${CMAKE_CURRENT_SOURCE_DIR}/data/config\n\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/onikarun
+  "${ONIKA_SETUP_ENV_COMMANDS}\n"
+  "[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/lib:\$LD_LIBRARY_PATH\n"
+  "[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/lib\n"
+  "export LD_LIBRARY_PATH\n"
+  "export ONIKA_CONFIG_PATH=${CMAKE_CURRENT_SOURCE_DIR}/data/config\n"
+  "export ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins\n"
+  "${PROJECT_BINARY_DIR}/bin/onikarun \$*\n")
+file(CHMOD ${CMAKE_CURRENT_BINARY_DIR}/onikarun FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ)
 
 # compile tools and apps
 file(GLOB app_sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/apps ${CMAKE_CURRENT_SOURCE_DIR}/apps/*.cpp)
-unset(ONIKA_APPLICATIONS)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 foreach(APPSRC ${app_sources})
   get_filename_component(APPNAME ${APPSRC} NAME_WLE)
   message(STATUS "Found application ${APPNAME}")
   add_executable(${APPNAME} apps/${APPNAME}.cpp)
   target_link_libraries(${APPNAME} PRIVATE onika)
+  set_target_properties(${APPNAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
   install(TARGETS ${APPNAME} DESTINATION bin)
 endforeach()
 
