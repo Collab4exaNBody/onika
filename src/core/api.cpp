@@ -549,8 +549,7 @@ namespace onika
         if( ! quiet_plugin_register() ) lout << "* check plugin DB against search path ..." << std::endl;
         onika::read_plugin_db( configuration.plugin_db );
         auto db_time = std::filesystem::last_write_time(configuration.plugin_db);
-        std::set<std::string> plugin_files_scanned;
-        for(const auto& c:*get_plugin_db()) for(const auto& i:c.second) plugin_files_scanned.insert( i.second );
+        const auto& plugin_files_scanned = get_plugin_db_files();        
         auto available_plugin_files = plugin_files_from_search_directories(plugin_search_dirs());
         for(const auto& pf:available_plugin_files)
         {

@@ -42,6 +42,7 @@ namespace onika
   static std::string g_loading_plugin;
   static std::string g_plugin_db_filename;
   static PluginDBMap g_plugin_db;
+  static std::set<std::string> g_plugin_db_files; // keep track of dynlib files loaded
   static bool g_quiet_plugin_register = true;
 
   void set_quiet_plugin_register(bool b) { g_quiet_plugin_register = b; }
@@ -98,6 +99,7 @@ namespace onika
 
   void read_plugin_db( const std::string& filename )
   {
+    g_plugin_db_files.clear();
     g_plugin_db.clear();
     std::ifstream fin(filename);
     while( fin )
@@ -107,8 +109,14 @@ namespace onika
       if( !p.empty() && !c.empty() && !i.empty() )
       {
         g_plugin_db[c][i] = p;
+        g_plugin_db_files.insert( p );
       }
     }
+  }
+
+  const std::set<std::string>& get_plugin_db_files()
+  {
+    return g_plugin_db_files;
   }
 
   const PluginDBMap * get_plugin_db()

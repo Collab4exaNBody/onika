@@ -33,6 +33,7 @@ namespace onika
   using PluginDBMap = std::map< std::string , std::map< std::string,std::string> >;
   void read_plugin_db( const std::string& filename );
   const PluginDBMap * get_plugin_db();
+  const std::set<std::string>& get_plugin_db_files();
   const std::string& suggest_plugin_for( const std::string& itemCategory, const std::string& itemName );
 
   void set_plugin_search_dirs(const std::string& default_dir);

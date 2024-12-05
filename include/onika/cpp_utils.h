@@ -31,7 +31,17 @@ under the License.
 
 #define CONSTRUCTOR_ATTRIB __attribute__((constructor))
 
-#define ONIKA_AUTORUN_INIT(name)  CONSTRUCTOR_ATTRIB void MAKE_UNIQUE_NAME(__onika_constructor##_##name,_,__LINE__,__COUNTER__) ()
+# ifndef ONIKA_CURRENT_PACKAGE_NAME
+#   if defined(ONIKA_PACKAGE_OVERRIDE)
+#     define ONIKA_CURRENT_PACKAGE_NAME ONIKA_PACKAGE_OVERRIDE
+#   elif defined(ONIKA_PACKAGE_NAME)
+#     define ONIKA_CURRENT_PACKAGE_NAME ONIKA_PACKAGE_NAME
+#   else
+#     define ONIKA_CURRENT_PACKAGE_NAME onika
+#   endif
+# endif
+
+#define ONIKA_AUTORUN_INIT(name)  CONSTRUCTOR_ATTRIB void MAKE_UNIQUE_NAME(__onika_constructor##_##name,_,__LINE__,ONIKA_CURRENT_PACKAGE_NAME) ()
 
 #include <onika/macro_utils.h>
 
