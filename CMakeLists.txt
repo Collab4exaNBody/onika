@@ -414,10 +414,23 @@ install(FILES ${ONIKA_CMAKE_PACKAGE} DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 # generate helper script to setup environment from installed location
 set(ONIKA_SETUP_ENV_COMMANDS "${ONIKA_SETUP_ENV_COMMANDS}" CACHE STRING "Environment setup commands")
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh "# Onika environment setup, as it was set during installation.\n# Please run this script before compiling your plugins or running your app.\n${ONIKA_SETUP_ENV_COMMANDS}\n[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:\$LD_LIBRARY_PATH\n[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib\nexport LD_LIBRARY_PATH\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
+  "# Onika environment setup, as it was set during installation.\n"
+  "# Please run this script before compiling your plugins or running your app.\n"
+  "${ONIKA_SETUP_ENV_COMMANDS}\n"
+  "[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:\$LD_LIBRARY_PATH\n"
+  "[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib\n"
+  "export LD_LIBRARY_PATH\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
 
-# generate helper script to setup environment to allow run from build directory
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/onikarun
+  "source ${CMAKE_INSTALL_PREFIX}/bin/setup-env.sh\n"
+  "export ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config\n"
+  "export ONIKA_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/plugins\n"
+  "${CMAKE_INSTALL_PREFIX}/bin/onika-exec \$*\n")
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/onikarun DESTINATION bin)
+
+# generate helper script to setup environment to allow running from build directory without install
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/onikarun
   "${ONIKA_SETUP_ENV_COMMANDS}\n"
   "[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/lib:\$LD_LIBRARY_PATH\n"
@@ -425,7 +438,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/onikarun
   "export LD_LIBRARY_PATH\n"
   "export ONIKA_CONFIG_PATH=${CMAKE_CURRENT_SOURCE_DIR}/data/config\n"
   "export ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins\n"
-  "${PROJECT_BINARY_DIR}/bin/onikarun \$*\n")
+  "${PROJECT_BINARY_DIR}/bin/onika-exec \$*\n")
 file(CHMOD ${CMAKE_CURRENT_BINARY_DIR}/onikarun FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 
 # compile tools and apps
