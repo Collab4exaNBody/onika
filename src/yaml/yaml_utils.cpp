@@ -205,38 +205,13 @@ namespace onika
       using std::string;
       using std::vector;
 
-      // the local file .build-config.msp is usually loaded after main-config.msp, but we need to read it first in case
-      // it defines an alternative config directory via the "config_dir key"
-      string local_default_include_file = workdir + "/.build-config.msp" ;
-      // std::cout << "local_default_include_file = "<<local_default_include_file<<std::endl;
-      bool has_local_config_file = false;
-      if( std::ifstream(local_default_include_file).good() )
-      {
-        ldbg << "found workdir pre-config file '"<<local_default_include_file<<"'"<<std::endl;
-        YAML::Node node = yaml_load_file_abort_on_except( local_default_include_file );
-        if( node["configuration"] ) if( node["configuration"]["config_dir"] )
-        {
-          std::string config_dir = node["configuration"]["config_dir"].as<string>();
-          ldbg << "overload config dir with '"<<config_dir<<"'"<<std::endl;
-          set_install_config_dir( config_dir );
-        }
-        has_local_config_file = true;
-      }
-
       // find path to the main base config file 'main-config.msp'
       string default_include_file = config_file_path("main-config.msp",workdir);
       ldbg << "default_include_file = "<<default_include_file<<std::endl;
           
       vector<string> files;
       prefix_config_file_includes( files , default_include_file , workdir );
-      
-      // if a file named .build-config.msp is found in current working directory, it is included right after default include file
-      if( has_local_config_file )
-      {
-        // std::cout << "using local config file "<<local_default_include_file << std::endl;
-        prefix_config_file_includes( files , local_default_include_file , workdir );
-      }
-      
+            
       // then add user input file and all subsequent include files
       for(const auto& file_name:file_names) if( ! file_name.empty() )
       {
