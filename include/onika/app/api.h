@@ -96,8 +96,14 @@ namespace onika
     std::shared_ptr<ApplicationContext>
     init(int argc, char const * const argv[]);
 
+    std::shared_ptr<ApplicationContext>
+    init(std::vector<std::string>& argv);
+
     void
     run(std::shared_ptr<ApplicationContext> ctx);
+
+    void
+    run(std::shared_ptr<ApplicationContext> ctx, onika::scg::OperatorNode* node);
 
     void
     end(std::shared_ptr<ApplicationContext> ctx);
@@ -152,7 +158,7 @@ namespace onika
     build_simulation_graph( const onika::app::ApplicationConfiguration & configuration , YAML::Node simulation_node );
 
     void
-    run_simulation_graph( std::shared_ptr<onika::scg::OperatorNode> simulation_graph , bool configuration_needs_profiling );
+    run_simulation_graph( onika::scg::OperatorNode* simulation_graph , bool configuration_needs_profiling );
 
     template<class StreamT>
     inline StreamT& print_host_system_info(StreamT& out , const onika::app::ApplicationConfiguration & configuration

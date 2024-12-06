@@ -47,6 +47,27 @@ namespace onika
     }
 
     std::shared_ptr<ApplicationContext>
+    init(std::vector<std::string>& user_argv)
+    {
+      int argc = user_argv.size();
+      char** argv = new char* [argc+1];
+      argv[argc] = nullptr;
+      for(int a=0;a<argc;a++) argv[a] = strdup(user_argv[a].c_str());
+
+      std::shared_ptr<ApplicationContext> appctx = init(argc,argv);
+
+      for(int a=0;a<argc;a++)
+      {
+        user_argv[a] = argv[a];
+        free( argv[a] );
+      }
+      delete [] argv;
+      
+      return appctx;
+    }
+
+
+    std::shared_ptr<ApplicationContext>
     init( int argc, char const * const argv[] )
     {
       std::shared_ptr<ApplicationContext> ctx = std::make_shared<ApplicationContext>();
@@ -126,8 +147,15 @@ namespace onika
     void
     run(std::shared_ptr<ApplicationContext> ctx)
     {
-      onika::app::run_simulation_graph( ctx->m_simulation_graph , ctx->m_need_profiling );
+      onika::app::run_simulation_graph( ctx->m_simulation_graph.get() , ctx->m_need_profiling );
     }
+
+    void
+    run(std::shared_ptr<ApplicationContext> ctx, onika::scg::OperatorNode* node)
+    {
+      onika::app::run_simulation_graph( node , ctx->m_need_profiling );
+    }
+
 
     void
     end(std::shared_ptr<ApplicationContext> ctx)
@@ -900,7 +928,7 @@ namespace onika
 
 
     void
-    run_simulation_graph( std::shared_ptr<onika::scg::OperatorNode> simulation_graph , bool configuration_needs_profiling )
+    run_simulation_graph( onika::scg::OperatorNode* simulation_graph , bool configuration_needs_profiling )
     {
       using namespace onika::scg;
 
