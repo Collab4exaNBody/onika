@@ -193,9 +193,7 @@ else()
     set(CMAKE_CUDA_ARCHITECTURES "86" CACHE STRING "Cuda target architecture(s)")
     find_package(CUDA REQUIRED)
     enable_language(CUDA)
-
-    message(STATUS "CUDA_DIR=${CUDA_DIR} , CUDA_ROOT=${CUDA_ROOT}")
-
+#    message(STATUS "CUDA_DIR=${CUDA_DIR} , CUDA_ROOT=${CUDA_ROOT}")
     if(NOT CUDA_SDK_ROOT_DIR)
       if(CMAKE_CUDA_COMPILER)
         get_filename_component(CUDA_BIN ${CMAKE_CUDA_COMPILER} DIRECTORY)
@@ -288,7 +286,7 @@ if(MPI_CXX_INCLUDE_PATH AND MPI_CXX_LIBRARIES AND NOT MPI_FOUND)
   # for export to onika-config file
   set(ONIKA_CONFIG_IMPORT_MPI "set(MPI_CXX_INCLUDE_PATH ${MPI_CXX_INCLUDE_PATH})\nset(MPI_CXX_LIBRARIES ${MPI_CXX_LIBRARIES})\nset(MPI_CXX_FOUND ON)")
 else()
-  find_package(MPI REQUIRED)
+  find_package(MPI COMPONENT C REQUIRED)
   # for export to onika-config file
   set(ONIKA_CONFIG_IMPORT_MPI "find_package(MPI REQUIRED)")
 endif()

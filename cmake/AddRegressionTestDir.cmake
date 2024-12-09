@@ -90,7 +90,7 @@ function(AddRegressionTestDir REGRESSION_DIR)
         # message(STATUS "${testcase}_${testvariant} : NTHREADS overriden to ${MT_NTHREADS}")
       endif()
 
-      # message(STATUS "${testcase}_${testvariant} : SEQ=${ENABLE_TEST_SEQ} MT=${ENABLE_TEST_MT} MPI=${ENABLE_TEST_MPI} HOST_ALWAYS_USE_MPIRUN=${HOST_ALWAYS_USE_MPIRUN}")
+      # message(STATUS "${testcase}_${testvariant} : SEQ=${ENABLE_TEST_SEQ} MT=${ENABLE_TEST_MT} MPI=${ENABLE_TEST_MPI} ONIKA_ALWAYS_USE_MPIRUN=${ONIKA_ALWAYS_USE_MPIRUN}")
       list(APPEND USTAMP_REGRESSION_TEST_LIST "${testcase}_${testvariant}")
 
       set(${testcase}_${testvariant}_REGISTERED OFF)
