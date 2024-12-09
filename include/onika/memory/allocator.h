@@ -16,15 +16,19 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
-#include <cstdlib>
 #include <onika/memory/simd.h>
+#include <onika/cuda/cuda.h>
+#include <yaml-cpp/yaml.h>
+#include <cstdlib>
 #include <vector>
 #include <algorithm>
-#include <onika/cuda/cuda.h>
 
-namespace onika { namespace memory
+namespace onika
+{
+namespace memory
 {
   /*
     Host allocation kinds
@@ -160,7 +164,31 @@ namespace onika { namespace memory
 # define ONIKA__bultin_assume_aligned(x,a) (x)
 # endif
 
-}
+} // onika::memory
+
+} // onika
+
+namespace YAML
+{
+
+  template<class T> struct convert< ::onika::memory::CudaMMVector<T> >
+  {
+    static inline Node encode(const ::onika::memory::CudaMMVector<T>& v)
+    {
+      Node node;
+      for(const auto & x : v) node.push_back(x);
+      return node;
+    }
+    static inline bool decode(const Node& node, ::onika::memory::CudaMMVector<T>& v)
+    {
+      if( ! node.IsSequence() ) { return false; }
+      const size_t sz = node.size();
+      v.clear();
+      v.reserve( sz );
+      for(size_t i=0;i<sz;i++) v.push_back( node[i].as<T>() );
+      return true;
+    }
+  };
 
 }
 
