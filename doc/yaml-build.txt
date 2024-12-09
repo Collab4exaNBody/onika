@@ -30,9 +30,6 @@ cmake  	-DCMAKE_BUILD_TYPE=Debug \
         -DCMAKE_CXX_FLAGS="-fPIC" \
         ../yaml-cpp
 
-#        -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
-#-diag-disable=15518,15552,2015,2012,3868,2304,2305,2047,2017,2196
-
 # Common build, install and cleanup commands
 make -j4 install
 cd ../..
