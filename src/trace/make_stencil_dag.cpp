@@ -241,7 +241,7 @@ namespace onika
       // stencil box filling curve
       // compute a traversal pattern for a rectangular area as large as the stencil bounding box
       // std::cout<<"traversal patch size = "<<format_array(stencil_dep_box_size)<<std::endl;
-      oarray_t<size_t,Nd> patch_traversal[stencil_dep_box_elements];
+      std::vector< oarray_t<size_t,Nd> > patch_traversal( stencil_dep_box_elements );
       for(size_t i=0;i<stencil_dep_box_elements;i++)
       {
         auto c = index_to_coord( i, stencil_dep_box_size );
@@ -382,7 +382,7 @@ namespace onika
       if( ! strictly_increasing_dep_dist )
       {
         std::cout << "Warning, non increasing dependency depth in depend list" << std::endl;
-        size_t mdhist[all_max_dist+1];
+        std::vector<size_t> mdhist (all_max_dist+1);
         for(IndexT i=0;i<=all_max_dist;i++) mdhist[i]=0;
         for(size_t i=0;i<n_cells;i++)
         {

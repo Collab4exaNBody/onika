@@ -23,8 +23,9 @@ under the License.
 #include <cstdint>
 #include <limits>
 
-#if __cplusplus > 201703L // C++20 code
+#if __cplusplus > 201703L && ! defined(__INTEL_LLVM_COMPILER) && ! defined(__INTEL_LLVM_COMPILER) // C++20 code
 #include <bit>
+#define ONIKA_USE_BUILTIN_STL_ROTL
 #endif
 
 namespace onika { namespace math
@@ -34,7 +35,7 @@ namespace onika { namespace math
   static inline constexpr _T bit_rotl (_T _v, int _b)
   {
     // C++ 20 version
-#if __cplusplus > 201703L
+#ifdef ONIKA_USE_BUILTIN_STL_ROTL
     return static_cast<_T>( std::rotl( static_cast< std::make_unsigned_t<_T> >( _v ) , _b ) );
 #else
     using T = std::make_unsigned_t<_T>;

@@ -1,22 +1,34 @@
 ONIKA_INSTAL_DIR=/ccc/home/cont001/xstampdev/xstampdev
 ONIKA_SRC_DIR=${HOME}/dev/onika
-YAML_CPP_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/tools/yaml-cpp-0.6.3-icx-22.1.2-gcc-12/lib/cmake/yaml-cpp
+YAML_CPP_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/tools/yaml-cpp-0.6.3/lib/cmake/yaml-cpp
 
-# Rhel_8__x86_64 X Intel-22.1.2 X gcc-12 X Cuda
-# icpc -v => icpc version 2021.5.0 (gcc version 12.3.0 compatibility)
-ONIKA_SETUP_ENV_COMMANDS="module purge ; module load gnu/12.3.0 inteloneapi/22.1.2 nvhpc/24.3 mpi/openmpi cmake/3.26.4"
+#
+# Rhel_8__x86_64 X Intel-24.2.0 X gcc-11.2.0 X Cuda 12.4
+#
+ONIKA_SETUP_ENV_COMMANDS="module purge ; module load gnu/11.2.0 nvhpc/24.3 inteloneapi/24.2.0 mpi/openmpi cmake/3.26.4"
 eval ${ONIKA_SETUP_ENV_COMMANDS}
+CXX_COMPILER=`which icpx`
+${CXX_COMPILER} -v
+# Intel(R) oneAPI DPC++/C++ Compiler 2024.2.0 (2024.2.0.20240602)
+# Target: x86_64-unknown-linux-gnu
+# Thread model: posix
+# InstalledDir: /ccc/products2/icx-24.2.0/Rhel_8__x86_64/system/default/compiler/2024.2/bin/compiler
+# Configuration file: /ccc/products2/icx-24.2.0/Rhel_8__x86_64/system/default/compiler/2024.2/bin/compiler/../icpx.cfg
+# Found candidate GCC installation: /ccc/products/gcc-11.2.0/system/default/lib/gcc/x86_64-pc-linux-gnu/11.2.0
+# Found candidate GCC installation: /ccc/products/gcc-11.2.0/system/default/lib/gcc/x86_64-unknown-linux-gnu/11.2.0
+# Selected GCC installation: /ccc/products/gcc-11.2.0/system/default/lib/gcc/x86_64-unknown-linux-gnu/11.2.0
+# Candidate multilib: .;@m64
+# Selected multilib: .;@m64
+# Found CUDA installation: /ccc/products2/nvhpc-24.3/Rhel_8__x86_64/system/default/Linux_x86_64/24.3/cuda/12.3, version 12.3
 
 cmake -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=/ccc/home/cont001/xstampdev/xstampdev/tools/onika \
-  -DCMAKE_C_COMPILER=icc \
-  -DCMAKE_CXX_COMPILER=icpc \
-  -DCMAKE_Fortran_COMPILER=ifort \
+  -DCMAKE_INSTALL_PREFIX=/ccc/home/cont001/xstampdev/xstampdev/releases/onika \
+  -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
   -DCMAKE_CXX_FLAGS=-diag-disable=15518,15552 \
   -Dyaml-cpp_DIR=${YAML_CPP_INSTALL_DIR} \
   -DONIKA_BUILD_CUDA=ON \
   -DCMAKE_CUDA_COMPILER=/ccc/products/cuda-12.4/system/default/bin/nvcc \
-  -DCMAKE_CUDA_FLAGS="-ccbin /ccc/products/icx-22.1.2/system/default/22.1.2/bin/intel64/icpc" \
+  -DCMAKE_CUDA_FLAGS="-ccbin ${CXX_COMPILER} -allow-unsupported-compiler" \
   -DCMAKE_CUDA_ARCHITECTURES=80 \
   -DONIKA_MPIRUN_CMD="/usr/bin/ccc_mprun" \
   -DMPIEXEC_EXECUTABLE=`which mpiexec` \
@@ -25,9 +37,34 @@ cmake -DCMAKE_BUILD_TYPE=Release \
   -DMPIEXEC_NUMPROC_FLAG="-n" \
   -DMPIEXEC_PREFLAGS="-pa100-bxi" \
   -DMPIEXEC_PREFLAGS_DBG="-pa100-bxi;-Xall;xterm;-e" \
-  -DMPIEXEC_PREALLOC_FLAG="-K" \
   -DONIKA_ALWAYS_USE_MPIRUN=ON \
   -DONIKA_SETUP_ENV_COMMANDS="${ONIKA_SETUP_ENV_COMMANDS}" \
 	${ONIKA_SRC_DIR}
 
+#
+# Rhel_8__x86_64 X gcc-12.3.0 X Cuda 12.4
+#
+ONIKA_SETUP_ENV_COMMANDS="module purge ; module load gnu/12.3.0 nvhpc/24.3 mpi/openmpi cmake/3.26.4"
+eval ${ONIKA_SETUP_ENV_COMMANDS}
+cmake -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/ccc/home/cont001/xstampdev/xstampdev/releases/onika \
+  -Dyaml-cpp_DIR=${YAML_CPP_INSTALL_DIR} \
+  -DONIKA_BUILD_CUDA=ON \
+  -DCMAKE_CUDA_COMPILER=/ccc/products/cuda-12.4/system/default/bin/nvcc \
+  -DCMAKE_CUDA_ARCHITECTURES=80 \
+  -DONIKA_MPIRUN_CMD="/usr/bin/ccc_mprun" \
+  -DMPIEXEC_EXECUTABLE=`which mpiexec` \
+  -DMPIEXEC_MAX_NUMPROCS=32 \
+  -DMPIEXEC_NUMCORE_FLAG="-c" \
+  -DMPIEXEC_NUMPROC_FLAG="-n" \
+  -DMPIEXEC_PREFLAGS="-pa100-bxi" \
+  -DMPIEXEC_PREFLAGS_DBG="-pa100-bxi;-Xall;xterm;-e" \
+  -DONIKA_ALWAYS_USE_MPIRUN=ON \
+  -DONIKA_SETUP_ENV_COMMANDS="${ONIKA_SETUP_ENV_COMMANDS}" \
+  ${ONIKA_SRC_DIR}
+
+#  -DCMAKE_CUDA_FLAGS="-ccbin ${CXX_COMPILER} -allow-unsupported-compiler" \
+
+# common build and cleanup
+make -j4 install
 

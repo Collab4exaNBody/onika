@@ -459,7 +459,13 @@ namespace onika { namespace scg
           else { thread_normalized_sum += 1.0; }
         }
 
-        int allocated_threads[n_ops+1];
+        static constexpr size_t MAX_PARALLEL_OPS = 63;
+        int allocated_threads[MAX_PARALLEL_OPS+1];
+        if( n_ops > MAX_PARALLEL_OPS )
+        {
+          fatal_error() << "Internal error: maximum concurent parallel tasks overflow ("<<n_ops<<" > "<<MAX_PARALLEL_OPS<<")"<<std::endl;
+        }
+        
         double ratio_sum = 0.0;
         for(int i=0;i<n_ops;i++)
         {

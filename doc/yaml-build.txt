@@ -1,7 +1,7 @@
 # Common instrcutions
 mkdir yaml-cpp-4-onika
 cd yaml-cpp-4-onika
-git clone -b yaml-cpp-0.6.3 git@github.com:jbeder/yaml-cpp.git
+     git clone -b yaml-cpp-0.6.3 git@github.com:jbeder/yaml-cpp.git
 *OR* git clone -b yaml-cpp-0.6.3 https://github.com/jbeder/yaml-cpp.git
 YAML_CPP_INSTALL_DIR=${HOME}/local/yaml-cpp-0.6.3 # adapt this to your environment
 mkdir build
@@ -18,21 +18,20 @@ cmake 	-DCMAKE_BUILD_TYPE=Debug \
 	-DCMAKE_CXX_FLAGS=-fPIC \
 	../yaml-cpp
 
-# Rhel_8__x86_64 X Intel-22.1.2 X gcc-12
-# icpc -v => icpc version 2021.5.0 (gcc version 12.3.0 compatibility)
-module purge && module load gnu/12.3.0 inteloneapi/22.1.2 cmake/3.26.4
+# Rhel_8__x86_64 X gcc-11.2.0
+module purge ; module load gnu/11.2.0 cmake/3.26.4
 cmake  	-DCMAKE_BUILD_TYPE=Debug \
         -DCMAKE_INSTALL_PREFIX=${YAML_CPP_INSTALL_DIR} \
-	-DCMAKE_C_COMPILER=icc \
-	-DCMAKE_CXX_COMPILER=icpc \
         -DYAML_BUILD_SHARED_LIBS=OFF \
         -DYAML_CPP_BUILD_CONTRIB=ON \
         -DYAML_CPP_BUILD_TESTS=OFF \
         -DYAML_CPP_BUILD_TOOLS=OFF \
         -DYAML_CPP_INSTALL=ON \
-        -DCMAKE_CXX_FLAGS="-fPIC -diag-disable=15518,15552,2015,2012,3868,2304,2305,2047,2017,2196" \
+        -DCMAKE_CXX_FLAGS="-fPIC" \
         ../yaml-cpp
 
+#        -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
+#-diag-disable=15518,15552,2015,2012,3868,2304,2305,2047,2017,2196
 
 # Common build, install and cleanup commands
 make -j4 install
