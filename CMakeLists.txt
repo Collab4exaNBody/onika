@@ -286,7 +286,7 @@ if(MPI_CXX_INCLUDE_PATH AND MPI_CXX_LIBRARIES AND NOT MPI_FOUND)
   # for export to onika-config file
   set(ONIKA_CONFIG_IMPORT_MPI "set(MPI_CXX_INCLUDE_PATH ${MPI_CXX_INCLUDE_PATH})\nset(MPI_CXX_LIBRARIES ${MPI_CXX_LIBRARIES})\nset(MPI_CXX_FOUND ON)")
 else()
-  find_package(MPI COMPONENT C REQUIRED)
+  find_package(MPI REQUIRED COMPONENTS C)
   # for export to onika-config file
   set(ONIKA_CONFIG_IMPORT_MPI "find_package(MPI REQUIRED)")
 endif()
