@@ -43,7 +43,6 @@ ONIKA_SETUP_ENV_COMMANDS="module purge ; module load gnu/11.2.0 nvhpc/24.3 intel
 eval ${ONIKA_SETUP_ENV_COMMANDS}
 CXX_COMPILER=`which icpx`
 C_COMPILER=`which icx`
-# ${CXX_COMPILER} -v
 cmake -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTALL_DIR} \
   -DCMAKE_C_COMPILER=${C_COMPILER} \
