@@ -36,7 +36,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 #
 # Rhel_8__x86_64 X Intel-24.2.0 X gcc-11.2.0 X Cuda 12.4
 #
-ONIKA_INSTAL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/onika
+ONIKA_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/onika
 ONIKA_SRC_DIR=${HOME}/dev/onika
 YAML_CPP_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/tools/yaml-cpp-0.6.3/lib/cmake/yaml-cpp
 ONIKA_SETUP_ENV_COMMANDS="module purge ; module load gnu/11.2.0 nvhpc/24.3 inteloneapi/24.2.0 mpi/openmpi cmake/3.26.4"
@@ -44,7 +44,7 @@ eval ${ONIKA_SETUP_ENV_COMMANDS}
 CXX_COMPILER=`which icpx`
 # ${CXX_COMPILER} -v
 cmake -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTAL_DIR} \
+  -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTALL_DIR} \
   -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
   -DCMAKE_CXX_FLAGS=-diag-disable=15518,15552 \
   -Dyaml-cpp_DIR=${YAML_CPP_INSTALL_DIR} \
@@ -66,13 +66,13 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 #
 # Rhel_8__x86_64 X gcc-12.3.0 X Cuda 12.4
 #
-ONIKA_INSTAL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/onika
+ONIKA_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/onika
 ONIKA_SRC_DIR=${HOME}/dev/onika
 YAML_CPP_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/tools/yaml-cpp-0.6.3/lib/cmake/yaml-cpp
 ONIKA_SETUP_ENV_COMMANDS="module purge ; module load gnu/12.3.0 nvhpc/24.3 mpi/openmpi cmake/3.26.4"
 eval ${ONIKA_SETUP_ENV_COMMANDS}
 cmake -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTAL_DIR} \
+  -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTALL_DIR} \
   -Dyaml-cpp_DIR=${YAML_CPP_INSTALL_DIR} \
   -DONIKA_BUILD_CUDA=ON \
   -DCMAKE_CUDA_COMPILER=/ccc/products/cuda-12.4/system/default/bin/nvcc \
@@ -87,8 +87,6 @@ cmake -DCMAKE_BUILD_TYPE=Release \
   -DONIKA_ALWAYS_USE_MPIRUN=ON \
   -DONIKA_SETUP_ENV_COMMANDS="${ONIKA_SETUP_ENV_COMMANDS}" \
   ${ONIKA_SRC_DIR}
-
-#  -DCMAKE_CUDA_FLAGS="-ccbin ${CXX_COMPILER} -allow-unsupported-compiler" \
 
 # common build and cleanup
 make -j4 install

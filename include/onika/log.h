@@ -33,8 +33,7 @@ under the License.
 namespace onika
 {
 
-  static inline std::ostream& null_stream_manip(std::ostream& os) { return os; }
-	  //static inline std::ostream& default_end_line(std::ostream& os) { return os << std::endl ; }
+  inline std::ostream& null_stream_manip(std::ostream& os) { return os; }
 
   struct LogStreamWrapper
   {

@@ -615,12 +615,12 @@ void tasks_and_locks()
 
 void omp_task_buffer_size(const int MAX_NUMBER = 1000)
 {
-  int result[MAX_NUMBER];
+  std::vector<int> result( MAX_NUMBER );
   for(int i=0;i<MAX_NUMBER;i++) result[i]=0;
 
   std::random_device rd;  //Will be used to obtain a seed for the random number engine
   const int nthreads = omp_get_max_threads();
-  std::mt19937 gen[nthreads];
+  std::vector<std::mt19937> gen( nthreads );
   for(int i=0;i<nthreads;i++) gen[i].seed(rd()); //Standard mersenne_twister_engine seeded with rd()
   
 # pragma omp parallel
