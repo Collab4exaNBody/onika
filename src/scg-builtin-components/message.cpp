@@ -24,8 +24,10 @@ under the License.
 
 namespace onika
 {
-  namespace scg
+  namespace scg_builtin
   {
+
+    using namespace scg;
 
     struct PrintMessageNode : public OperatorNode
     {  

@@ -25,11 +25,10 @@ under the License.
 #include <vector>
 #include <string>
 
-namespace onika
+namespace onika { namespace scg_builtin
 {
-namespace scg
-{
-  
+  using namespace scg;
+
   struct CommBTreeNode : public OperatorNode
   {
     ADD_SLOT( MPI_Comm              , mpi       , INPUT , MPI_COMM_WORLD );

@@ -21,31 +21,32 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 
-#include <mpi.h>
-
-namespace onika
-{
-namespace scg
+namespace onika { namespace scg_builtin
 {
 
-  struct MpiCommWorld : public OperatorNode
-  {
-    ADD_SLOT( MPI_Comm , mpi , INPUT_OUTPUT , MPI_COMM_WORLD );
-    inline void execute () override final
+  using namespace scg;
+
+  // =====================================================================
+  // ========================== NthTimeStepNode ========================
+  // =====================================================================
+
+  class ValueGreaterThanNode : public OperatorNode
+  {  
+    ADD_SLOT( double , value     , INPUT , REQUIRED );
+    ADD_SLOT( double , threshold , INPUT , REQUIRED);
+    ADD_SLOT( bool   , result    , OUTPUT);
+  public: 
+    void execute() override final
     {
-      int size = 1;      
-      int rank = 0;
-      MPI_Comm_rank(*mpi,&rank);
-      MPI_Comm_size(*mpi,&size);
-      ldbg << "MPI processes in communicator : "<<size<<std::endl;
-      ldbg << "MPI rank = rank"<<std::endl;
+      *result = *value > *threshold;
+      ldbg << "ValueGreaterThanNode: value="<<(*value)<<", threshold="<<(*threshold)<<", result="<<std::boolalpha<<(*result)<<std::endl;
     }
   };
 
-  // === register factory ===
-  ONIKA_AUTORUN_INIT(mpi_comm_world)
+   // === register factories ===  
+  ONIKA_AUTORUN_INIT(value_greater_than)
   {
-    OperatorNodeFactory::instance()->register_factory( "mpi_comm_world", make_compatible_operator<MpiCommWorld> );
+    OperatorNodeFactory::instance()->register_factory( "greater_than", make_compatible_operator< ValueGreaterThanNode > );
   }
 
 } }

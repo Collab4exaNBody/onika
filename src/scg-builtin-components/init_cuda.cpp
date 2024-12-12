@@ -36,10 +36,10 @@ under the License.
 
 #include <ios>
 
-namespace onika
+namespace onika { namespace scg_builtin
 {
-namespace scg
-{
+
+  using namespace scg;
 
   class InitCuda : public OperatorNode
   {

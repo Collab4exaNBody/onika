@@ -26,8 +26,10 @@ under the License.
 #include <onika/physics/units.h>
 #include <onika/string_utils.h>
 
-namespace onika { namespace scg
+namespace onika { namespace scg_builtin
 {
+
+  using namespace scg;
 
   class ApplicationUnitSystem : public onika::scg::OperatorNode
   {

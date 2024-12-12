@@ -26,8 +26,10 @@ under the License.
 #include <limits>
 #include <omp.h>
 
-namespace onika { namespace scg
+namespace onika { namespace scg_builtin
 {
+
+  using namespace scg;
 
   // =====================================================================
   // ========================== OperatorBatchNode ========================

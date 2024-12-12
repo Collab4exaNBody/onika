@@ -23,8 +23,10 @@ under the License.
 
 #include <memory>
 
-namespace onika { namespace scg
+namespace onika { namespace scg_builtin
 {
+
+  using namespace scg;
 
   // ================= builtin factories implementation ======================
 

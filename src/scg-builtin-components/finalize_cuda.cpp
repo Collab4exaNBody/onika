@@ -26,10 +26,10 @@ under the License.
 #include <onika/cuda/cuda_error.h>
 #endif
 
-namespace onika
+namespace onika { namespace scg_builtin
 {
-namespace scg
-{
+
+  using namespace scg;
 
   struct FinalizeCuda : public OperatorNode
   {
