@@ -51,7 +51,7 @@ include(GenerateBenchmarkSOATL)
 include(OnikaPlugin)
 
 # export necessary cmake includes to onika-config.cmake
-file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND CMAKE_MODULE_PATH \"${CMAKE_INSTALL_PREFIX}/cmake\")\ninclude(RunCommand)\ninclude(OnikaPlugin)\ninclude(AddRegressionTestDir)\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND CMAKE_MODULE_PATH \"${CMAKE_INSTALL_PREFIX}/cmake\")\ninclude(RunCommand)\ninclude(OnikaPlugin)\ninclude(DebugTests)\ninclude(AddRegressionTestDir)\n")
 
 # configure project build and link preferences
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
@@ -370,6 +370,29 @@ endif()
 list(APPEND ONIKA_LIBRARIES ${YAML_CPP_LIBRARIES})
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_LIBRARIES \${YAML_CPP_LIBRARIES})\n")
 
+
+# =====================================
+# === Testing feature configuration ===
+# =====================================
+option(ONIKA_REGRESSION_TEST_ENABLE "Enable regression tests" ON)
+option(ONIKA_REGRESSION_TEST_ENABLE_SEQ "Enable sequential tests" ON)
+option(ONIKA_REGRESSION_TEST_ENABLE_MT "Enable Multi-threaded tests" ON)
+option(ONIKA_REGRESSION_TEST_ENABLE_MPI "Enable MPI tests" ON)
+if(ONIKA_REGRESSION_TEST_ENABLE)
+  enable_testing()
+endif()
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "\n# Setup testing features options\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "option(ONIKA_REGRESSION_TEST_ENABLE \"Enable regression tests\" ${ONIKA_REGRESSION_TEST_ENABLE})\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "if(ONIKA_REGRESSION_TEST_ENABLE)\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "  option(ONIKA_REGRESSION_TEST_ENABLE_SEQ \"Enable sequential tests\" ${ONIKA_REGRESSION_TEST_ENABLE_SEQ})\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "  option(ONIKA_REGRESSION_TEST_ENABLE_MT \"Enable Multi-threaded tests\" ${ONIKA_REGRESSION_TEST_ENABLE_MT})\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "  option(ONIKA_REGRESSION_TEST_ENABLE_MPI \"Enable MPI tests\" ${ONIKA_REGRESSION_TEST_ENABLE_MPI})\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "  enable_testing()\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "else()\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "  set(ONIKA_REGRESSION_TEST_ENABLE_SEQ OFF)\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "  set(ONIKA_REGRESSION_TEST_ENABLE_MT OFF)\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "  set(ONIKA_REGRESSION_TEST_ENABLE_MPI OFF)\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "endif()\n")
 
 # =====================================
 # === Onika lib build configuration ===
