@@ -55,13 +55,12 @@ namespace onika { namespace scg
   class OperatorNodeFactory
   {
   public:
-    size_t register_factory( const std::string& name, OperatorNodeCreateFunction factory );    
+    void register_factory( const std::string& name, OperatorNodeCreateFunction factory );    
     template<class T> 
-    inline size_t register_factory( const std::string& name, const OperatorNodeFactoryGenerator<T>& factory_gen )
+    inline void register_factory( const std::string& name, const OperatorNodeFactoryGenerator<T>& factory_gen )
     {
       OperatorNodeCreateFunction factory = factory_gen.make_factory( name );
-      if( factory != nullptr ) return this->register_factory(name,factory);
-      else return m_creators.size();
+      if( factory != nullptr ) this->register_factory(name,factory);
     }
 
     std::shared_ptr<OperatorNode> make_operator( const std::string& name, YAML::Node node = YAML::Node(), const OperatorNodeFlavor& flavor = OperatorNodeFlavor() );
@@ -81,7 +80,7 @@ namespace onika { namespace scg
     
     using CreatorPair = std::pair<std::string, OperatorNodeCreateFunction>;
     std::list< CreatorPair > m_defered_creators_to_register;
-    std::unordered_multimap< std::string, OperatorNodeCreateFunction > m_creators;
+    std::map< std::string, std::vector<OperatorNodeCreateFunction> > m_creators;
     YAML::Node m_operator_defaults;
     std::vector< std::map<std::string,std::string> > m_locals_stack;
     bool m_registration_enabled = false;

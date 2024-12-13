@@ -48,7 +48,7 @@ namespace onika { namespace scg
   /*!
     Register a factory (Operator creaton function), associating it to an operator name
   */
-  size_t OperatorNodeFactory::register_factory( const std::string& name, OperatorNodeCreateFunction creator )
+  void OperatorNodeFactory::register_factory( const std::string& name, OperatorNodeCreateFunction creator )
   {
     //std::cout << "register_factory("<<name<<",...) m_registration_enabled="<< m_registration_enabled<<" quiet="<<onika::quiet_plugin_register() <<std::endl;
     if( ! m_registration_enabled )
@@ -69,8 +69,8 @@ namespace onika { namespace scg
       ldbg<<"  overload    "<< name << std::endl;
     }
   
-    m_creators.insert( CreatorPair(name,creator) );
-    return m_creators.size();
+    m_creators[name].push_front( creator );
+    //return m_creators.size();
   }
 
   void OperatorNodeFactory::enable_registration()
@@ -185,6 +185,8 @@ namespace onika { namespace scg
   std::shared_ptr<OperatorNode> OperatorNodeFactory::make_operator(const std::string& in_name, YAML::Node node, const OperatorNodeFlavor& in_flavor)
   {  
     std::string name = resolve_operator_name(in_name);
+    onika::check_load_plugins_for( "operator" , name );
+
     if( s_debug_verbose_level >= 1 )
     {
       ldbg << "make_operator "<<in_name;
@@ -237,18 +239,8 @@ namespace onika { namespace scg
     // tells if an operator, when not found in any factory, is allowed to be considered as an implicit batch operator
     if( it_range.first == m_creators.end() )
     {
-      std::string suggested_plugin = onika::suggest_plugin_for( "operator" , name );
-      if( ! suggested_plugin.empty() )
-      {
-        ldbg << "auto loading "<< suggested_plugin<<" to find operator "<<name<< std::endl;
-        onika::load_plugins( { suggested_plugin } );
-        it_range = m_creators.equal_range( name );
-        if( it_range.first == m_creators.end() )
-        {
-          err_mesg<<"No candidate available for operator '"<<name<<"' in plugin '"<<suggested_plugin<<"'"<< std::endl;
-          throw OperatorCreationException( err_mesg.str() );
-        }
-      }
+      err_mesg<<"No candidate available for operator '"<<name<<"' in any candidate plugin"<< std::endl;
+      throw OperatorCreationException( err_mesg.str() );
     }
     
     if( it_range.first == m_creators.end() )

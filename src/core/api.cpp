@@ -772,7 +772,7 @@ namespace onika
             for(const auto& op : cp.second )
             {
               available_items[cp.first].insert(op.first);
-              available_plugins.insert( op.second );
+              for(const auto & pf : op.second ) available_plugins.insert( pf );
             }
           }
           lout<<"Available plugins :"<<std::endl;

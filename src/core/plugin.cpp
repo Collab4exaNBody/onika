@@ -91,7 +91,7 @@ namespace onika
   {
     if( !g_plugin_db_filename.empty() && !g_loading_plugin.empty() )
     {
-      //std::cout << "plugin append : "<< g_loading_plugin << " " << itemCategory << " " << itemName << std::endl;
+//      std::cout << "plugin append : "<< g_loading_plugin << " " << itemCategory << " " << itemName << std::endl;
       std::ofstream fout(g_plugin_db_filename, std::ios::app);
       fout << g_loading_plugin << " " << itemCategory << " " << itemName << std::endl;
     }
@@ -99,6 +99,7 @@ namespace onika
 
   void read_plugin_db( const std::string& filename )
   {
+//    std::cout<< "read plugin.db @ "<<filename<<std::endl;
     g_plugin_db_files.clear();
     g_plugin_db.clear();
     std::ifstream fin(filename);
@@ -108,8 +109,9 @@ namespace onika
       fin >> p >> c >> i;
       if( !p.empty() && !c.empty() && !i.empty() )
       {
-        g_plugin_db[c][i] = p;
+        g_plugin_db[c][i].push_back(p);
         g_plugin_db_files.insert( p );
+//        std::cout<< c << " : " << i << " -> "<<p<<std::endl;
       }
     }
   }
@@ -124,9 +126,11 @@ namespace onika
     return & g_plugin_db;
   }
 
-  const std::string& suggest_plugin_for( const std::string& itemCategory, const std::string& itemName )
+  
+  void check_load_plugins_for( const std::string& itemCategory, const std::string& itemName )
   {
-    return g_plugin_db[itemCategory][itemName];
+    std::cout<<"checking auto loads for "<<itemCategory<<" / "<<itemName<<std::endl;
+    load_plugins( g_plugin_db[itemCategory][itemName] );
   }
 
   const std::set<std::string>& loaded_plugins()
@@ -136,7 +140,7 @@ namespace onika
 
   static bool load_plugin_priv( const std::string& filePath)
   {
-    std::cout << "load plugin lib "<<filePath<<std::endl;
+//    std::cout << "load plugin lib "<<filePath<<std::endl;
   	void* handle = dlopen(filePath.c_str(), RTLD_NOW|RTLD_GLOBAL);
   	if( handle == nullptr )
   	{
@@ -192,9 +196,13 @@ namespace onika
         fp = format_string( g_plugin_to_dynlib_format , *it , p );
         ++ it;
       }
-      if( ! quiet_plugin_register() ) lout<<"+ "<<fp<<std::endl;
-      if( ! load_plugin_priv( fp ) ) { lerr<<"Warning, could not load plugin "<<p<<std::endl; }
-      else { ++ n_loaded; }
+      
+      if( g_loaded_dynlibs.find(fp) == g_loaded_dynlibs.end() )
+      {
+        if( ! quiet_plugin_register() ) lout<<"+ "<<fp<<std::endl;
+        if( ! load_plugin_priv( fp ) ) { lerr<<"Warning, could not load plugin "<<p<<std::endl; }
+        else { ++ n_loaded; }
+      }
     }
     g_loading_plugin = loading_plugin_backup;
     return n_loaded;

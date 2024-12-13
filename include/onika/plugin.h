@@ -30,11 +30,11 @@ namespace onika
   void generate_plugin_db( const std::string& filename );
   void plugin_db_register( const std::string& itemCategory, const std::string& itemName );
 
-  using PluginDBMap = std::map< std::string , std::map< std::string,std::string> >;
+  using PluginDBMap = std::map< std::string , std::map< std::string, std::vector<std::string> > >;
   void read_plugin_db( const std::string& filename );
   const PluginDBMap * get_plugin_db();
   const std::set<std::string>& get_plugin_db_files();
-  const std::string& suggest_plugin_for( const std::string& itemCategory, const std::string& itemName );
+  void check_load_plugins_for( const std::string& itemCategory, const std::string& itemName );
 
   void set_plugin_search_dirs(const std::string& default_dir);
   const std::vector<std::string>& plugin_search_dirs();
