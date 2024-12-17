@@ -80,7 +80,7 @@ namespace onika { namespace scg
     
     using CreatorPair = std::pair<std::string, OperatorNodeCreateFunction>;
     std::list< CreatorPair > m_defered_creators_to_register;
-    std::map< std::string, std::vector<OperatorNodeCreateFunction> > m_creators;
+    std::map< std::string, std::list<OperatorNodeCreateFunction> > m_creators;
     YAML::Node m_operator_defaults;
     std::vector< std::map<std::string,std::string> > m_locals_stack;
     bool m_registration_enabled = false;

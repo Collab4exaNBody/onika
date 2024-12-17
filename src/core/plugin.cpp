@@ -50,7 +50,6 @@ namespace onika
 
   void set_plugin_search_dirs(const std::string& str)
   {
-    std::cout << "set_plugin_search_dirs('"<<str<<"')" << std::endl;
     g_plugin_search_dirs.clear();
     std::string::size_type s = 0;
     std::string::size_type e = str.find(':');
@@ -63,9 +62,9 @@ namespace onika
     e = str.length();
     if( e != s ) { g_plugin_search_dirs.push_back( str.substr(s,e-s) ); }
 
-    std::cout << "g_plugin_search_dirs =";
-    for(const auto& p:g_plugin_search_dirs) std::cout<<" "<<p;
-    std::cout<<std::endl;
+    ldbg << "g_plugin_search_dirs =";
+    for(const auto& p:g_plugin_search_dirs) ldbg <<" "<<p;
+    ldbg<<std::endl;
   }
 
   const std::vector<std::string>& plugin_search_dirs()
@@ -129,7 +128,7 @@ namespace onika
   
   void check_load_plugins_for( const std::string& itemCategory, const std::string& itemName )
   {
-    std::cout<<"checking auto loads for "<<itemCategory<<" / "<<itemName<<std::endl;
+    //std::cout<<"checking auto loads for "<<itemCategory<<" / "<<itemName<<std::endl;
     load_plugins( g_plugin_db[itemCategory][itemName] );
   }
 

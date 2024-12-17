@@ -36,12 +36,24 @@ namespace onika
 
   // pre-enable debug output before logging is configured when compiled for Debug target
   // lower case prefix 'dbg:' helps developper see if a debug message happens before logging configuration
-# ifndef NDEBUG
-  LogStreamWrapper ldbg_raw  { 1 , []() -> std::ostream& {return std::cout;} , [](std::ostream& os) -> std::ostream& {return os << "dbg: ";}  };
-# else
-  LogStreamWrapper ldbg_raw;
-# endif
-
+  template<class T>
+  static inline T _if_ONIKA_DEBUG( T a, T b)
+  {
+    const char * env_debug_mode = std::getenv("ONIKA_DEBUG"); // where to look for component plugins to load
+    if( env_debug_mode != nullptr )
+    {
+      std::string s(env_debug_mode);
+      if( s!="0" && s!="false" && s!="FALSE" )
+      {
+        return a;
+      }
+    }
+    return b;
+  }
+  LogStreamWrapper ldbg_raw
+    { 1
+    , _if_ONIKA_DEBUG< std::function<std::ostream&(void)> >( []() -> std::ostream& {return std::cout;} , nullptr )
+    , _if_ONIKA_DEBUG< std::function<std::ostream&(std::ostream&)> >( [](std::ostream& os) -> std::ostream& {return os<<"dbg: ";} , nullptr )  };
   
   void LogStreamWrapper::open( const std::string& file_name )
   {

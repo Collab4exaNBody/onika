@@ -80,6 +80,20 @@ namespace onika
       auto [ main_input_files , cmdline ] = onika::app::parse_command_args( argc , argv );
       auto [ input_data , simulation_node , configuration ] = onika::app::load_yaml_input( main_input_files , cmdline );
 
+      // ========= optionally override debug mode from env. variable ==========
+      const char * env_debug_mode = std::getenv("ONIKA_DEBUG"); // where to look for component plugins to load
+      if( env_debug_mode != nullptr )
+      {
+        std::string s(env_debug_mode);
+        if( s!="0" && s!="false" && s!="FALSE" )
+        {
+          configuration.logging.debug = true;
+          configuration.debug.plugins = true;
+          configuration.debug.files = true;
+          configuration.debug.verbose = 2;
+        }
+      }
+
       // ============= MPI Initialization =============
       const auto [ rank, nb_procs, mt_support, external_mpi_init ] = initialize_mpi( configuration , argc, argv /* , MPI_COMM_WORLD */ );
 
@@ -257,7 +271,7 @@ namespace onika
       {
         std::string pf = onika::config_file_path( f );
         //onika::ldbg
-        std::cout << "load config file "<< pf << std::endl; ldbg << std::flush;
+        ldbg << "load config file "<< pf << std::endl; ldbg << std::flush;
         input_data = onika::yaml::merge_nodes( YAML::Clone(input_data) , onika::yaml::yaml_load_file_abort_on_except(pf) );
       }
 

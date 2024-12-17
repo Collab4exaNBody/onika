@@ -30,6 +30,7 @@ under the License.
 #include <cassert>
 #include <iostream>
 #include <memory>
+#include <ranges>
 
 namespace onika { namespace scg
 {
@@ -54,23 +55,23 @@ namespace onika { namespace scg
     if( ! m_registration_enabled )
     {
       m_defered_creators_to_register.push_back( {name,creator} );
-      return 0;
     }
-  
-    onika::plugin_db_register( "operator" , name );
+    else
+    {  
+      onika::plugin_db_register( "operator" , name );
 
-    if( ! onika::quiet_plugin_register() && m_creators.find(name) == m_creators.end() )
-    {
-      lout<<"  operator    "<< name << std::endl;
-    }
+      if( ! onika::quiet_plugin_register() && m_creators.find(name) == m_creators.end() )
+      {
+        lout<<"  operator    "<< name << std::endl;
+      }
 
-    if( m_creators.find(name) != m_creators.end() )
-    {
-      ldbg<<"  overload    "<< name << std::endl;
+      if( m_creators.find(name) != m_creators.end() )
+      {
+        ldbg<<"  overload    "<< name << std::endl;
+      }
+    
+      m_creators[name].push_front( creator );
     }
-  
-    m_creators[name].push_front( creator );
-    //return m_creators.size();
   }
 
   void OperatorNodeFactory::enable_registration()
@@ -206,12 +207,11 @@ namespace onika { namespace scg
       find_operator_defaults(name, node, locals);
     }
     
-    auto it_range = m_creators.equal_range( name );
-
+    auto it_range = std::views::all( m_creators[name] );
     std::ostringstream err_mesg;
 
     // first check if operator name is an alias for another one
-    if( it_range.first == m_creators.end() )
+    if( std::ranges::empty(it_range) )
     {
       bool alias_found = false;      
       do
@@ -223,7 +223,7 @@ namespace onika { namespace scg
           {
             ldbg << "operator alias '" << name << "' replaced with '"<<p.second.as<std::string>()<<"'"<<std::endl;
             name = p.second.as<std::string>();
-            it_range = m_creators.equal_range( name );
+            it_range = std::views::all( m_creators[name] );
             if( m_operator_defaults[name] )
             {
               ldbg << "\t'"<<name<<"' has a default definition, using it" <<std::endl;
@@ -235,35 +235,18 @@ namespace onika { namespace scg
         }
       } while( alias_found );
     }
-
-    // tells if an operator, when not found in any factory, is allowed to be considered as an implicit batch operator
-    if( it_range.first == m_creators.end() )
-    {
-      err_mesg<<"No candidate available for operator '"<<name<<"' in any candidate plugin"<< std::endl;
-      throw OperatorCreationException( err_mesg.str() );
-    }
     
-    if( it_range.first == m_creators.end() )
+    if( std::ranges::empty(it_range) )
     {
       // if operator name is not known, it indicates it's implicitly a batch operator.
       if( OperatorNodeFactory::debug_verbose_level() >= 2 )
       {
-        ldbg << name << " is implicitly a batch operator" << std::endl;
+        ldbg << "Create implicit bacth operator named '" << name << "'" << std::endl;
       }
       if( ! node.IsNull() )
       {
-        it_range = m_creators.equal_range( "batch" );
-        if( it_range.first == m_creators.end() ) // we have to find plugin containing the batch operator factory
-        {
-          std::string suggested_plugin = onika::suggest_plugin_for( "operator" , "batch" );
-          if( ! suggested_plugin.empty() )
-          {
-            ldbg << "auto loading "<< suggested_plugin<<" to find operator 'batch'" << std::endl;
-            onika::load_plugins( { suggested_plugin } );
-            it_range = m_creators.equal_range( "batch" );
-          }
-        }
-        if( it_range.first == m_creators.end() )
+        it_range = std::views::all( m_creators["batch"] );
+        if( std::ranges::empty(it_range) )
         {
           err_mesg << "Internal error: can't find operator 'batch' in factory for implicit batch '"<<name<<"'" << std::endl;
           throw OperatorCreationException( err_mesg.str() );
@@ -285,24 +268,27 @@ namespace onika { namespace scg
     int n_attempts = 0;
     err_mesg << "Factory was unable to create operator '"<<name<<"'"<<std::endl;
 
-    std::shared_ptr<OperatorNode> op;
-    for( auto it = it_range.first ; op == nullptr && it != it_range.second ; ++it )
+    std::shared_ptr<OperatorNode> op = nullptr;
+    for( const auto& creator : it_range )
     {
-      try
+      if( op == nullptr )
       {
-        //std::cout<<"\nattempt to build operator '"<<name<<"' from node :\n";
-        //onika::yaml::dump_node_to_stream( std::cout , node );
-        //std::cout<<std::endl;
-        YAML::Node ncopy = YAML::Clone( node );
-        op = it->second ( ncopy , flavor );
-        //std::cout<<"Ok"<<std::endl;
-      }
-      catch( const OperatorCreationException& e )
-      {
-        ++ n_attempts;
-        err_mesg << "Attempt "<< n_attempts <<" failed for the following reason :" << std::endl;
-        err_mesg << "===========================================" << std::endl;
-        err_mesg << onika::str_indent( e.what() , 2 , ' ' , "| " );
+        try
+        {
+          //std::cout<<"\nattempt to build operator '"<<name<<"' from node :\n";
+          //onika::yaml::dump_node_to_stream( std::cout , node );
+          //std::cout<<std::endl;
+          YAML::Node ncopy = YAML::Clone( node );
+          op = creator ( ncopy , flavor );
+          //std::cout<<"Ok"<<std::endl;
+        }
+        catch( const OperatorCreationException& e )
+        {
+          ++ n_attempts;
+          err_mesg << "Attempt "<< n_attempts <<" failed for the following reason :" << std::endl;
+          err_mesg << "===========================================" << std::endl;
+          err_mesg << onika::str_indent( e.what() , 2 , ' ' , "| " );
+        }
       }
     }
     
@@ -312,11 +298,14 @@ namespace onika { namespace scg
       m_locals_stack.pop_back();
     }
 
+    // finally, if all attempts to create an operator failed, throw an exception with error messages history
     if( op == nullptr )
     {
       throw OperatorCreationException( err_mesg.str() );
     }
-        
+
+    // automatic operator name assignment if user did not choose one explicitly
+    // Note: use can force operator name when creating a batch and using key 'name' in extended syntax mode
     if( op->name().empty() )
     {
       op->set_name( name );

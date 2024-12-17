@@ -446,42 +446,48 @@ file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(ONIKA_LIBRARIES onika)\n")
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(ONIKA_BUILD_CUDA ${ONIKA_BUILD_CUDA})\n")
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(ONIKA_ENABLE_HIP ${ONIKA_ENABLE_HIP})\n")
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(ONIKA_RUN ${CMAKE_INSTALL_PREFIX}/bin/onikarun)\n")
+file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(ONIKA_EXEC ${CMAKE_INSTALL_PREFIX}/bin/onika-exec)\n")
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(onika_DIR ${CMAKE_INSTALL_PREFIX})\n")
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(onika_FOUND TRUE)\n")
 
 install(FILES ${ONIKA_CMAKE_PACKAGE} DESTINATION ${CMAKE_INSTALL_PREFIX})
 
+# binaries to use prior to installation
+set(ONIKA_EXEC ${PROJECT_BINARY_DIR}/bin/onika-exec)
+set(ONIKA_RUN ${PROJECT_BINARY_DIR}/onikarun)
+
 # generate helper script to setup environment from installed location
 set(ONIKA_SETUP_ENV_COMMANDS "${ONIKA_SETUP_ENV_COMMANDS}" CACHE STRING "Environment setup commands")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
-  "# Onika environment setup, as it was set during installation.\n"
-  "# Please run this script before compiling your plugins or running your app.\n"
+  "# Onika environment configuration\n"
   "${ONIKA_SETUP_ENV_COMMANDS}\n"
-  "[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:\$LD_LIBRARY_PATH\n"
-  "[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib\n"
-  "export LD_LIBRARY_PATH\n")
+  "LIBPATH_APPEND=\"\"\n"
+  "[ `tr ':' '\n'<<<\"${LD_LIBRARY_PATH}\"|grep -c ${CMAKE_INSTALL_PREFIX}/lib` -ge 1 ] || LIBPATH_APPEND=${CMAKE_INSTALL_PREFIX}/lib\n"
+  "[ \$LD_LIBRARY_PATH ] && [ \$LIBPATH_APPEND ] && LIBPATH_APPEND=:\$LIBPATH_APPEND\n"
+  "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH\$LIBPATH_APPEND\n"
+  "export ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config\n"
+  "export ONIKA_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/plugins\n"
+  "[ \$ONIKA_DEBUG ] && echo \"Onika environment setup : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
 
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/onikarun
+  "#!/bin/bash\n"
   "source ${CMAKE_INSTALL_PREFIX}/bin/setup-env.sh\n"
-  "[ \$ONIKA_CONFIG_PATH ] || ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config\n"
-  "[ \$ONIKA_PLUGIN_PATH ] || ONIKA_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/plugins\n"
-  "export ONIKA_CONFIG_PATH\n"
-  "export ONIKA_PLUGIN_PATH\n"
   "${CMAKE_INSTALL_PREFIX}/bin/onika-exec \$*\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/onikarun DESTINATION bin)
 
 # generate helper script to setup environment to allow running from build directory without install
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/onikarun
+file(WRITE ${ONIKA_RUN}
+  "#!/bin/bash\n"
   "${ONIKA_SETUP_ENV_COMMANDS}\n"
-  "[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/lib:\$LD_LIBRARY_PATH\n"
-  "[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/lib\n"
-  "[ \$ONIKA_CONFIG_PATH ] || ONIKA_CONFIG_PATH=${CMAKE_CURRENT_SOURCE_DIR}/data/config\n"
-  "[ \$ONIKA_PLUGIN_PATH ] || ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins\n"
-  "export LD_LIBRARY_PATH\n"
-  "export ONIKA_CONFIG_PATH\n"
-  "export ONIKA_PLUGIN_PATH\n"
-  "${PROJECT_BINARY_DIR}/bin/onika-exec \$*\n")
+  "LIBPATH_APPEND=\"\"\n"
+  "[ `tr ':' '\\n'<<<\"${LD_LIBRARY_PATH}\"|grep -c ${PROJECT_BINARY_DIR}/lib` -ge 1 ] || LIBPATH_APPEND=${PROJECT_BINARY_DIR}/lib\n"
+  "[ \$LD_LIBRARY_PATH ] && [ \$LIBPATH_APPEND ] && LIBPATH_APPEND=:\$LIBPATH_APPEND\n"
+  "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH\$LIBPATH_APPEND\n"
+  "export ONIKA_CONFIG_PATH=${CMAKE_CURRENT_SOURCE_DIR}/data/config\n"
+  "export ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins\n"
+  "[ \$ONIKA_DEBUG ] && echo \"Onika build : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n"
+  "${ONIKA_EXEC} \$*\n")
 file(CHMOD ${CMAKE_CURRENT_BINARY_DIR}/onikarun FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 
 # compile tools and apps
