@@ -186,13 +186,12 @@ namespace onika { namespace scg
   std::shared_ptr<OperatorNode> OperatorNodeFactory::make_operator(const std::string& in_name, YAML::Node node, const OperatorNodeFlavor& in_flavor)
   {  
     std::string name = resolve_operator_name(in_name);
-    onika::check_load_plugins_for( "operator" , name );
 
     if( s_debug_verbose_level >= 1 )
     {
       ldbg << "make_operator "<<in_name;
       if( name != in_name ) { ldbg << " (renamed to "<<name<<")"; }
-      ldbg << " ("<<m_creators.count(name)<<" candidates)" <<std::endl;
+      ldbg << std::endl;
     }
    
     // store some special attribute to flavor map, not clean but useful
@@ -207,11 +206,10 @@ namespace onika { namespace scg
       find_operator_defaults(name, node, locals);
     }
     
-    auto it_range = std::views::all( m_creators[name] );
     std::ostringstream err_mesg;
 
     // first check if operator name is an alias for another one
-    if( std::ranges::empty(it_range) )
+    //if( std::ranges::empty(it_range) )
     {
       bool alias_found = false;      
       do
@@ -223,7 +221,6 @@ namespace onika { namespace scg
           {
             ldbg << "operator alias '" << name << "' replaced with '"<<p.second.as<std::string>()<<"'"<<std::endl;
             name = p.second.as<std::string>();
-            it_range = std::views::all( m_creators[name] );
             if( m_operator_defaults[name] )
             {
               ldbg << "\t'"<<name<<"' has a default definition, using it" <<std::endl;
@@ -234,6 +231,14 @@ namespace onika { namespace scg
           }
         }
       } while( alias_found );
+    }
+
+    onika::check_load_plugins_for( "operator" , name );
+    auto it_range = std::views::all( m_creators[name] );
+
+    if( s_debug_verbose_level >= 1 )
+    {
+      ldbg << "factory has "<<it_range.size()<<" candidates" <<std::endl;
     }
     
     if( std::ranges::empty(it_range) )

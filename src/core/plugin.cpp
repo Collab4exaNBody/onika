@@ -128,7 +128,9 @@ namespace onika
   
   void check_load_plugins_for( const std::string& itemCategory, const std::string& itemName )
   {
-    //std::cout<<"checking auto loads for "<<itemCategory<<" / "<<itemName<<std::endl;
+    //std::cout<<"check_load_plugins_for("<<itemCategory<<","<<itemName<<") =>";
+    //for(const auto& x:g_plugin_db[itemCategory][itemName]) std::cout<<" "<<x;
+    //std::cout<<std::endl;
     load_plugins( g_plugin_db[itemCategory][itemName] );
   }
 
