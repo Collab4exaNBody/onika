@@ -82,13 +82,12 @@ namespace memory
   struct GenericHostAllocator
   {
     static inline constexpr size_t DefaultAlignBytes = std::max( MINIMUM_CUDA_ALIGNMENT , DEFAULT_ALIGNMENT );
-
+    static inline constexpr size_t add_info_size = sizeof(size_t) + sizeof(uint32_t);
+    
 #   ifndef NDEBUG
-    static constexpr size_t add_info_size = sizeof(size_t) + sizeof(uint32_t);
     static bool s_enable_debug_log;
     static void set_debug_log(bool b);
 #   else
-    static constexpr size_t add_info_size = sizeof(uint32_t);
     static inline constexpr void set_debug_log(bool){}
 #   endif
 

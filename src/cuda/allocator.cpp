@@ -76,7 +76,6 @@ namespace onika
     {
       MemoryChunkInfo info;
       info.alloc_base = ptr;
-#     ifndef NDEBUG
       info.alloc_size = * reinterpret_cast<size_t*>( reinterpret_cast<uint8_t*>(ptr) + s );
       if( s != info.alloc_size )
       {
@@ -84,9 +83,6 @@ namespace onika
         std::abort();
       }
       info.alloc_flags = * reinterpret_cast<uint32_t*>( reinterpret_cast<uint8_t*>(ptr) + s + sizeof(size_t) );
-#     else
-      info.alloc_flags = * reinterpret_cast<uint32_t*>( reinterpret_cast<uint8_t*>(ptr) + s );
-#     endif
 
       auto mem_type = info.mem_type();
       unsigned int a = info.alignment();
@@ -132,7 +128,6 @@ namespace onika
           if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"CUDA: free "<<info.size()<<" bytes @"<<info.base_ptr()<<" align="<<info.alignment()<<std::endl; }
 #         endif
 #         ifdef ONIKA_CUDA_VERSION
-          // lout << "cudaFree(@"<<ptr<<","<<s<<") a="<<alignment<<std::endl;
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE(info.alloc_base) );
 #         else
           std::cerr << "Free memory with type CUDA_HOST but cuda is not available" << std::endl;
@@ -207,16 +202,16 @@ namespace onika
       if( ptr != nullptr ) { std::memset( ptr , 0 , s + add_info_size ); }
 #     endif
 
+      // final check of memory chunk with verification flags and size markers
       uint32_t alloc_flags = static_cast<uint32_t>(alloc_pol) | ( static_cast<uint32_t>(a) << 8 );
-#     ifndef NDEBUG
       * reinterpret_cast<size_t*>( reinterpret_cast<uint8_t*>(ptr) + s ) = s;
       * reinterpret_cast<uint32_t*>( reinterpret_cast<uint8_t*>(ptr) + s + sizeof(size_t) ) = alloc_flags;
       const auto minfo = memory_info(ptr,s);
-      assert( minfo.alloc_size == s );
-      assert( minfo.alloc_flags == alloc_flags );
-#     else
-      * reinterpret_cast<uint32_t*>( reinterpret_cast<uint8_t*>(ptr) + s ) = alloc_flags;
-#     endif
+      if( minfo.alloc_size != s || minfo.alloc_flags != alloc_flags )
+      {
+        std::cerr<< "onika::memory::GenericHostAllocator::allocate("<<s<<","<<a<<") : Inernal error : created memory block is corrupted : alloc_size "<<minfo.alloc_size<<"/"<<s<<" , alloc_flags "<<minfo.alloc_flags<<"/"<<alloc_flags<<std::endl;
+        std::abort();
+      }
       
       return ptr;
     }
