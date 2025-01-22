@@ -21,6 +21,8 @@ under the License.
 #include <onika/app/config_struct.h>
 
 #include <onika/cuda/cuda.h>
+#include <onika/physics/units.h>
+
 #include <onika/plugin.h>
 #include <vector>
 #include <cstdint>
@@ -100,11 +102,16 @@ namespace onika
       ONIKA_APP_CONFIG_Item( StringVector , gpu_enable_filter       , {}                             , "list of regular expressions matching paths of operators with GPU enabled, regardless of gpu_disable_filter settings" );
     ONIKA_APP_CONFIG_End();
 
+    ONIKA_APP_CONFIG_Begin( physics                                                                  , "Physics parameters and constants" );
+      ONIKA_APP_CONFIG_Item( onika::physics::UnitSystem , units , onika::physics::SI                 , "Default unit system for conversions to internal real values");
+    ONIKA_APP_CONFIG_End();
+
     ONIKA_APP_CONFIG_Begin( configuration                                , "Application configuration");  
       ONIKA_APP_CONFIG_Struct( logging );
       ONIKA_APP_CONFIG_Struct( profiling );
       ONIKA_APP_CONFIG_Struct( debug );
       ONIKA_APP_CONFIG_Struct( onika );
+      ONIKA_APP_CONFIG_Struct( physics );
 
       ONIKA_APP_CONFIG_Item( bool          , nogpu               , false , "globally disables GPU usage, even if some are present, and prevent any call to Cuda or HIP libraries");
       ONIKA_APP_CONFIG_Item( bool          , mpimt               , true  , "enables MPI_THREAD_MULTIPLE feature if available");

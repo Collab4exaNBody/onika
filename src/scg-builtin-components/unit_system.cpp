@@ -33,21 +33,19 @@ namespace onika { namespace scg_builtin
 
   class ApplicationUnitSystem : public onika::scg::OperatorNode
   {
-    using UnitSystem = onika::physics::UnitSystem;
-    static inline UnitSystem default_internal_unit_system()
-    {
-      using namespace onika::physics;
-      return { { ONIKA_INTERNAL_UNIT_SYSTEM } };
-    }
-  
-    ADD_SLOT( UnitSystem , unit_system , INPUT , default_internal_unit_system() , DocString{"Defines default internal unit system used for quantity conversions whe no unit system specified."} );
-    ADD_SLOT( bool       , verbose     , INPUT , false , DocString{"If true prints a report of defined internal units used by default."} );
+    using UnitSystem = onika::physics::UnitSystem;  
+    ADD_SLOT( UnitSystem , unit_system , INPUT , OPTIONAL , DocString{"Defines default internal unit system used for quantity conversions whe no unit system specified."} );
+    ADD_SLOT( bool       , verbose     , INPUT , false    , DocString{"If true prints a report of defined internal units used by default."} );
 
   public:
 
     inline void execute () override final
-    { 
-      onika::physics::set_internal_unit_system( *unit_system );
+    {
+      if( unit_system.has_value() )
+      {
+        onika::physics::set_internal_unit_system( *unit_system );
+      }
+      const auto& ius = onika::physics::internal_unit_system();
       if( *verbose )
       {
         lout << "Internal unit system for default conversions" << std::endl;
@@ -58,22 +56,11 @@ namespace onika { namespace scg_builtin
         {
           lout << format_string("| %-12s| %-18s| %-7s|",
                   std::string(onika::physics::g_unit_class_str[i]) ,
-                  std::string(unit_system->m_units[i].m_name) ,
-                  std::string(unit_system->m_units[i].m_short_name) ) << std::endl;
-        lout << "+-------------+-------------------+--------+" << std::endl;
+                  std::string(ius.m_units[i].m_name) ,
+                  std::string(ius.m_units[i].m_short_name) ) << std::endl;
+          lout << "+-------------+-------------------+--------+" << std::endl;
         }
       }
-    }
-
-    inline void yaml_initialize(const YAML::Node& node) override final
-    {
-      YAML::Node tmp;
-      if( ! node["unit_system"] )
-      {
-        tmp["unit_system"] = node;
-      }
-      else { tmp = node; }
-      this->OperatorNode::yaml_initialize(tmp);
     }
 
   };

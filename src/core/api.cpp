@@ -131,6 +131,9 @@ namespace onika
       // print help if requested. if so, abort execution right after
       if( print_help(configuration,argv[0],plugin_db) ) { ctx->m_return_code=0; return ctx; }
 
+      // setup default internal unit system before components are assembled
+      onika::physics::set_internal_unit_system( configuration.physics.units );
+
       // prepare operator assembly strategy
       auto simulation_graph = onika::app::build_simulation_graph( configuration , simulation_node );
             

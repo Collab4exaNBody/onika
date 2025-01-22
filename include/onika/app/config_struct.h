@@ -23,6 +23,7 @@ under the License.
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <onika/physics/units.h>
 
 namespace onika
 {
@@ -64,6 +65,26 @@ namespace onika
           YAML::Emitter yaml_out;
           yaml_out << *state;
           return yaml_out.c_str() ;
+        }
+      }
+    };
+
+    template<>
+    struct AppConfigOptionState<onika::physics::UnitSystem>
+    {
+      static inline std::string to_string(const onika::physics::UnitSystem* state)
+      {
+        static const std::string nullstr("<null>");
+        if(state==nullptr) return nullstr;
+        else
+        {
+          std::ostringstream oss;
+          for(int i=0 ; i <= onika::physics::NUMBER_OF_UNIT_CLASSES ; i++)
+          {
+            if( i > 0 ) oss <<", ";
+            oss << onika::physics::g_unit_class_str[i] << "=" << state->m_units[i].m_name;
+          }
+          return oss.str();
         }
       }
     };
