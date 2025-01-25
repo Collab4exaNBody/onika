@@ -40,11 +40,27 @@ namespace onika { namespace scg
       for(long i=0;i<m_iterations;i++)
       {
         x = x + y;
-        y = pow(x,sin(x));
+        y = pow(x, sin(x) );
       }
       m_array[idx] = x * y;
     }
   };
+
+  struct AtomicBenchmarkFunctor
+  {
+    double * const __restrict__ m_array = nullptr;
+    const long m_iterations = 0;
+  
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t idx ) const
+    {
+      double x = m_array[idx];
+      double y = x*x - 2*x + 1;
+      ONIKA_CU_ATOMIC_MIN( m_array[idx] , y );
+    }
+  };
+
+
+
 
 } }
 

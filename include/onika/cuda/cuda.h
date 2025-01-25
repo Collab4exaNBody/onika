@@ -53,10 +53,8 @@ under the License.
 #define ONIKA_ALWAYS_INLINE inline __attribute__((always_inline))
 
 // do we have access to atomicMin and atomicMax on double types ?
-#ifdef __CUDA_ARCH__
-#if __CUDA_ARCH__ >= 90
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
 #define ONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE 1
-#endif
 #endif
 
 namespace onika
@@ -303,12 +301,12 @@ namespace onika { namespace cuda { namespace _details {
 }
 
 // fallback implementation for cuda functions not present in olded releases
-# ifndef ONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE
-ONIKA_DEVICE_FUNC inline double atomicMin(double* xp , double a)
+#ifndef ONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE
+ONIKA_DEVICE_FUNC inline double atomicMin(double* xp , double y)
 {
   ONIKA_CU_ABORT();
 }
-ONIKA_DEVICE_FUNC inline double atomicMax(double* xp , double a)
+ONIKA_DEVICE_FUNC inline double atomicMax(double* xp , double y)
 {
   ONIKA_CU_ABORT();
 }
