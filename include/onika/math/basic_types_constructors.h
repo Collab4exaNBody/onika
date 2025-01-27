@@ -51,6 +51,11 @@ namespace onika { namespace math
     return Mat3d{a.x,b.x,c.x, a.y,b.y,c.y, a.z,b.z,c.z};
   }
 
+  ONIKA_HOST_DEVICE_FUNC inline Vec3d make_vec3d( const IJK& loc )
+  {
+    return Vec3d{ static_cast<double>(loc.i) , static_cast<double>(loc.j) , static_cast<double>(loc.k) };
+  }
+
   ONIKA_HOST_DEVICE_FUNC inline constexpr Mat3d make_identity_matrix()
   {
     return Mat3d { 1.,0.,0., 0.,1.,0., 0.,0.,1. };
