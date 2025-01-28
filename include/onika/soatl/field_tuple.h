@@ -24,6 +24,7 @@ under the License.
 #include <assert.h>
 
 #include <onika/soatl/constants.h>
+#include <onika/soatl/field_id.h>
 #include <onika/variadic_template_utils.h>
 #include <onika/flat_tuple.h>
 #include <onika/cuda/cuda.h>

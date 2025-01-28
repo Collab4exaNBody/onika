@@ -74,6 +74,29 @@ namespace onika
       return x<lo ? lo : ( x>hi ? hi : x ) ;
     }
 
+    ONIKA_HOST_DEVICE_FUNC inline constexpr double pow_ce_uint( double x , unsigned int p )
+    {
+      if(p==0) return 1.0;
+      if(p%2==0)
+      {
+        double y = pow_ce_uint(x,p/2);
+        return y*y;
+      }
+      else
+      {
+        return x * pow_ce_uint(x,p-1);
+      }
+    }
+
+    ONIKA_HOST_DEVICE_FUNC inline constexpr double pow_ce_dint( double x , double p )
+    {
+      if(p < 0.0) return 1.0 / pow_ce_dint( x , -p );
+      if(p == 0.0) return 1.0;
+      unsigned int ip = static_cast<int>(p);
+      if(p != ip) return numeric_limits<double>::quiet_NaN;
+      return pow_ce_uint(x,ip);
+    }
+
   }
 
 }
