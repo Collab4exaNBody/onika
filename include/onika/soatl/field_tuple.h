@@ -24,6 +24,7 @@ under the License.
 #include <assert.h>
 
 #include <onika/soatl/constants.h>
+#include <onika/soatl/field_id.h>
 #include <onika/variadic_template_utils.h>
 #include <onika/flat_tuple.h>
 #include <onika/cuda/cuda.h>
@@ -203,6 +204,8 @@ namespace onika
       static constexpr size_t TupleSize = 0;
       using FieldIdsTuple = FlatTuple< > ;
       using TupleType = FlatTuple< > ;
+      template<typename field_id> using HasField = std::false_type;
+      template<typename field_id> static inline constexpr bool has_field( FieldId<field_id> ) { return false; }
     };
 
     template<class Fids> struct _FieldTupleFromFieldIds;

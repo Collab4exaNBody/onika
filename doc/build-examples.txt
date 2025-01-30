@@ -1,13 +1,13 @@
 #
 # Ubuntu 22.04 g++-11.4.0 X Cuda 12
 #
-ONIKA_INSTAL_DIR=${HOME}/local/onika
+ONIKA_INSTALL_DIR=${HOME}/local/onika
 ONIKA_SRC_DIR=${HOME}/dev/onika
 YAML_CPP_INSTALL_DIR=${HOME}/local/yaml-cpp-0.6.3/lib/cmake/yaml-cpp
 ONIKA_SETUP_ENV_COMMANDS=""
 eval ${ONIKA_SETUP_ENV_COMMANDS}
 cmake -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTAL_DIR} \
+  -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTALL_DIR} \
   -Dyaml-cpp_DIR=${YAML_CPP_INSTALL_DIR} \
   -DONIKA_BUILD_CUDA=ON \
   -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \

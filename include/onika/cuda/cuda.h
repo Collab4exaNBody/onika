@@ -52,6 +52,11 @@ under the License.
 
 #define ONIKA_ALWAYS_INLINE inline __attribute__((always_inline))
 
+// do we have access to atomicMin and atomicMax on double types ?
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
+#define ONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE 1
+#endif
+
 namespace onika
 {
   namespace cuda
@@ -150,7 +155,6 @@ namespace onika
 
 #   define ONIKA_CU_ABORT() ::onika::cuda::__onika_cu_abort()
 
-
 /************** end of Device code definitions ***************/
 #else 
 /************** start of HOST code definitions ***************/
@@ -229,6 +233,8 @@ namespace onika { namespace cuda { namespace _details {
 /************** begin cuda-c code definitions ***************/
 #   if defined(__CUDACC__) || defined(__HIPCC__)
 
+#   define ONIKA_GPU_FRONTEND_COMPILER onika::TrueType // code being compiled uses GPU fronted compiler, thus supports GPU Kernel execution
+
 #   define ONIKA_DEVICE_KERNEL_FUNC __global__
 #   ifdef __HIPCC__
 #   define ONIKA_STATIC_INLINE_KERNEL static
@@ -251,6 +257,8 @@ namespace onika { namespace cuda { namespace _details {
 #   else
 /************** begin of HOST code definitions ***************/
 
+#   define ONIKA_GPU_FRONTEND_COMPILER onika::FalseType // host compiler (not nvccc nor hipcc) is used, thus it is not possible to run GPU Kernels
+
 #   define ONIKA_HOST_FUNC /**/
 #   define ONIKA_DEVICE_FUNC /**/
 #   define ONIKA_HOST_DEVICE_FUNC /**/
@@ -265,8 +273,6 @@ namespace onika { namespace cuda { namespace _details {
     }while(false)
 #   endif
 /************** end host code definitions ***************/
-
-
 
 /***************************************************************/
 /****************** Cuda hardware intrinsics *******************/
@@ -294,6 +300,17 @@ namespace onika { namespace cuda { namespace _details {
   }
 }
 
+// fallback implementation for cuda functions not present in olded releases
+#ifndef ONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE
+ONIKA_DEVICE_FUNC inline double atomicMin(double* xp , double y)
+{
+  ONIKA_CU_ABORT();
+}
+ONIKA_DEVICE_FUNC inline double atomicMax(double* xp , double y)
+{
+  ONIKA_CU_ABORT();
+}
+# endif
 
 // user helpers to select implementations depending on Cuda or Host execution space
 #include <onika/integral_constant.h>
@@ -305,6 +322,7 @@ namespace onika
     typedef ONIKA_GPU_DEVICE_EXECUTION_TYPE gpu_device_execution_t; // DO NOT use this one anymore, it breaks C++'s ODF
 
 #   define gpu_device_execution() ONIKA_GPU_DEVICE_EXECUTION_TYPE{}
+#   define gpu_frontend_compiler() ONIKA_GPU_FRONTEND_COMPILER{}
   }
 }
 

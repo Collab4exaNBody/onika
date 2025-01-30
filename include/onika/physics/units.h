@@ -24,6 +24,7 @@ under the License.
 
 #include <onika/physics/constants.h>
 #include <onika/cuda/cuda.h>
+#include <onika/cuda/cuda_math.h>
 
 #define EXANB_UNITS_V2 1
 #define EXANB_UNITS_DEPRECATED [[deprecated]]
@@ -224,12 +225,18 @@ namespace onika
      * Quantity has an implicit conversion operator to double, wich converts expressed value to application's internal unit system
      * Exemple :
      * using namespace onika::physics;
-     * Quantity q = EXANB_QUANTITY( 3.2 * (g^3) / s ); // EXANB_QUANTITY macro allows to use short name unit definitons in online expressions
+     * Quantity q = ONIKA_QUANTITY( 3.2 * (g^3) / s ); // ONIKA_QUANTITY macro allows to use short name unit definitons in online expressions
      * Quantity r = 3.2 * (gram^3) / second; // same as above
      * double a = q;
      * double b = q.convert(); // same as above
      * double c = q.convert( internal_unit_system ); // same as above
      * double x = q.convert( SI ); // converts to Internal System units based value
+     *
+     * Note :
+     * to enable constexpr quantity without using external libs (like GCEM)
+     * or futuristic C++26 standard which enables constexpr math functions,
+     * we make the strong assumtion that unit powers cannot be fractional, even though they're stored as double
+     * thus, we only need constexpr a pow that computes integral powers, which is implemented in onika::cuda::pow_ce_dint
      */
     struct Quantity
     {
@@ -237,8 +244,9 @@ namespace onika
       UnitSystem m_system = SI;
       UnitPowers m_unit_powers = { { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. } };
 
-      ONIKA_HOST_DEVICE_FUNC inline double convert( const UnitSystem& other ) const
+      ONIKA_HOST_DEVICE_FUNC inline constexpr double convert( const UnitSystem& other ) const
       {
+        using onika::cuda::pow_ce_dint;
         double value = m_value;
         for(int i=0;i<NUMBER_OF_UNIT_CLASSES;i++)
         {
@@ -248,7 +256,7 @@ namespace onika
           } 
           if( m_system.m_units[i].m_to_si != other.m_units[i].m_to_si )
           {
-            value *= pow( m_system.m_units[i].m_to_si / other.m_units[i].m_to_si , m_unit_powers.m_powers[i] );
+            value *= pow_ce_dint( m_system.m_units[i].m_to_si / other.m_units[i].m_to_si , m_unit_powers.m_powers[i] );
           }
         }
         return value;      
@@ -265,8 +273,9 @@ namespace onika
      * Multiplies 2 quantities.
      * Converts qrhs units to the units used in qlhs if needed.
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( const Quantity& qlhs , const Quantity& qrhs )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator * ( const Quantity& qlhs , const Quantity& qrhs )
     {
+      using onika::cuda::pow_ce_dint;
       Quantity q = qlhs;
       q.m_value *= qrhs.m_value;
       for(int i=0;i<NUMBER_OF_UNIT_CLASSES;i++)
@@ -282,7 +291,7 @@ namespace onika
             }
             else
             {
-              q.m_value *= pow( qrhs.m_system.m_units[i].m_to_si / q.m_system.m_units[i].m_to_si , qrhs.m_unit_powers.m_powers[i] );
+              q.m_value *= pow_ce_dint( qrhs.m_system.m_units[i].m_to_si / q.m_system.m_units[i].m_to_si , qrhs.m_unit_powers.m_powers[i] );
               q.m_unit_powers.m_powers[i] += qrhs.m_unit_powers.m_powers[i];
             }
           }
@@ -300,7 +309,7 @@ namespace onika
      * Raise a quantity to a power.
      * For instance, if q = 2 * m * (s^-2) then q^2 = 4 * (m^2) * (s^-4)
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator ^ ( const Quantity& qlhs , double power )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator ^ ( const Quantity& qlhs , double power )
     {
       Quantity q = qlhs;
       q.m_value = pow( q.m_value , power );
@@ -314,7 +323,7 @@ namespace onika
     /*
      * When a scalar value mutliplies a UnitDefinition, it builds up a quantity
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( double value , const UnitDefinition& U )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator * ( double value , const UnitDefinition& U )
     {
       Quantity q = { value };
       if( U.m_class>=0 && U.m_class < NUMBER_OF_UNIT_CLASSES )
@@ -343,7 +352,7 @@ namespace onika
     /*
      * When a UnitDefinition is raised to a power, it builds up a quantity with value=1.0
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator ^ ( const UnitDefinition& U , double power )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator ^ ( const UnitDefinition& U , double power )
     {
       return ( 1.0 * U ) ^ power;
     }
@@ -352,7 +361,7 @@ namespace onika
      * Scalar multiplication of a quantity.
      * Exemple : 5.0 * ( 1.0 * m * (s^-2) ) = 5.0 * m * (s^-2)
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( double value , const Quantity& qrhs )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator * ( double value , const Quantity& qrhs )
     {
       Quantity q = qrhs;
       q.m_value *= value;
@@ -362,7 +371,7 @@ namespace onika
     /*
      * equivalent to building a quantity from 1.0 * UnitDefinition, and the nmultiplying the two quantities
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( const Quantity& qlhs , const UnitDefinition& U )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator * ( const Quantity& qlhs , const UnitDefinition& U )
     {
       return qlhs * ( 1.0 * U );
     }
@@ -370,7 +379,7 @@ namespace onika
     /*
      * qa / qb = qa * ( qb^-1 )
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( const Quantity& qlhs , const Quantity& qrhs )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator / ( const Quantity& qlhs , const Quantity& qrhs )
     {
       return qlhs * ( qrhs ^ -1.0 );
     }
@@ -378,7 +387,7 @@ namespace onika
     /*
      * qa / U = qa * ( ( 1.0 * U ) ^-1 )
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( const Quantity& qlhs , const UnitDefinition& U )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator / ( const Quantity& qlhs , const UnitDefinition& U )
     {
       return qlhs * ( ( 1.0 * U ) ^ -1.0 );
     }
@@ -386,7 +395,7 @@ namespace onika
     /*
      * x / U = x * ( ( 1.0 * U ) ^-1 )
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( double x , const UnitDefinition& U )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator / ( double x , const UnitDefinition& U )
     {
       return x * ( ( 1.0 * U ) ^ -1.0 );
     }
@@ -394,7 +403,7 @@ namespace onika
     /*
      * x / q = x * ( q^-1 )
      */
-    ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( double x , const Quantity& qrhs )
+    ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator / ( double x , const Quantity& qrhs )
     {
       return x * ( qrhs ^ -1.0 );
     }
@@ -482,33 +491,33 @@ namespace YAML
 }
 
 // allow use of quantities without parsing strings
-#define EXANB_QUANTITY( __expr ) [&]() -> ::onika::physics::Quantity { \
-  using namespace ::onika::physics; \
-  [[maybe_unused]] constexpr auto m = meter; \
-  [[maybe_unused]] constexpr auto mm = millimeter; \
-  [[maybe_unused]] constexpr auto um = micron; \
-  [[maybe_unused]] constexpr auto nm = nanometer; \
-  [[maybe_unused]] constexpr auto ang = angstrom; \
-  [[maybe_unused]] constexpr auto kg = kilogram; \
-  [[maybe_unused]] constexpr auto g = gram; \
-  [[maybe_unused]] constexpr auto Da = atomic_mass_unit; \
-  [[maybe_unused]] constexpr auto h = hour; \
-  [[maybe_unused]] constexpr auto s = second; \
-  [[maybe_unused]] constexpr auto us = microsecond; \
-  [[maybe_unused]] constexpr auto ns = nanosecond; \
-  [[maybe_unused]] constexpr auto ps = picosecond; \
-  [[maybe_unused]] constexpr auto fs = fetosecond; \
-  [[maybe_unused]] constexpr auto C = coulomb; \
-  [[maybe_unused]] constexpr auto ec = elementary_charge; \
-  [[maybe_unused]] constexpr auto K = kelvin; \
-  [[maybe_unused]] constexpr auto mol = ::onika::physics::mol; \
-  [[maybe_unused]] constexpr auto cd = candela; \
-  [[maybe_unused]] constexpr auto rad = radian; \
-  [[maybe_unused]] constexpr auto degree = ::onika::physics::degree;       \
-  [[maybe_unused]] constexpr auto J = joule; \
-  [[maybe_unused]] constexpr auto eV = electron_volt; \
-  [[maybe_unused]] constexpr auto cal = calorie; \
-  [[maybe_unused]] constexpr auto kcal = kcalorie; \
-  return ( __expr ); \
-}()
+#define ONIKA_QUANTITY_DECL_SHORT_NAMES                                         \
+  [[maybe_unused]] constexpr auto m      = ::onika::physics::meter;             \
+  [[maybe_unused]] constexpr auto mm     = ::onika::physics::millimeter;        \
+  [[maybe_unused]] constexpr auto um     = ::onika::physics::micron;            \
+  [[maybe_unused]] constexpr auto nm     = ::onika::physics::nanometer;         \
+  [[maybe_unused]] constexpr auto ang    = ::onika::physics::angstrom;          \
+  [[maybe_unused]] constexpr auto kg     = ::onika::physics::kilogram;          \
+  [[maybe_unused]] constexpr auto g      = ::onika::physics::gram;              \
+  [[maybe_unused]] constexpr auto Da     = ::onika::physics::atomic_mass_unit;  \
+  [[maybe_unused]] constexpr auto h      = ::onika::physics::hour;              \
+  [[maybe_unused]] constexpr auto s      = ::onika::physics::second;            \
+  [[maybe_unused]] constexpr auto us     = ::onika::physics::microsecond;       \
+  [[maybe_unused]] constexpr auto ns     = ::onika::physics::nanosecond;        \
+  [[maybe_unused]] constexpr auto ps     = ::onika::physics::picosecond;        \
+  [[maybe_unused]] constexpr auto fs     = ::onika::physics::fetosecond;        \
+  [[maybe_unused]] constexpr auto C      = ::onika::physics::coulomb;           \
+  [[maybe_unused]] constexpr auto ec     = ::onika::physics::elementary_charge; \
+  [[maybe_unused]] constexpr auto K      = ::onika::physics::kelvin;            \
+  [[maybe_unused]] constexpr auto mol    = ::onika::physics::mol;               \
+  [[maybe_unused]] constexpr auto cd     = ::onika::physics::candela;           \
+  [[maybe_unused]] constexpr auto rad    = ::onika::physics::radian;            \
+  [[maybe_unused]] constexpr auto degree = ::onika::physics::degree;            \
+  [[maybe_unused]] constexpr auto J      = ::onika::physics::joule;             \
+  [[maybe_unused]] constexpr auto eV     = ::onika::physics::electron_volt;     \
+  [[maybe_unused]] constexpr auto cal    = ::onika::physics::calorie;           \
+  [[maybe_unused]] constexpr auto kcal   = ::onika::physics::kcalorie
+
+#define ONIKA_QUANTITY( __expr ) [&]() -> ::onika::physics::Quantity { ONIKA_QUANTITY_DECL_SHORT_NAMES; return ( __expr ); }()
+#define ONIKA_CONST_QUANTITY( __expr ) []() -> ::onika::physics::Quantity { ONIKA_QUANTITY_DECL_SHORT_NAMES; return ( __expr ); }()
 

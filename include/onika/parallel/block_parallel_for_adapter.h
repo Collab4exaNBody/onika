@@ -47,6 +47,8 @@ namespace onika
     template<class FuncT, bool GPUSupport>
     class BlockParallelForHostAdapter : public BlockParallelForHostFunctor
     {
+      static_assert( !GPUSupport || gpu_frontend_compiler() );
+
       static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
       static inline constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_prolog_t>;
       static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
