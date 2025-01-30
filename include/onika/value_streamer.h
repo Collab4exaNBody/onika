@@ -19,6 +19,9 @@ under the License.
 
 #pragma once
 
+#include <cstddef>
+#include <array>
+
 namespace onika
 {  
   //**************************************************************************
