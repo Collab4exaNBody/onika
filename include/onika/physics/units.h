@@ -266,7 +266,7 @@ namespace onika
         return convert( internal_unit_system() );
       }
       
-      ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }
+      // ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }
     };
 
     /*
@@ -311,8 +311,9 @@ namespace onika
      */
     ONIKA_HOST_DEVICE_FUNC inline constexpr Quantity operator ^ ( const Quantity& qlhs , double power )
     {
+      using onika::cuda::pow_ce_dint;
       Quantity q = qlhs;
-      q.m_value = pow( q.m_value , power );
+      q.m_value = pow_ce_dint( q.m_value , power );
       for(int i=0;i<NUMBER_OF_UNIT_CLASSES;i++)
       {
         q.m_unit_powers.m_powers[i] *= power;
