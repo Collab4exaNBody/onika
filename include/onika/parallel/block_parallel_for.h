@@ -37,12 +37,6 @@ namespace onika
 
   namespace parallel
   {  
-    // this template is here to know if compute buffer must be built or computation must be ran on the fly
-    template<class FuncT> struct BlockParallelForFunctorTraits
-    {      
-      static inline constexpr bool CudaCompatible = false;
-    };
-
     /*
      * BlockParallelForOptions holds options passed to block_parallel_for
      */
@@ -68,7 +62,7 @@ namespace onika
       , const BlockParallelForOptions& opts = BlockParallelForOptions{} )
     {    
       static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
-      using HostFunctorAdapter = BlockParallelForHostAdapter< FuncT , BlockParallelForFunctorTraits<FuncT>::CudaCompatible >;
+      using HostFunctorAdapter = BlockParallelForHostAdapter< FuncT , functor_gpu_support_v<FuncT> >;
       [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(HostFunctorAdapter) , HostKernelExecutionScratch::MAX_FUNCTOR_SIZE , FuncT > _check_cpu_functor_size = {};
       assert( pec != nullptr );
 
@@ -81,7 +75,7 @@ namespace onika
       pec->m_omp_sched = opts.omp_scheduling;
     
 	    // printf("block_parallel_for: %s %s: cudacompat=%d\n", pec->m_tag != nullptr ? pec->m_tag : "<null>" , pec->m_sub_tag != nullptr ? pec->m_sub_tag : "" , int(  ) );
-      if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
+      if constexpr ( functor_gpu_support_v<FuncT> )
       {
         bool allow_cuda_exec = opts.enable_gpu ;
         if( allow_cuda_exec ) allow_cuda_exec = ( pec->m_cuda_ctx != nullptr );

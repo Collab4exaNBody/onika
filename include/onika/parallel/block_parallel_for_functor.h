@@ -8,6 +8,20 @@ namespace onika
 {
   namespace parallel
   {
+    // this template is here to know if compute buffer must be built or computation must be ran on the fly
+    template<class FuncT> struct BlockParallelForFunctorTraits
+    {      
+      static inline constexpr bool CudaCompatible = false;
+    };
+
+    template<class FuncT> struct FunctorNeedsGPUSupport : public
+#   ifdef ONIKA_CUDA_VERSION
+      std::integral_constant<bool,BlockParallelForFunctorTraits<FuncT>::CudaCompatible>
+#   else
+      std::integral_constant<bool,false>
+#   endif
+    {};
+    template<class FuncT> static inline constexpr bool functor_gpu_support_v = FunctorNeedsGPUSupport<FuncT>::value;
 
     // user can add an overloaded call operator taking one of this type as its only parameter
     // an overload with block_parallel_for_prolog_t will be used both as CPU and GPU launch prolog
