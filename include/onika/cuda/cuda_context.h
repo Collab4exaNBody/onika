@@ -161,6 +161,7 @@ static inline constexpr int onikaErrorNotReady = 0;
 #define ONIKA_CU_DESTROY_EVENT(EVT)          _fake_cuda_api_noop(EVT=nullptr)
 #define ONIKA_CU_STREAM_EVENT(EVT,STREAM)    _fake_cuda_api_noop(EVT,STREAM)
 #define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2)  _fake_cuda_api_noop(T=0.0f)
+#define ONIKA_CU_DEVICE_SYNCHRONIZE()        _fake_cuda_api_noop()
 #define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  _fake_cuda_api_noop(STREAM)
 #define ONIKA_CU_EVENT_QUERY(EVT)            (onikaSuccess)
 #define ONIKA_CU_MEMSET(p,v,n,...)           std::memset(p,v,n)
