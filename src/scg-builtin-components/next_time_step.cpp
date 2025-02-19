@@ -32,19 +32,19 @@ namespace onika
     struct NextTimeStepNode : public OperatorNode
     {  
       ADD_SLOT( long   , timestep      , INPUT_OUTPUT );
-      ADD_SLOT( double , dtLB          , INPUT        , REQUIRED );
+      ADD_SLOT( double , dt          , INPUT        , REQUIRED );
       ADD_SLOT( double , physical_time , INPUT_OUTPUT );
 
       inline void execute() override final
       {
         ++ *timestep;
-        *physical_time += *dtLB;
+        *physical_time += *dt;
       }
 
     };
 
     // === register factories ===  
-    ONIKA_AUTORUN_INIT(sim_continue)
+    ONIKA_AUTORUN_INIT(next_time_step)
     {
       OperatorNodeFactory::instance()->register_factory( "next_time_step", make_compatible_operator< NextTimeStepNode > );
     }
