@@ -691,3 +691,14 @@ namespace std
 
 }
 
+
+#ifdef ONIKA_MATH_EXPORT_NAMESPACE
+namespace ONIKA_MATH_EXPORT_NAMESPACE
+{
+  using ::onika::math::norm;
+  using ::onika::math::cross;
+  using ::onika::math::dot;
+  using ::onika::math::tensor;
+}
+#endif
+
