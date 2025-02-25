@@ -77,7 +77,7 @@ namespace onika
       {
         if constexpr ( GPUSupport )
         {
-          assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
+          assert( pec->m_parallel_space.m_start == 0 );
           const size_t N = pec->m_parallel_space.m_end;
           //printf("stream GPU Kernel (%s) N=%d\n",pec->m_tag,int(N));
           // launch compute kernel
@@ -116,7 +116,7 @@ namespace onika
       inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
       {      
         pes->m_omp_execution_count.fetch_add(1);
-        assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
+        assert( pec->m_parallel_space.m_start == 0 );
         const size_t N = pec->m_parallel_space.m_end;
 
 #       ifdef ONIKA_OMP_NUM_THREADS_WORKAROUND
@@ -159,7 +159,7 @@ namespace onika
         // refrenced variables must be privately copied, because the task may run after this function ends
 #       pragma omp task default(none) firstprivate(pec,pes,num_tasks) depend(inout:pes[0])
         {
-          assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
+          assert( pec->m_parallel_space.m_start == 0 );
           const size_t N = pec->m_parallel_space.m_end;
           const auto T0 = std::chrono::high_resolution_clock::now();
           execute_prolog( pec , pes );

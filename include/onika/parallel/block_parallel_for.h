@@ -89,7 +89,7 @@ namespace onika
                                       + onika::parallel::ParallelExecutionContext::gpu_sm_add();
 
           if( opts.n_div_blocksize ) N = ( N + pec->m_block_size - 1 ) / pec->m_block_size;
-          pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr };
+          pec->m_parallel_space = ParallelExecutionSpace{ 0 , N };
 
           if( ! opts.fixed_gpu_grid_size )
           { 
@@ -113,7 +113,7 @@ namespace onika
       }
 
       // ================== CPU / OpenMP execution path ====================
-      pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr }; // block_size is always 1 for CPU, so we don't care about opts.n_div_blocksize flag
+      pec->m_parallel_space = ParallelExecutionSpace{ 0, N }; // block_size is always 1 for CPU, so we don't care about opts.n_div_blocksize flag
       pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_OPENMP;
       return {pec};
     }
