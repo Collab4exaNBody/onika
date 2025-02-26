@@ -30,9 +30,6 @@ namespace onika { namespace math
     ssize_t i = 0;
     ssize_t j = 0;
     ssize_t k = 0;
-/*    IJK() = default;
-    IJK(const IJK&) = default;
-    ONIKA_HOST_DEVICE_FUNC inline IJK(ssize_t _i, ssize_t _j, ssize_t _k) : i(_i), j(_j), k(_k) {}*/
   };
 
   struct GridBlock

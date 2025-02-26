@@ -75,42 +75,11 @@ namespace onika
       void *m_data = nullptr;
     };
 
-    struct ParallelSpaceDimensions
-    {
-      uint64_t x = 1;
-      uint64_t y = 1;
-      uint64_t z = 1;
-      ParallelSpaceDimensions() = default;
-      ParallelSpaceDimensions(const ParallelSpaceDimensions &) = default;
-      ParallelSpaceDimensions(ParallelSpaceDimensions &&) = default;
-      ParallelSpaceDimensions& operator = (const ParallelSpaceDimensions &) = default;
-      ParallelSpaceDimensions& operator = (ParallelSpaceDimensions &&) = default;
-      
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions(uint64_t _x) : x(_x), y(1), z(1) {}
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions(uint64_t _x, uint64_t _y, uint64_t _z) : x(_x), y(_y), z(_z) {}
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions(const math::IJK& d) : x(d.i), y(d.j), z(d.k) {}
-
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions& operator = (uint64_t _x) { x=_x; y=1; z=1; return *this; }
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions& operator = (const math::IJK& d) { x=d.i; y=d.j; z=d.k; return *this; }
-
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions operator + (uint64_t a) const { return { x+a, y+a, z+a }; }
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions operator + (const ParallelSpaceDimensions& d) const { return { x+d.x, y+d.y, z+d.z }; }
-
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions operator - (uint64_t a) const { return { x-a, y-a, z-a }; }
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions operator - (const ParallelSpaceDimensions& d) const { return { x-d.x, y-d.y, z-d.z }; }
-      
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions operator / (uint64_t a) const { return { x/a, y/a, z/a }; }
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions operator / (const ParallelSpaceDimensions& d) const { return { x/d.x, y/d.y, z/d.z }; }
-      
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions operator * (uint64_t a) const { return { x*a, y*a, z*a }; }
-      inline ONIKA_HOST_DEVICE_FUNC ParallelSpaceDimensions operator * (const ParallelSpaceDimensions& d) const { return { x*d.x, y*d.y, z*d.z }; }
-    };
-
     // abstract parallel space indices
     struct ParallelExecutionSpace
     {
-      uint64_t m_start = 0; //{ 0, 0, 0 };
-      uint64_t m_end = 0; //{ 0, 0, 0 };
+      uint64_t m_start = 0;
+      uint64_t m_end = 0;
 //      uint64_t * __restrict__ m_idx = nullptr;
     };
 
