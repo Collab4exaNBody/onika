@@ -132,7 +132,7 @@ namespace onika
       , ParallelExecutionContext * pec
       , const BlockParallelForOptions& opts = BlockParallelForOptions{} )
     {
-      return block_parallel_for( ParallelExecutionSpace<1>{ {0} , {N} }, func, pec, opts );
+      return block_parallel_for( ParallelExecutionSpace<1>{ {0} , {ssize_t(N)} }, func, pec, opts );
     }
 
   }
