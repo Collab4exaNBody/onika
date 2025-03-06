@@ -44,20 +44,28 @@ namespace onika
     }
 
 
-    template<class FuncT, bool GPUSupport>
+    template<class FuncT, bool GPUSupport , unsigned int ND=1, unsigned int ElemND=0>
     class BlockParallelForHostAdapter : public BlockParallelForHostFunctor
     {
       static_assert( !GPUSupport || gpu_frontend_compiler() );
+
+      // what is he dimensionality of processed elements ?
+      static inline constexpr unsigned int FuncParamDim = ( ElemND==0 ) ? ND : ElemND ;
+      static_assert( FuncParamDim>=1 && FuncParamDim<=3 );      
+      using FuncParamType = std::conditional_t< FuncParamDim==1 , ssize_t , onika::oarray_t<ssize_t,FuncParamDim> >;
+      // is the functor compatible with element dimensionality ? i.e., if space is 1D func( ssize_t(0) ) must be valid, if it is 3D func( oarray_t<ssize_t,3>{0,0,0} ) must be valid
+      static_assert( lambda_is_compatible_with_v<FuncT,void,FuncParamType> , "User defined functor is not compatible with execution space");
 
       static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
       static inline constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_prolog_t>;
       static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
       static inline constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_epilog_t>;
+      
       alignas( alignof(FuncT) ) const FuncT m_func;
+      const ParallelExecutionSpace<ND,ElemND> m_parallel_space;
       
     public:
-      inline BlockParallelForHostAdapter( const FuncT& f ) : m_func(f) {}
-
+      inline BlockParallelForHostAdapter( const FuncT& f , const ParallelExecutionSpace<ND,ElemND>& ps ) : m_func(f) , m_parallel_space(ps) {}
 
       // ================== GPU stream based execution interface =======================
 
@@ -77,8 +85,8 @@ namespace onika
       {
         if constexpr ( GPUSupport )
         {
-          assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
-          const size_t N = pec->m_parallel_space.m_end;
+          assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
+          const size_t N = m_parallel_space.m_end[0];
           //printf("stream GPU Kernel (%s) N=%d\n",pec->m_tag,int(N));
           // launch compute kernel
           if( pec->m_grid_size > 0 )
@@ -115,9 +123,11 @@ namespace onika
       
       inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
       {      
+        static_assert( FuncParamDim==1 || FuncParamDim==3 , "OpenMP backend only support 1D and 3D parallel execution space" );
+
         pes->m_omp_execution_count.fetch_add(1);
-        assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
-        const size_t N = pec->m_parallel_space.m_end;
+        assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
+        const size_t N = m_parallel_space.m_end[0];
 
 #       ifdef ONIKA_OMP_NUM_THREADS_WORKAROUND
         omp_set_num_threads( omp_get_max_threads() );
@@ -125,24 +135,60 @@ namespace onika
 
         const auto T0 = std::chrono::high_resolution_clock::now();  
         execute_prolog( pec , pes );
-#       pragma omp parallel
+        
+        if constexpr ( FuncParamDim == 1 )
         {
-          switch( pec->m_omp_sched )
+#         pragma omp parallel
           {
-            case OMP_SCHED_DYNAMIC :
-#           pragma omp for schedule(dynamic)
-            for(uint64_t i=0;i<N;i++) { m_func( i ); }
-            break;
-            case OMP_SCHED_GUIDED :
-#           pragma omp for schedule(guided)
-            for(uint64_t i=0;i<N;i++) { m_func( i ); }
-            break;
-            case OMP_SCHED_STATIC :
-#           pragma omp for schedule(static)
-            for(uint64_t i=0;i<N;i++) { m_func( i ); }
-            break;
+            switch( pec->m_omp_sched )
+            {
+              case OMP_SCHED_DYNAMIC :
+#               pragma omp for schedule(dynamic)
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++) { m_func( i ); }
+                break;
+              case OMP_SCHED_GUIDED :
+#               pragma omp for schedule(guided)
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++) { m_func( i ); }
+                break;
+              case OMP_SCHED_STATIC :
+#               pragma omp for schedule(static)
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++) { m_func( i ); }
+                break;
+            }
           }
         }
+        if constexpr ( FuncParamDim == 3 )
+        {
+#         pragma omp parallel
+          {
+            switch( pec->m_omp_sched )
+            {
+              case OMP_SCHED_DYNAMIC :
+#               pragma omp for collapse(3) schedule(dynamic)
+                for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++) 
+                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++) 
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+                { m_func( i ); }
+                break;
+              case OMP_SCHED_GUIDED :
+#               pragma omp for collapse(3) schedule(guided)
+                for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++) 
+                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++) 
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+                { m_func( i ); }
+                break;
+              case OMP_SCHED_STATIC :
+#               pragma omp for collapse(3) schedule(static)
+                for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++) 
+                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++) 
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+                { m_func( i ); }
+                break;
+            }
+          }
+        }
+        static_assert( FuncParamDim==1 || FuncParamDim==3 );
+        
         execute_epilog( pec , pes );
         pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
         if( pec->m_execution_end_callback.m_func != nullptr )
@@ -159,8 +205,8 @@ namespace onika
         // refrenced variables must be privately copied, because the task may run after this function ends
 #       pragma omp task default(none) firstprivate(pec,pes,num_tasks) depend(inout:pes[0])
         {
-          assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
-          const size_t N = pec->m_parallel_space.m_end;
+          assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
+          const size_t N = m_parallel_space.m_end[0];
           const auto T0 = std::chrono::high_resolution_clock::now();
           execute_prolog( pec , pes );
           if( N > 0 )

@@ -168,8 +168,6 @@ namespace onika
       inline ~ParallelExecutionWrapper();      
     };
 
-
-
     // real implementation of how a parallel operation is pushed onto a stream queue
     inline ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionWrapper && pew )
     {
@@ -265,8 +263,6 @@ namespace onika
       
       return std::move(pes);
     }
-
-
 
     inline ParallelExecutionWrapper::~ParallelExecutionWrapper()
     {

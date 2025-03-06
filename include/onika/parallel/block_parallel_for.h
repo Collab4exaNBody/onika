@@ -52,32 +52,31 @@ namespace onika
       OMPScheduling omp_scheduling = ONIKA_BLKPARFOR_OMPSCHED_DEFAULT;
     };
 
-    template< class FuncT >
+    template< class FuncT , unsigned int ND, unsigned int ElemND>
     static inline
     ParallelExecutionWrapper
     block_parallel_for(
-        uint64_t N
+        ParallelExecutionSpace<ND,ElemND> par_space
       , const FuncT& func
       , ParallelExecutionContext * pec
       , const BlockParallelForOptions& opts = BlockParallelForOptions{} )
-    {    
+    {
       static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
-      using HostFunctorAdapter = BlockParallelForHostAdapter< FuncT , functor_gpu_support_v<FuncT> >;
+      using HostFunctorAdapter = BlockParallelForHostAdapter< FuncT , functor_gpu_support_v<FuncT> , ND,ElemND >;
       [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(HostFunctorAdapter) , HostKernelExecutionScratch::MAX_FUNCTOR_SIZE , FuncT > _check_cpu_functor_size = {};
       assert( pec != nullptr );
 
       // construct virtual functor adapter inplace, using reserved functor space
       static_assert( ( HostKernelExecutionScratch::MAX_FUNCTOR_ALIGNMENT % alignof(FuncT) ) == 0 , "functor_data alignment is not sufficient for user functor" );
-      // printf("inplace construction of host adapter, size=%d, max=%d\n", int(sizeof(HostFunctorAdapter)) , int(HostKernelExecutionScratch::MAX_FUNCTOR_SIZE) );
-      new(pec->m_host_scratch.functor_data) HostFunctorAdapter( func );
 
       pec->m_execution_end_callback = opts.user_cb;
       pec->m_omp_sched = opts.omp_scheduling;
     
 	    // printf("block_parallel_for: %s %s: cudacompat=%d\n", pec->m_tag != nullptr ? pec->m_tag : "<null>" , pec->m_sub_tag != nullptr ? pec->m_sub_tag : "" , int(  ) );
+      bool allow_cuda_exec = false ;
       if constexpr ( functor_gpu_support_v<FuncT> )
       {
-        bool allow_cuda_exec = opts.enable_gpu ;
+        allow_cuda_exec = opts.enable_gpu ;
         if( allow_cuda_exec ) allow_cuda_exec = ( pec->m_cuda_ctx != nullptr );
         if( allow_cuda_exec ) allow_cuda_exec = pec->m_cuda_ctx->has_devices();
         if( allow_cuda_exec )
@@ -88,8 +87,11 @@ namespace onika
                                       * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
                                       + onika::parallel::ParallelExecutionContext::gpu_sm_add();
 
-          if( opts.n_div_blocksize ) N = ( N + pec->m_block_size - 1 ) / pec->m_block_size;
-          pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr };
+          if( opts.n_div_blocksize )
+          {
+            assert( ND == 1 &&  par_space.m_start[0]==0 );
+            par_space.m_end[0] = ( par_space.m_end[0] + pec->m_block_size - 1 ) / pec->m_block_size;
+          }
 
           if( ! opts.fixed_gpu_grid_size )
           { 
@@ -108,14 +110,29 @@ namespace onika
             pec->set_return_data_input( nullptr , 0 );
             pec->set_return_data_output( nullptr , 0 );
           }
-          return {pec};
         }
       }
 
       // ================== CPU / OpenMP execution path ====================
-      pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr }; // block_size is always 1 for CPU, so we don't care about opts.n_div_blocksize flag
-      pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_OPENMP;
+      if( ! allow_cuda_exec )
+      {
+        pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_OPENMP;  
+      }
+      
+      new(pec->m_host_scratch.functor_data) HostFunctorAdapter( func , par_space );
       return {pec};
+    }
+
+    template<class FuncT>
+    static inline
+    ParallelExecutionWrapper
+    block_parallel_for(
+        size_t N
+      , const FuncT& func
+      , ParallelExecutionContext * pec
+      , const BlockParallelForOptions& opts = BlockParallelForOptions{} )
+    {
+      return block_parallel_for( ParallelExecutionSpace<1>{ {0} , {N} }, func, pec, opts );
     }
 
   }

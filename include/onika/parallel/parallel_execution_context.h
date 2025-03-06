@@ -74,12 +74,16 @@ namespace onika
       void *m_data = nullptr;
     };
 
-    // abstract parallel space indices
+    template<unsigned int _NDim=1, unsigned int _ElementListNDim=0>
     struct ParallelExecutionSpace
     {
-      uint64_t m_start = 0;
-      uint64_t m_end = 0;
-      uint64_t * __restrict__ m_idx = nullptr;
+      static_assert( _NDim>=1 && _NDim<=3 && _ElementListNDim>=0 && _ElementListNDim<=3 );
+      static_assert( _ElementListNDim==0 || _NDim==1 , "Element lists are only supported for 1D parallel execution spaces" );
+      static inline constexpr unsigned int NDim = _NDim;
+      static inline constexpr unsigned int ElementListNDim = _ElementListNDim;
+      onika::oarray_t<ssize_t,NDim> m_start;
+      onika::oarray_t<ssize_t,NDim> m_end;
+      onika::oarray_t<ssize_t,ElementListNDim> * m_elements = nullptr;
     };
 
     struct ParallelExecutionStream;
@@ -126,7 +130,7 @@ namespace onika
       unsigned int m_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
       unsigned int m_grid_size = 0; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
       OMPScheduling m_omp_sched = OMP_SCHED_DYNAMIC;
-      ParallelExecutionSpace m_parallel_space = {};
+      //ParallelExecutionSpace m_parallel_space = {};
       bool m_reset_counters = false;
 
       // executuion profiling 

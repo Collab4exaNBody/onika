@@ -52,7 +52,7 @@ namespace onika
       m_execution_target = EXECUTION_TARGET_OPENMP;
       m_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
       m_grid_size = 0; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
-      m_parallel_space = ParallelExecutionSpace{};
+      //m_parallel_space = ParallelExecutionSpace{};
       m_reset_counters = false;
       m_total_cpu_execution_time = 0.0;
       m_total_gpu_execution_time = 0.0;
