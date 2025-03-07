@@ -69,6 +69,7 @@ using onikaStream_t     = hipStream_t;
 using onikaEvent_t      = hipEvent_t;
 using onikaError_t      = hipError_t;
 using onikaLimit_t      = hipLimit_t;
+using onikaDim3_t       = dim3;
 static inline constexpr auto onikaSuccess                    = hipSuccess;
 static inline constexpr auto onikaSharedMemBankSizeFourByte  = hipSharedMemBankSizeFourByte;
 static inline constexpr auto onikaSharedMemBankSizeEightByte = hipSharedMemBankSizeEightByte;
@@ -118,6 +119,7 @@ using onikaStream_t     = cudaStream_t;
 using onikaEvent_t      = cudaEvent_t;
 using onikaError_t      = cudaError_t;
 using onikaLimit_t      = cudaLimit;
+using onikaDim3_t       = dim3;
 static inline constexpr auto onikaSuccess                    = cudaSuccess;
 static inline constexpr auto onikaSharedMemBankSizeFourByte  = cudaSharedMemBankSizeFourByte;
 static inline constexpr auto onikaSharedMemBankSizeEightByte = cudaSharedMemBankSizeEightByte;
@@ -142,9 +144,18 @@ struct onikaDeviceProp_t
   int multiProcessorCount = 0;
   int sharedMemPerBlock = 0;
 };
+struct onikaDim3_t
+{
+  unsigned int x = 0;
+  unsigned int y = 0;
+  unsigned int z = 0;
+  inline constexpr onikaDim3_t operator + (const onikaDim3_t& rhs) const { return { x+rhs.x , y+rhs.y , z+rhs.z }; }
+};
+
 using onikaStream_t = int;
 using onikaEvent_t = int*;
 using onikaError_t = int;
+
 static inline constexpr int onikaSuccess = 0;
 static inline constexpr int onikaErrorNotReady = 0;
 
@@ -175,6 +186,16 @@ static inline constexpr int onikaErrorNotReady = 0;
 #include <onika/cuda/cuda_error.h>
 #include <functional>
 #include <list>
+
+
+struct onikaInt3_t
+{
+  ssize_t x = 0;
+  ssize_t y = 0;
+  ssize_t z = 0;
+  ONIKA_HOST_DEVICE_FUNC
+  inline constexpr onikaInt3_t operator + (const onikaDim3_t& rhs) const { return { x+rhs.x , y+rhs.y , z+rhs.z }; }
+};
 
 // specializations to avoid MemoryUsage template to dig into cuda aggregates
 namespace onika

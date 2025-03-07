@@ -43,6 +43,14 @@ namespace onika
       func( ONIKA_CU_BLOCK_IDX );
     }
 
+    template< class FuncT>
+    ONIKA_DEVICE_KERNEL_FUNC
+    ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
+    ONIKA_STATIC_INLINE_KERNEL
+    void block_parallel_for_gpu_kernel_grid3d( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const onikaInt3_t start_coord )
+    {
+      func( start_coord + ONIKA_CU_BLOCK_COORD );
+    }
 
     template<class FuncT, bool GPUSupport , unsigned int ND=1, unsigned int ElemND=0>
     class BlockParallelForHostAdapter : public BlockParallelForHostFunctor
@@ -52,8 +60,7 @@ namespace onika
       // what is he dimensionality of processed elements ?
       static inline constexpr unsigned int FuncParamDim = ( ElemND==0 ) ? ND : ElemND ;
       static_assert( FuncParamDim>=1 && FuncParamDim<=3 );      
-      using FuncParamType = std::conditional_t< FuncParamDim==1 , ssize_t , onika::oarray_t<ssize_t,FuncParamDim> >;
-      // is the functor compatible with element dimensionality ? i.e., if space is 1D func( ssize_t(0) ) must be valid, if it is 3D func( oarray_t<ssize_t,3>{0,0,0} ) must be valid
+      using FuncParamType = std::conditional_t< FuncParamDim==1 , ssize_t , onikaInt3_t >;
       static_assert( lambda_is_compatible_with_v<FuncT,void,FuncParamType> , "User defined functor is not compatible with execution space");
 
       static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
@@ -88,15 +95,37 @@ namespace onika
           assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
           const size_t N = m_parallel_space.m_end[0];
           //printf("stream GPU Kernel (%s) N=%d\n",pec->m_tag,int(N));
+
           // launch compute kernel
-          if( pec->m_grid_size > 0 )
+          if constexpr ( FuncParamDim == 1 )
           {
-            ONIKA_CU_LAUNCH_KERNEL(pec->m_grid_size,pec->m_block_size,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec->m_cuda_scratch.get(), m_func );
+            if( pec->m_grid_size > 0 )
+            {
+              ONIKA_CU_LAUNCH_KERNEL(pec->m_grid_size,pec->m_block_size,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec->m_cuda_scratch.get(), m_func );
+            }
+            else
+            {
+              ONIKA_CU_LAUNCH_KERNEL(N,pec->m_block_size,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, m_func );
+            }
           }
-          else
+          else if constexpr ( FuncParamDim > 1 )
           {
-            ONIKA_CU_LAUNCH_KERNEL(N,pec->m_block_size,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, m_func );
+            if( pec->m_grid_size > 0 )
+            {
+              std::cerr << "Work stealing GPU execution is only supported for 1D kernels" << std::endl;
+              std::abort();
+            }
+            onikaDim3_t grid_size = {
+                static_cast<unsigned int>( m_parallel_space.m_end[0] - m_parallel_space.m_start[0] )
+              , static_cast<unsigned int>( m_parallel_space.m_end[1] - m_parallel_space.m_start[1] )
+              , static_cast<unsigned int>( m_parallel_space.m_end[2] - m_parallel_space.m_start[2] ) };
+            unsigned int bs = static_cast<unsigned int>( pow( pec->m_block_size , 1.0/FuncParamDim ) );
+            if( bs < 4 ) bs = 4;
+            onikaDim3_t block_size = { bs , bs , FuncParamDim==3 ? bs : 1 };
+            onikaInt3_t block_offset = { m_parallel_space.m_start[0], m_parallel_space.m_start[1], m_parallel_space.m_start[2] };
+            ONIKA_CU_LAUNCH_KERNEL( grid_size , block_size , 0 , pes->m_cu_stream , block_parallel_for_gpu_kernel_grid3d , m_func , block_offset );
           }
+          
         }
         else { std::cerr << "called stream_gpu_kernel with no GPU support" << std::endl; std::abort(); }
       }
@@ -168,21 +197,21 @@ namespace onika
                 for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++) 
                 for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++) 
                 for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                { m_func( i ); }
+                { m_func( onikaInt3_t{i,j,k} ); }
                 break;
               case OMP_SCHED_GUIDED :
 #               pragma omp for collapse(3) schedule(guided)
                 for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++) 
                 for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++) 
                 for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                { m_func( i ); }
+                { m_func( onikaInt3_t{i,j,k} ); }
                 break;
               case OMP_SCHED_STATIC :
 #               pragma omp for collapse(3) schedule(static)
                 for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++) 
                 for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++) 
                 for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                { m_func( i ); }
+                { m_func( onikaInt3_t{i,j,k} ); }
                 break;
             }
           }
@@ -205,8 +234,11 @@ namespace onika
         // refrenced variables must be privately copied, because the task may run after this function ends
 #       pragma omp task default(none) firstprivate(pec,pes,num_tasks) depend(inout:pes[0])
         {
-          assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
-          const size_t N = m_parallel_space.m_end[0];
+          assert( m_parallel_space.m_elements == nullptr );
+          const size_t Ni = m_parallel_space.m_end[0] - m_parallel_space.m_start[0];
+          const size_t Nj = m_parallel_space.m_end[1] - m_parallel_space.m_start[1];
+          const size_t Nk = m_parallel_space.m_end[2] - m_parallel_space.m_start[2];
+          const size_t N = Ni*Nj*Nk;
           const auto T0 = std::chrono::high_resolution_clock::now();
           execute_prolog( pec , pes );
           if( N > 0 )
@@ -214,10 +246,24 @@ namespace onika
             // implicit taskgroup, ensures taskloop has completed before enclosing task ends
             // all refrenced variables can be shared because of implicit enclosing taskgroup
             const auto & func = m_func;
-  #         pragma omp taskloop default(none) shared(pec,num_tasks,func,N) num_tasks(num_tasks)
-            for(uint64_t i=0;i<N;i++)
+            const auto ps = m_parallel_space;
+            if constexpr ( FuncParamDim==1 )
             {
-              func( i );
+#             pragma omp taskloop default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
+              for(ssize_t i=ps.m_start[0] ; i<ps.m_end[0] ; i++ )
+              {
+                func( i );
+              }
+            }
+            else if constexpr ( FuncParamDim>1 )
+            {
+#             pragma omp taskloop collapse(3) default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
+              for(ssize_t k=ps.m_start[2];k<ps.m_end[2];k++) 
+              for(ssize_t j=ps.m_start[1];j<ps.m_end[1];j++) 
+              for(ssize_t i=ps.m_start[0];i<ps.m_end[0];i++)
+              {
+                func( onikaInt3_t{i,j,k} );
+              }
             }
           }
           // here all tasks of taskloop have completed, since notaskgroup clause is not specified              
@@ -238,9 +284,36 @@ namespace onika
       }
 
       // ================ CPU individual task execution interface ======================
-      inline void operator () (uint64_t i) const override final { m_func(i); }
-      inline void operator () (uint64_t i, uint64_t end) const override final { for(;i<end;i++) m_func(i); }
-      inline void operator () (const uint64_t* __restrict__ idx, uint64_t N) const override final { for(uint64_t i=0;i<N;i++) m_func(idx[i]); }
+      inline void operator () (uint64_t i) const override final
+      {
+        if constexpr (FuncParamDim==1) { m_func(i); }
+      }
+      inline void operator () (const onikaInt3_t& c) const override final
+      {
+        if constexpr (FuncParamDim>1) { m_func(c); }
+      }
+      inline void operator () (uint64_t i, uint64_t end) const override final
+      {
+        for(;i<end;i++) this->operator () (i);
+      }
+      inline void operator () (const uint64_t * __restrict__ idx, uint64_t N) const override final
+      {
+        for(uint64_t i=0;i<N;i++) this->operator () (idx[i]);
+      }
+      inline void operator () (const onikaInt3_t& s, const onikaInt3_t& e) const override final
+      {
+        for(ssize_t k=s.z;k<e.z;k++) 
+        for(ssize_t j=s.y;j<e.y;j++) 
+        for(ssize_t i=s.x;i<e.x;i++)
+        {
+          this->operator () ( onikaInt3_t{i,j,k} );
+        }
+      }
+      inline void operator () (const onikaInt3_t * __restrict__ idx, uint64_t N) const override final
+      {
+        for(uint64_t i=0;i<N;i++) this->operator () ( idx[i] );
+      }
+
       inline ~BlockParallelForHostAdapter() override {}
     };
 
