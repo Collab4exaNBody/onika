@@ -37,14 +37,9 @@ namespace onika { namespace scg
     {
       //ONIKA_CU_SHARED sum;
       const ssize_t idx = ONIKA_CU_BLOCK_IDX;
-      const double x = m_array[idx];
-      const double y = x*x - 2*x + 1;
-      m_array[idx] = x + y;
+      ONIKA_CU_ATOMIC_ADD( m_array[idx] , 1.0 );
     }
   };
-
-
-
 
 } }
 
@@ -64,7 +59,7 @@ namespace onika { namespace scg
   {
     using DoubleArray = onika::memory::CudaMMVector<double>;
   
-    ADD_SLOT( long        , grid_size  , INPUT , 256 , DocString{"Number of terms to compute"} );
+    ADD_SLOT( long        , grid_size  , INPUT , 4 , DocString{"Number of terms to compute"} );
     ADD_SLOT( long        , block_size , INPUT , 256 , DocString{"Thread teams (aka Cuda block) size"} );
     ADD_SLOT( DoubleArray , scratch    , PRIVATE );
 
@@ -73,12 +68,17 @@ namespace onika { namespace scg
     inline void execute () override final
     {
       using onika::parallel::ParallelExecutionSpace;
-    
       const ssize_t N = *grid_size;
       scratch->resize( N * N * N , 0.0 );
       Grid3DBenchmarkFunctor benchmark = { scratch->data() , N };
       ParallelExecutionSpace<3> grid = { {0,0,0} , {N,N,N} };
       block_parallel_for( grid , benchmark , parallel_execution_context() );
+      for(int k=0;k<N;k++)
+      for(int j=0;j<N;j++)
+      for(int i=0;i<N;i++)
+      {
+        lout << i <<" , "<<j<<" , "<<k<<" : "<<scratch->at( (k*N+j)*N+i ) << std::endl;
+      }
     }
   };
   
