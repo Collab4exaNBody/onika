@@ -309,7 +309,10 @@ namespace onika { namespace scg
   // a terminal operator that cannot be removed even though it has no connected output
   bool OperatorNode::is_sink() const
   {
-    return out_slot_count() == 0;
+    const int nout = out_slot_count();
+    int npriv = 0;
+    for(int i=0;i<nout;i++) if( out_slot(i)->is_private() ) npriv ++;
+    return nout == npriv;
   }
 
   void OperatorNode::set_profiler( ProfilingFunctionSet profiler )
