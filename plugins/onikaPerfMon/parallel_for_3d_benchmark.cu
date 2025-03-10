@@ -24,11 +24,12 @@ under the License.
 #include <onika/cuda/cuda.h>
 #include <onika/memory/allocator.h>
 #include <onika/parallel/block_parallel_for.h>
+#include <onika/parallel/parallel_for.h>
 
 namespace onika { namespace scg
 {
 
-  struct Grid3DBenchmarkFunctor
+  struct GridBlock3DBenchmarkFunctor
   {
     double * const __restrict__ m_array = nullptr;
     const long m_size = 0;
@@ -37,6 +38,23 @@ namespace onika { namespace scg
     {
       //ONIKA_CU_SHARED sum;
       const ssize_t idx = ONIKA_CU_BLOCK_IDX;
+      ONIKA_CU_ATOMIC_ADD( m_array[idx] , 1.0 );
+    }
+  };
+
+  struct Grid3DBenchmarkFunctor
+  {
+    double * const __restrict__ m_array = nullptr;
+    const long m_size = 0;
+  
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( onikaInt3_t coord ) const
+    {
+      //printf("KERNEL %d,%d,%d\n",int(coord.x),int(coord.y),int(coord.z));
+      const unsigned long N = m_size;
+      const unsigned long i = coord.x;
+      const unsigned long j = coord.y;
+      const unsigned long k = coord.z;
+      const ssize_t idx = (k*N+j)*N+i;
       ONIKA_CU_ATOMIC_ADD( m_array[idx] , 1.0 );
     }
   };
@@ -59,25 +77,63 @@ namespace onika { namespace scg
   {
     using DoubleArray = onika::memory::CudaMMVector<double>;
   
-    ADD_SLOT( long        , grid_size  , INPUT , 4 , DocString{"Number of terms to compute"} );
-    ADD_SLOT( long        , block_size , INPUT , 256 , DocString{"Thread teams (aka Cuda block) size"} );
-    ADD_SLOT( DoubleArray , scratch    , PRIVATE );
+    ADD_SLOT( long        , pfor3d_block_side , INPUT , 4 , DocString{"Thread teams (aka Cuda block) size"} );
+    ADD_SLOT( long        , pfor3d_side , INPUT , 16 , DocString{"Number of terms to compute"} );
+    ADD_SLOT( DoubleArray , scratch     , PRIVATE );
 
   public:
 
     inline void execute () override final
     {
       using onika::parallel::ParallelExecutionSpace;
-      const ssize_t N = *grid_size;
-      scratch->resize( N * N * N , 0.0 );
-      Grid3DBenchmarkFunctor benchmark = { scratch->data() , N };
-      ParallelExecutionSpace<3> grid = { {0,0,0} , {N,N,N} };
-      block_parallel_for( grid , benchmark , parallel_execution_context() );
-      for(int k=0;k<N;k++)
-      for(int j=0;j<N;j++)
-      for(int i=0;i<N;i++)
+      using onika::parallel::block_parallel_for;
+      using onika::parallel::parallel_for;
+      
+      lout << "block_parallel_for 3D test" << std::endl;
       {
-        lout << i <<" , "<<j<<" , "<<k<<" : "<<scratch->at( (k*N+j)*N+i ) << std::endl;
+        const ssize_t N = *pfor3d_block_side;
+        scratch->assign( N * N * N , 0.0 );
+        Grid3DBenchmarkFunctor benchmark = { scratch->data() , N };
+        ParallelExecutionSpace<3> parallel_range = { {0,0,0} , {N,N,N} };
+        block_parallel_for( parallel_range , benchmark , parallel_execution_context() );
+        for(int k=0;k<N;k++)
+        {
+          lout<<"K = "<<k<<std::endl;
+          for(int j=0;j<N;j++)
+          {
+            lout<<"  J = "<<j<<std::endl<<"   ";
+            for(int i=0;i<N;i++)
+            {
+              lout <<" "<< i<<":"<<scratch->at( (k*N+j)*N+i );
+            }
+            lout << std::endl;
+          }
+        }
+      }
+
+      lout << "parallel_for 3D test" << std::endl;
+      {
+        const ssize_t N = *pfor3d_side;
+        scratch->assign( N * N * N , 0.0 );
+        Grid3DBenchmarkFunctor benchmark = { scratch->data() , N };
+        ParallelExecutionSpace<3> parallel_range = { {2,3,3} , {N-1,N-3,N-3} };
+        
+        parallel_for( parallel_range , benchmark , parallel_execution_context() );
+
+        for(int k=0;k<N;k++)
+        {
+          lout<<"K="<<k<<std::endl;
+          for(int j=0;j<N;j++)
+          {
+            lout<<"  J="<<j<<" :";
+            for(int i=0;i<N;i++)
+            {
+              lout <<" "<<scratch->at( (k*N+j)*N+i );
+            }
+            lout << std::endl;
+          }
+        }
+
       }
     }
   };

@@ -89,20 +89,32 @@ namespace onika
         if( allow_cuda_exec )
         {
           pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_CUDA;
-          pec->m_block_size = std::min( size_t(opts.max_block_size) , std::min( size_t(ONIKA_CU_MAX_THREADS_PER_BLOCK) , size_t(onika::parallel::ParallelExecutionContext::gpu_block_size()) ) );
-          pec->m_grid_size = pec->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
-                                      * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
-                                      + onika::parallel::ParallelExecutionContext::gpu_sm_add();
-
+          pec->m_block_threads = std::min( size_t(opts.max_block_size) , std::min( size_t(ONIKA_CU_MAX_THREADS_PER_BLOCK) , size_t(onika::parallel::ParallelExecutionContext::gpu_block_size()) ) );
+//          const unsigned int bs = std::max( static_cast<unsigned int>( pow( pec->m_block_threads , 1.0/FuncParamDim ) ) , 4u );
+//          pec->m_block_size = onikaDim3_t{ bs , bs , FuncParamDim==3 ? bs : 1 };
+          if ( ND == 3 ) pec->m_block_size = onikaDim3_t{ 4 , 4 , 4 };
+          else if ( ND == 2 ) pec->m_block_size = onikaDim3_t{ 8 , 8 , 1 };
+          else pec->m_block_size = onikaDim3_t{ pec->m_block_threads , 1 , 1 };
+          const unsigned int preferred_grid_threads = pec->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
+                                        * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
+                                        + onika::parallel::ParallelExecutionContext::gpu_sm_add();
+          pec->m_grid_size = onikaDim3_t{ preferred_grid_threads, 1 , 1 };
           if( opts.n_div_blocksize )
           {
-            assert( ND == 1 &&  par_space.m_start[0]==0 );
-            par_space.m_end[0] = ( par_space.m_end[0] + pec->m_block_size - 1 ) / pec->m_block_size;
+            const unsigned int blocksz[3] = { pec->m_block_size.x , pec->m_block_size.y , pec->m_block_size.z };
+            for(unsigned int i=0;i<ND;i++)
+            {
+              if( par_space.m_start[i] != 0 )
+              {
+                fatal_error() << "n_div_blocksize option is only valid for parallel ranges starting from 0. range start for coord #"<<i<<" is "<< par_space.m_start[i] << std::endl;
+              }
+              par_space.m_end[i] = ( par_space.m_end[i] + blocksz[i] - 1 ) / blocksz[i];
+            }
           }
 
           if( ! opts.fixed_gpu_grid_size )
           { 
-            pec->m_grid_size = 0;
+            pec->m_grid_size = onikaDim3_t{0,0,0};
           }
 
           pec->m_reset_counters = opts.fixed_gpu_grid_size;

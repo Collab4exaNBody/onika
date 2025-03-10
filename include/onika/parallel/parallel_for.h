@@ -48,19 +48,42 @@ namespace onika
       OMPScheduling omp_scheduling = ONIKA_PARFOR_OMPSCHED_DEFAULT;
     };
 
-    template<class FuncT>
-    struct ParallelForBlockAdapter
+    template<class FuncT, class PES> struct ParallelForBlockAdapter;
+    
+    template<class FuncT, unsigned int ND>
+    struct ParallelForBlockAdapter< FuncT, ParallelExecutionSpace<ND,0> >
     {
-      FuncT m_func;
-      size_t N = 0;
-      ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t block_idx ) const
+      const FuncT m_func;
+      const onikaInt3_t m_offset;
+      const onikaDim3_t m_dims;
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( ssize_t block_idx ) const
       {
-        size_t i = block_idx * ONIKA_CU_BLOCK_SIZE + ONIKA_CU_THREAD_IDX;
-        if( i < N ) m_func( i );
+        if constexpr ( ND == 1 )
+        {
+          ssize_t i = block_idx * ONIKA_CU_BLOCK_SIZE + ONIKA_CU_THREAD_IDX;
+          if( i>=0 && i<m_dims.x ) m_func( m_offset.x + i );
+        }
+      }
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( const onikaInt3_t& block_coord ) const
+      {
+        if constexpr ( ND > 1 )
+        {
+          const ssize_t i = block_coord.x * ONIKA_CU_BLOCK_DIMS.x + ONIKA_CU_THREAD_COORD.x;
+          const ssize_t j = block_coord.y * ONIKA_CU_BLOCK_DIMS.y + ONIKA_CU_THREAD_COORD.y;
+          const ssize_t k = block_coord.z * ONIKA_CU_BLOCK_DIMS.z + ONIKA_CU_THREAD_COORD.z;
+          //printf("block %d,%d,%d : thread %d,%d,%d\n",int(block_coord.x),int(block_coord.y),int(block_coord.z), int(ONIKA_CU_THREAD_COORD.x), int(ONIKA_CU_THREAD_COORD.y), int(ONIKA_CU_THREAD_COORD.z) );
+          if( i>=0 && i<m_dims.x
+           && j>=0 && j<m_dims.y 
+           && k>=0 && k<m_dims.z )
+          {
+            //printf("block %d,%d,%d : thread %d,%d,%d\n",int(block_coord.x),int(block_coord.y),int(block_coord.z), int(ONIKA_CU_THREAD_COORD.x), int(ONIKA_CU_THREAD_COORD.y), int(ONIKA_CU_THREAD_COORD.z) );
+            m_func( onikaInt3_t{ m_offset.x + i , m_offset.y + j , m_offset.z + k } );
+          }
+        }
       }
     };
 
-    template<class FuncT> struct BlockParallelForFunctorTraits< ParallelForBlockAdapter<FuncT> >
+    template<class FuncT, class PES> struct BlockParallelForFunctorTraits< ParallelForBlockAdapter<FuncT,PES> >
     {      
       static inline constexpr bool CudaCompatible = ParallelForFunctorTraits<FuncT>::CudaCompatible;
     };
@@ -82,8 +105,55 @@ namespace onika
       bpfopts.omp_scheduling = opts.omp_scheduling;
       bpfopts.n_div_blocksize = true;
       
-      return block_parallel_for( N , ParallelForBlockAdapter<FuncT>{func,N} , pec , bpfopts );
+      using PES = ParallelExecutionSpace<1,0>;
+      const onikaInt3_t offset = {0,0,0};
+      const onikaDim3_t dims = {static_cast<unsigned int>(N),1,1};
+      return block_parallel_for( PES{ {0} , {static_cast<ssize_t>(N)} } , ParallelForBlockAdapter<FuncT,PES>{func,offset,dims} , pec , bpfopts );
     }
+
+    template<class FuncT, unsigned int ND, unsigned int ElemND>
+    static inline
+    ParallelExecutionWrapper
+    parallel_for(
+        ParallelExecutionSpace<ND,ElemND> par_space
+      , const FuncT& func
+      , ParallelExecutionContext * pec
+      , const ParallelForOptions& opts = ParallelForOptions{} )
+    {
+      using PES = ParallelExecutionSpace<ND,ElemND>;
+      static_assert( ElemND==0 , "Index list not supported yet" );
+      static_assert( ND <= 3 );
+             
+      BlockParallelForOptions bpfopts = {};
+      bpfopts.user_cb = opts.user_cb;
+      bpfopts.return_data = opts.return_data;
+      bpfopts.return_data_size = opts.return_data_size;
+      bpfopts.enable_gpu = opts.enable_gpu;
+      bpfopts.omp_scheduling = opts.omp_scheduling;
+      bpfopts.n_div_blocksize = true;
+      
+      onikaInt3_t offset = { par_space.m_start[0] ,  0 , 0 };
+      onikaDim3_t dims = { static_cast<unsigned int>( par_space.m_end[0] - par_space.m_start[0] ) , 1 , 1 };
+      if constexpr ( ND >= 2 )
+      {
+        offset.y = par_space.m_start[1];
+        dims.y = par_space.m_end[1] - par_space.m_start[1];
+      }
+      if constexpr ( ND >= 3 )
+      {
+        offset.z = par_space.m_start[2];
+        dims.z = par_space.m_end[2] - par_space.m_start[2];
+      }
+      for(unsigned int i=0;i<ND;i++)
+      {
+        par_space.m_end[i] -= par_space.m_start[i];
+        par_space.m_start[i] = 0;
+        lout << "start["<<i<<"] = " <<par_space.m_start[i]<<" , end["<<i<<"] = "<<par_space.m_end[i]<<std::endl;
+      }
+      lout << "offset=("<<offset.x<<","<<offset.y<<","<<offset.z<<") dims=("<<dims.x<<","<<dims.y<<","<<dims.z<<")"<<std::endl;
+      return block_parallel_for( par_space , ParallelForBlockAdapter<FuncT,PES>{func,offset,dims} , pec , bpfopts );
+    }
+
 
   }
 

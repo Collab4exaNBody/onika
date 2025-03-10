@@ -38,16 +38,16 @@ namespace onika
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     ONIKA_STATIC_INLINE_KERNEL
-    void block_parallel_for_gpu_kernel_regulargrid( ONIKA_CU_GRID_CONSTANT const FuncT func )
+    void block_parallel_for_gpu_kernel_regulargrid( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start )
     {
-      func( ONIKA_CU_BLOCK_IDX );
+      func( start + ONIKA_CU_BLOCK_IDX );
     }
 
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     ONIKA_STATIC_INLINE_KERNEL
-    void block_parallel_for_gpu_kernel_grid3d( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const onikaInt3_t start_coord )
+    void block_parallel_for_gpu_kernel_regulargrid_3D( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const onikaInt3_t start_coord )
     {
       func( start_coord + ONIKA_CU_BLOCK_COORD );
     }
@@ -85,49 +85,49 @@ namespace onika
           if constexpr ( functor_has_gpu_prolog ) { m_func( block_parallel_for_gpu_prolog_t{} , pes ); }
           else if constexpr ( functor_has_prolog ) { m_func( block_parallel_for_prolog_t{} ); }
         }
-        else { std::cerr << "called stream_gpu_initialize with no GPU support" << std::endl; std::abort(); }
+        else { fatal_error() << "called stream_gpu_initialize with no GPU support" << std::endl; }
       }
       
       inline void stream_gpu_kernel(ParallelExecutionContext* pec, ParallelExecutionStream* pes) const override final
       {
         if constexpr ( GPUSupport )
         {
-          assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
-          const size_t N = m_parallel_space.m_end[0];
-          //printf("stream GPU Kernel (%s) N=%d\n",pec->m_tag,int(N));
-
+          assert( m_parallel_space.m_elements == nullptr );
+          
           // launch compute kernel
-          if constexpr ( FuncParamDim == 1 )
+          const size_t N = m_parallel_space.m_end[0] - m_parallel_space.m_start[0];
+          const onikaInt3_t block_offset = { m_parallel_space.m_start[0], m_parallel_space.m_start[1], m_parallel_space.m_start[2] };
+          if( pec->m_grid_size.x > 0 )
           {
-            if( pec->m_grid_size > 0 )
+            if constexpr ( FuncParamDim == 1 )
             {
-              ONIKA_CU_LAUNCH_KERNEL(pec->m_grid_size,pec->m_block_size,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec->m_cuda_scratch.get(), m_func );
+              ONIKA_CU_LAUNCH_KERNEL(pec->m_grid_size.x,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec->m_cuda_scratch.get(), m_func );
             }
             else
             {
-              ONIKA_CU_LAUNCH_KERNEL(N,pec->m_block_size,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, m_func );
+              fatal_error() << "Work stealing GPU execution only supported for 1D kernels" << std::endl;
             }
           }
-          else if constexpr ( FuncParamDim > 1 )
+          else
           {
-            if( pec->m_grid_size > 0 )
-            {
-              std::cerr << "Work stealing GPU execution is only supported for 1D kernels" << std::endl;
-              std::abort();
+            if constexpr ( FuncParamDim == 1 )
+            {            
+              ONIKA_CU_LAUNCH_KERNEL(N,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, m_func, block_offset.x );
             }
-            onikaDim3_t grid_size = {
-                static_cast<unsigned int>( m_parallel_space.m_end[0] - m_parallel_space.m_start[0] )
-              , static_cast<unsigned int>( m_parallel_space.m_end[1] - m_parallel_space.m_start[1] )
-              , static_cast<unsigned int>( m_parallel_space.m_end[2] - m_parallel_space.m_start[2] ) };
-            unsigned int bs = static_cast<unsigned int>( pow( pec->m_block_size , 1.0/FuncParamDim ) );
-            if( bs < 4 ) bs = 4;
-            onikaDim3_t block_size = { bs , bs , FuncParamDim==3 ? bs : 1 };
-            onikaInt3_t block_offset = { m_parallel_space.m_start[0], m_parallel_space.m_start[1], m_parallel_space.m_start[2] };
-            ONIKA_CU_LAUNCH_KERNEL( grid_size , block_size , 0 , pes->m_cu_stream , block_parallel_for_gpu_kernel_grid3d , m_func , block_offset );
-          }
-          
+            else if constexpr ( FuncParamDim > 1 )
+            {
+              onikaDim3_t exec_grid_size = { static_cast<unsigned int>( m_parallel_space.m_end[0] - m_parallel_space.m_start[0] )
+                                           , static_cast<unsigned int>( m_parallel_space.m_end[1] - m_parallel_space.m_start[1] )
+                                           , static_cast<unsigned int>( m_parallel_space.m_end[2] - m_parallel_space.m_start[2] ) };
+              lout << "Kernel execute grid=("<<exec_grid_size.x<<","<<exec_grid_size.y<<","<<exec_grid_size.z<<") , block=("<<pec->m_block_size.x<<","<<pec->m_block_size.y<<","<<pec->m_block_size.z<<")" << std::endl;
+              ONIKA_CU_LAUNCH_KERNEL(exec_grid_size , pec->m_block_size , 0 , pes->m_cu_stream , block_parallel_for_gpu_kernel_regulargrid_3D, m_func, block_offset );
+            }
+          }          
         }
-        else { std::cerr << "called stream_gpu_kernel with no GPU support" << std::endl; std::abort(); }
+        else
+        {
+          fatal_error() << "called stream_gpu_kernel with no GPU support" << std::endl;
+        }
       }
       
       inline void stream_gpu_finalize(ParallelExecutionContext* pec, ParallelExecutionStream* pes) const override final
@@ -139,7 +139,7 @@ namespace onika
           if constexpr ( functor_has_gpu_epilog ) { m_func( block_parallel_for_gpu_epilog_t{} , pes ); }
           else if constexpr ( functor_has_epilog ) { m_func( block_parallel_for_epilog_t{} ); }
         }
-        else { std::cerr << "called stream_gpu_finalize with no GPU support" << std::endl; std::abort(); }
+        else { fatal_error() << "called stream_gpu_finalize with no GPU support" << std::endl; }
       }
 
 
@@ -152,7 +152,7 @@ namespace onika
       
       inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
       {      
-        static_assert( FuncParamDim==1 || FuncParamDim==3 , "OpenMP backend only support 1D and 3D parallel execution space" );
+        static_assert( FuncParamDim>=1 && FuncParamDim<=3 , "OpenMP backend only support 1D, 2D and 3D parallel execution spaces" );
 
         pes->m_omp_execution_count.fetch_add(1);
         assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
@@ -186,7 +186,34 @@ namespace onika
             }
           }
         }
-        if constexpr ( FuncParamDim == 3 )
+        else if constexpr ( FuncParamDim == 2 )
+        {
+#         pragma omp parallel
+          {
+            switch( pec->m_omp_sched )
+            {
+              case OMP_SCHED_DYNAMIC :
+#               pragma omp for collapse(2) schedule(dynamic)
+                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++) 
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+                { m_func( onikaInt3_t{i,j,0} ); }
+                break;
+              case OMP_SCHED_GUIDED :
+#               pragma omp for collapse(2) schedule(guided)
+                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++) 
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+                { m_func( onikaInt3_t{i,j,0} ); }
+                break;
+              case OMP_SCHED_STATIC :
+#               pragma omp for collapse(2) schedule(static)
+                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++) 
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+                { m_func( onikaInt3_t{i,j,0} ); }
+                break;
+            }
+          }
+        }
+        else if constexpr ( FuncParamDim == 3 )
         {
 #         pragma omp parallel
           {
@@ -216,7 +243,6 @@ namespace onika
             }
           }
         }
-        static_assert( FuncParamDim==1 || FuncParamDim==3 );
         
         execute_epilog( pec , pes );
         pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;

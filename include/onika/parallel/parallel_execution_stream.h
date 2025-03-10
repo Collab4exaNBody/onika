@@ -219,7 +219,7 @@ namespace onika
           }
 
           // sets all scratch counters to 0
-          if( pec.m_reset_counters || pec.m_grid_size > 0 )
+          if( pec.m_reset_counters || pec.m_grid_size.x > 0 )
           {
             ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMSET( pec.m_cuda_scratch->counters, 0, GPUKernelExecutionScratch::MAX_COUNTERS * sizeof(unsigned long long int), pes.m_stream->m_cu_stream ) );
           }

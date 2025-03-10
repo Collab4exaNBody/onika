@@ -127,8 +127,9 @@ namespace onika
       void * m_return_data_output = nullptr;
       unsigned int m_return_data_size = 0;
       ExecutionTarget m_execution_target = EXECUTION_TARGET_OPENMP;
-      unsigned int m_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
-      unsigned int m_grid_size = 0; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
+      unsigned int m_block_threads = ONIKA_CU_MAX_THREADS_PER_BLOCK;
+      onikaDim3_t m_block_size = { m_block_threads , 1 , 1 };
+      onikaDim3_t m_grid_size = { 0, 0, 0 }; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
       OMPScheduling m_omp_sched = OMP_SCHED_DYNAMIC;
       //ParallelExecutionSpace m_parallel_space = {};
       bool m_reset_counters = false;

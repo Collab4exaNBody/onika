@@ -92,6 +92,7 @@ namespace onika { namespace scg
       scratch->resize( *samples );
       IterativeBenchmarkFunctor benchmark = { scratch->data() , *iterations };
       parallel_for( *samples , benchmark , parallel_execution_context() );
+      lout << "Benchmark passed, time = "<<std::endl;
     }
   };
   
