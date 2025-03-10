@@ -243,6 +243,10 @@ namespace onika
             }
           }
         }
+        else
+        {
+          fatal_error() << "Unsuported parallel execution space dimensionality "<<FuncParamDim<<std::endl;
+        }
         
         execute_epilog( pec , pes );
         pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
@@ -281,7 +285,16 @@ namespace onika
                 func( i );
               }
             }
-            else if constexpr ( FuncParamDim>1 )
+            else if constexpr ( FuncParamDim==2 )
+            {
+#             pragma omp taskloop collapse(2) default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
+              for(ssize_t j=ps.m_start[1];j<ps.m_end[1];j++) 
+              for(ssize_t i=ps.m_start[0];i<ps.m_end[0];i++)
+              {
+                func( onikaInt3_t{i,j,0} );
+              }
+            }
+            else if constexpr ( FuncParamDim==3 )
             {
 #             pragma omp taskloop collapse(3) default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
               for(ssize_t k=ps.m_start[2];k<ps.m_end[2];k++) 
@@ -291,7 +304,12 @@ namespace onika
                 func( onikaInt3_t{i,j,k} );
               }
             }
+            else
+            {
+              fatal_error() << "Unsuported parallel execution space dimensionality "<<FuncParamDim<<std::endl;
+            }
           }
+
           // here all tasks of taskloop have completed, since notaskgroup clause is not specified              
           execute_epilog( pec , pes );          
           pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
