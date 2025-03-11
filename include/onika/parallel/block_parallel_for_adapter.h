@@ -119,7 +119,7 @@ namespace onika
               onikaDim3_t exec_grid_size = { static_cast<unsigned int>( m_parallel_space.m_end[0] - m_parallel_space.m_start[0] )
                                            , static_cast<unsigned int>( m_parallel_space.m_end[1] - m_parallel_space.m_start[1] )
                                            , static_cast<unsigned int>( m_parallel_space.m_end[2] - m_parallel_space.m_start[2] ) };
-              lout << "Kernel execute grid=("<<exec_grid_size.x<<","<<exec_grid_size.y<<","<<exec_grid_size.z<<") , block=("<<pec->m_block_size.x<<","<<pec->m_block_size.y<<","<<pec->m_block_size.z<<")" << std::endl;
+              //lout << "Kernel execute grid=("<<exec_grid_size.x<<","<<exec_grid_size.y<<","<<exec_grid_size.z<<") , block=("<<pec->m_block_size.x<<","<<pec->m_block_size.y<<","<<pec->m_block_size.z<<")" << std::endl;
               ONIKA_CU_LAUNCH_KERNEL(exec_grid_size , pec->m_block_size , 0 , pes->m_cu_stream , block_parallel_for_gpu_kernel_regulargrid_3D, m_func, block_offset );
             }
           }          

@@ -99,7 +99,7 @@ namespace onika
             pec->m_block_size = onika::parallel::ParallelExecutionContext::gpu_block_dims();
             if ( ND == 2 ) pec->m_block_size.z = 1;
           }
-          std::cout << "block size = (" << pec->m_block_size.x <<","<< pec->m_block_size.y <<","<< pec->m_block_size.z<<")"<<std::endl;
+          //std::cout << "block size = (" << pec->m_block_size.x <<","<< pec->m_block_size.y <<","<< pec->m_block_size.z<<")"<<std::endl;
           
           if( opts.n_div_blocksize )
           {
@@ -125,7 +125,7 @@ namespace onika
           { 
             pec->m_grid_size = onikaDim3_t{0,0,0};
           }
-          std::cout << "grid size = (" << pec->m_grid_size.x <<","<< pec->m_grid_size.y <<","<< pec->m_grid_size.z<<")"<<std::endl;
+          //std::cout << "grid size = (" << pec->m_grid_size.x <<","<< pec->m_grid_size.y <<","<< pec->m_grid_size.z<<")"<<std::endl;
 
           pec->m_reset_counters = opts.fixed_gpu_grid_size;
 
