@@ -10,12 +10,13 @@ namespace onika
   {
 
     // GPU execution kernel for fixed size grid, using workstealing element assignment to blocks
-    template< class FuncT>
+    template<class ElementIndices, class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     ONIKA_STATIC_INLINE_KERNEL
-    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, ONIKA_CU_GRID_CONSTANT const FuncT func )
+    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, const ElementIndices * idx, ONIKA_CU_GRID_CONSTANT const FuncT func )
     {
+      static constexpr unsigned int ElemND = ElementIndices::array_size;
       // avoid use of compute buffer when possible
       ONIKA_CU_BLOCK_SHARED unsigned int i;
       do
@@ -27,20 +28,23 @@ namespace onika
         ONIKA_CU_BLOCK_SYNC();
         if( i < N )
         {
-          func( i );
+          if constexpr (ElemND==0) func( i );
+          if constexpr (ElemND>=1) func( idx[i] );
         }
       }
       while( i < N );
     }
 
     // GPU execution kernel for adaptable size grid, a.k.a. conventional Cuda kernel execution on N element blocks
-    template< class FuncT>
+    template<class ElementIndices, class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     ONIKA_STATIC_INLINE_KERNEL
-    void block_parallel_for_gpu_kernel_regulargrid( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start )
+    void block_parallel_for_gpu_kernel_regulargrid( const ElementIndices * idx , ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start )
     {
-      func( start + ONIKA_CU_BLOCK_IDX );
+      static constexpr unsigned int ElemND = ElementIndices::array_size;
+      if constexpr (ElemND==0) func( start + ONIKA_CU_BLOCK_IDX );
+      if constexpr (ElemND>=1) func( idx[ start + ONIKA_CU_BLOCK_IDX ] );
     }
 
     template< class FuncT>
@@ -96,12 +100,14 @@ namespace onika
           
           // launch compute kernel
           const size_t N = m_parallel_space.m_end[0] - m_parallel_space.m_start[0];
-          const onikaInt3_t block_offset = { m_parallel_space.m_start[0], m_parallel_space.m_start[1], m_parallel_space.m_start[2] };
+          onikaInt3_t block_offset = { m_parallel_space.m_start[0], 0, 0 };
+          if constexpr ( ND >= 2 ) block_offset.y = m_parallel_space.m_start[1];
+          if constexpr ( ND >= 3 ) block_offset.z =  m_parallel_space.m_start[2];
           if( pec->m_grid_size.x > 0 )
           {
-            if constexpr ( FuncParamDim == 1 )
+            if constexpr ( ND == 1 )
             {
-              ONIKA_CU_LAUNCH_KERNEL(pec->m_grid_size.x,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec->m_cuda_scratch.get(), m_func );
+              ONIKA_CU_LAUNCH_KERNEL(pec->m_grid_size.x,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec->m_cuda_scratch.get(), m_parallel_space.m_elements, m_func );
             }
             else
             {
@@ -110,12 +116,13 @@ namespace onika
           }
           else
           {
-            if constexpr ( FuncParamDim == 1 )
+            if constexpr ( ND == 1 )
             {            
-              ONIKA_CU_LAUNCH_KERNEL(N,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, m_func, block_offset.x );
+              ONIKA_CU_LAUNCH_KERNEL(N,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, m_parallel_space.m_elements, m_func, block_offset.x );
             }
-            else if constexpr ( FuncParamDim > 1 )
+            else if constexpr ( ND > 1 )
             {
+              static_assert( ElemND == 0 , "element indices must be 1D" );
               onikaDim3_t exec_grid_size = { static_cast<unsigned int>( m_parallel_space.m_end[0] - m_parallel_space.m_start[0] )
                                            , static_cast<unsigned int>( m_parallel_space.m_end[1] - m_parallel_space.m_start[1] )
                                            , static_cast<unsigned int>( m_parallel_space.m_end[2] - m_parallel_space.m_start[2] ) };
@@ -157,6 +164,7 @@ namespace onika
         pes->m_omp_execution_count.fetch_add(1);
         assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
         const size_t N = m_parallel_space.m_end[0];
+        const auto * __restrict__ idx = m_parallel_space.m_elements;
 
 #       ifdef ONIKA_OMP_NUM_THREADS_WORKAROUND
         omp_set_num_threads( omp_get_max_threads() );
@@ -165,7 +173,7 @@ namespace onika
         const auto T0 = std::chrono::high_resolution_clock::now();  
         execute_prolog( pec , pes );
         
-        if constexpr ( FuncParamDim == 1 )
+        if constexpr ( ND == 1 )
         {
 #         pragma omp parallel
           {
@@ -173,21 +181,34 @@ namespace onika
             {
               case OMP_SCHED_DYNAMIC :
 #               pragma omp for schedule(dynamic)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++) { m_func( i ); }
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+                {
+                  if constexpr ( ElemND==0 ) m_func( i );
+                  if constexpr ( ElemND>=1 ) m_func( idx[i] );
+                }
                 break;
               case OMP_SCHED_GUIDED :
 #               pragma omp for schedule(guided)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++) { m_func( i ); }
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+                {
+                  if constexpr ( ElemND==0 ) m_func( i );
+                  if constexpr ( ElemND>=1 ) m_func( idx[i] );
+                }
                 break;
               case OMP_SCHED_STATIC :
 #               pragma omp for schedule(static)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++) { m_func( i ); }
+                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+                {
+                  if constexpr ( ElemND==0 ) m_func( i );
+                  if constexpr ( ElemND>=1 ) m_func( idx[i] );
+                }
                 break;
             }
           }
         }
-        else if constexpr ( FuncParamDim == 2 )
+        else if constexpr ( ND == 2 )
         {
+          static_assert( ElemND == 0 , "element indices must be 1D" );
 #         pragma omp parallel
           {
             switch( pec->m_omp_sched )
@@ -213,8 +234,9 @@ namespace onika
             }
           }
         }
-        else if constexpr ( FuncParamDim == 3 )
+        else if constexpr ( ND == 3 )
         {
+          static_assert( ElemND == 0 , "element indices must be 1D" );
 #         pragma omp parallel
           {
             switch( pec->m_omp_sched )
@@ -262,12 +284,12 @@ namespace onika
         pes->m_omp_execution_count.fetch_add(1);
         // encloses a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
         // refrenced variables must be privately copied, because the task may run after this function ends
-#       pragma omp task default(none) firstprivate(pec,pes,num_tasks) depend(inout:pes[0])
+        const auto ps = m_parallel_space;
+#       pragma omp task default(none) firstprivate(pec,pes,ps,num_tasks) depend(inout:pes[0])
         {
-          assert( m_parallel_space.m_elements == nullptr );
-          const size_t Ni = m_parallel_space.m_end[0] - m_parallel_space.m_start[0];
-          const size_t Nj = m_parallel_space.m_end[1] - m_parallel_space.m_start[1];
-          const size_t Nk = m_parallel_space.m_end[2] - m_parallel_space.m_start[2];
+          const size_t Ni = ps.m_end[0] - ps.m_start[0];
+          const size_t Nj = ps.m_end[1] - ps.m_start[1];
+          const size_t Nk = ps.m_end[2] - ps.m_start[2];
           const size_t N = Ni*Nj*Nk;
           const auto T0 = std::chrono::high_resolution_clock::now();
           execute_prolog( pec , pes );
@@ -276,17 +298,19 @@ namespace onika
             // implicit taskgroup, ensures taskloop has completed before enclosing task ends
             // all refrenced variables can be shared because of implicit enclosing taskgroup
             const auto & func = m_func;
-            const auto ps = m_parallel_space;
-            if constexpr ( FuncParamDim==1 )
+            //const auto ps = parspace;
+            if constexpr ( ND==1 )
             {
 #             pragma omp taskloop default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
               for(ssize_t i=ps.m_start[0] ; i<ps.m_end[0] ; i++ )
               {
-                func( i );
+                if constexpr ( ElemND==0 ) m_func( i );
+                if constexpr ( ElemND>=1 ) m_func( ps.m_elements[i] );
               }
             }
-            else if constexpr ( FuncParamDim==2 )
+            else if constexpr ( ND==2 )
             {
+              static_assert( ElemND == 0 , "element indices must be 1D" );
 #             pragma omp taskloop collapse(2) default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
               for(ssize_t j=ps.m_start[1];j<ps.m_end[1];j++) 
               for(ssize_t i=ps.m_start[0];i<ps.m_end[0];i++)
@@ -294,8 +318,9 @@ namespace onika
                 func( onikaInt3_t{i,j,0} );
               }
             }
-            else if constexpr ( FuncParamDim==3 )
+            else if constexpr ( ND==3 )
             {
+              static_assert( ElemND == 0 , "element indices must be 1D" );
 #             pragma omp taskloop collapse(3) default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
               for(ssize_t k=ps.m_start[2];k<ps.m_end[2];k++) 
               for(ssize_t j=ps.m_start[1];j<ps.m_end[1];j++) 

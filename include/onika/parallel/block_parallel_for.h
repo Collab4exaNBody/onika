@@ -103,6 +103,10 @@ namespace onika
           
           if( opts.n_div_blocksize )
           {
+            if( ElemND>=1 )
+            {
+              fatal_error() << "n_div_blocksize option is only valid non indexed elements " << std::endl;
+            }
             const unsigned int blocksz[3] = { pec->m_block_size.x , pec->m_block_size.y , pec->m_block_size.z };
             for(unsigned int i=0;i<ND;i++)
             {

@@ -81,9 +81,11 @@ namespace onika
       static_assert( _ElementListNDim==0 || _NDim==1 , "Element lists are only supported for 1D parallel execution spaces" );
       static inline constexpr unsigned int NDim = _NDim;
       static inline constexpr unsigned int ElementListNDim = _ElementListNDim;
-      onika::oarray_t<ssize_t,NDim> m_start;
-      onika::oarray_t<ssize_t,NDim> m_end;
-      onika::oarray_t<ssize_t,ElementListNDim> * m_elements = nullptr;
+      using coord_t = onika::oarray_t<ssize_t,NDim>;
+      using element_t = onika::oarray_t<ssize_t,ElementListNDim>;
+      coord_t m_start;
+      coord_t m_end;
+      const element_t * m_elements = nullptr;
     };
 
     struct ParallelExecutionStream;
