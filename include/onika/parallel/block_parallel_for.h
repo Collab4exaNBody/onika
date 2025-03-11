@@ -90,15 +90,17 @@ namespace onika
         {
           pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_CUDA;
           pec->m_block_threads = std::min( size_t(opts.max_block_size) , std::min( size_t(ONIKA_CU_MAX_THREADS_PER_BLOCK) , size_t(onika::parallel::ParallelExecutionContext::gpu_block_size()) ) );
-//          const unsigned int bs = std::max( static_cast<unsigned int>( pow( pec->m_block_threads , 1.0/FuncParamDim ) ) , 4u );
-//          pec->m_block_size = onikaDim3_t{ bs , bs , FuncParamDim==3 ? bs : 1 };
-          if ( ND == 3 ) pec->m_block_size = onikaDim3_t{ 4 , 4 , 4 };
-          else if ( ND == 2 ) pec->m_block_size = onikaDim3_t{ 8 , 8 , 1 };
-          else pec->m_block_size = onikaDim3_t{ pec->m_block_threads , 1 , 1 };
-          const unsigned int preferred_grid_threads = pec->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
-                                        * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
-                                        + onika::parallel::ParallelExecutionContext::gpu_sm_add();
-          pec->m_grid_size = onikaDim3_t{ preferred_grid_threads, 1 , 1 };
+          if( ND == 1 )
+          {
+            pec->m_block_size = onikaDim3_t{ pec->m_block_threads , 1 , 1 };
+          }
+          else
+          {
+            pec->m_block_size = onika::parallel::ParallelExecutionContext::gpu_block_dims();
+            if ( ND == 2 ) pec->m_block_size.z = 1;
+          }
+          std::cout << "block size = (" << pec->m_block_size.x <<","<< pec->m_block_size.y <<","<< pec->m_block_size.z<<")"<<std::endl;
+          
           if( opts.n_div_blocksize )
           {
             const unsigned int blocksz[3] = { pec->m_block_size.x , pec->m_block_size.y , pec->m_block_size.z };
@@ -112,10 +114,18 @@ namespace onika
             }
           }
 
-          if( ! opts.fixed_gpu_grid_size )
+          if( opts.fixed_gpu_grid_size )
+          {
+            const unsigned int preferred_grid_blocks = pec->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
+                                        * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
+                                        + onika::parallel::ParallelExecutionContext::gpu_sm_add();
+            pec->m_grid_size = onikaDim3_t{ preferred_grid_blocks, 1 , 1 };
+          }
+          else
           { 
             pec->m_grid_size = onikaDim3_t{0,0,0};
           }
+          std::cout << "grid size = (" << pec->m_grid_size.x <<","<< pec->m_grid_size.y <<","<< pec->m_grid_size.z<<")"<<std::endl;
 
           pec->m_reset_counters = opts.fixed_gpu_grid_size;
 

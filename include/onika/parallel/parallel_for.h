@@ -148,9 +148,9 @@ namespace onika
       {
         par_space.m_end[i] -= par_space.m_start[i];
         par_space.m_start[i] = 0;
-        lout << "start["<<i<<"] = " <<par_space.m_start[i]<<" , end["<<i<<"] = "<<par_space.m_end[i]<<std::endl;
+        //lout << "start["<<i<<"] = " <<par_space.m_start[i]<<" , end["<<i<<"] = "<<par_space.m_end[i]<<std::endl;
       }
-      lout << "offset=("<<offset.x<<","<<offset.y<<","<<offset.z<<") dims=("<<dims.x<<","<<dims.y<<","<<dims.z<<")"<<std::endl;
+      //lout << "offset=("<<offset.x<<","<<offset.y<<","<<offset.z<<") dims=("<<dims.x<<","<<dims.y<<","<<dims.z<<")"<<std::endl;
       return block_parallel_for( par_space , ParallelForBlockAdapter<FuncT,PES>{func,offset,dims} , pec , bpfopts );
     }
 

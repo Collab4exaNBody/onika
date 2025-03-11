@@ -125,7 +125,7 @@ namespace onika { namespace scg
           lout<<"K="<<k<<std::endl;
           for(int j=0;j<N;j++)
           {
-            lout<<"  J="<<j<<" :";
+            lout<<"  J="<<std::setw(3)<<j<<" :";
             for(int i=0;i<N;i++)
             {
               lout <<" "<<int( scratch->at( (k*N+j)*N+i ) );
