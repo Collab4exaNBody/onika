@@ -610,7 +610,7 @@ namespace onika { namespace scg
     return parallel_execution_stream_nolock(id);
   }
 
-  onika::parallel::ParallelExecutionStreamQueue OperatorNode::parallel_execution_stream(unsigned int id)
+  onika::parallel::ParallelExecutionQueue OperatorNode::parallel_execution_stream(unsigned int id)
   {
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
     return { parallel_execution_stream_nolock(id).get() };

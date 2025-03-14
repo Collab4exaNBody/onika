@@ -9,6 +9,8 @@ namespace onika
   namespace parallel
   {
 
+    // ========================== GPU execution kernels ==========================
+    
     // GPU execution kernel for fixed size grid, using workstealing element assignment to blocks
     template<class ElementIndices, class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
@@ -56,6 +58,10 @@ namespace onika
       func( start_coord + ONIKA_CU_BLOCK_COORD );
     }
 
+
+
+    // =============== Execution functor adapter for Cuda, OpenMP parallel and OpenMP tasks ==========================
+
     template<class FuncT, bool GPUSupport , unsigned int ND=1, unsigned int ElemND=0>
     class BlockParallelForHostAdapter : public BlockParallelForHostFunctor
     {
@@ -78,8 +84,10 @@ namespace onika
     public:
       inline BlockParallelForHostAdapter( const FuncT& f , const ParallelExecutionSpace<ND,ElemND>& ps ) : m_func(f) , m_parallel_space(ps) {}
 
-      // ================== GPU stream based execution interface =======================
 
+      // ================ GPU execution interface ======================
+
+      // GPU execution prolog
       inline void stream_gpu_initialize(ParallelExecutionContext* pec , ParallelExecutionStream* pes) const override final
       {
         if constexpr ( GPUSupport )
@@ -92,6 +100,7 @@ namespace onika
         else { fatal_error() << "called stream_gpu_initialize with no GPU support" << std::endl; }
       }
       
+      // GPU execution kernel call
       inline void stream_gpu_kernel(ParallelExecutionContext* pec, ParallelExecutionStream* pes) const override final
       {
         if constexpr ( GPUSupport )
@@ -137,6 +146,7 @@ namespace onika
         }
       }
       
+      // GPU execution epilog
       inline void stream_gpu_finalize(ParallelExecutionContext* pec, ParallelExecutionStream* pes) const override final
       {
         if constexpr ( GPUSupport )

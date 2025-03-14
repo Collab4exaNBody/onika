@@ -261,7 +261,7 @@ namespace onika { namespace scg
     onika::parallel::ParallelExecutionContext* parallel_execution_context( const char* app_tag = nullptr );
     std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_nolock(unsigned int id=0);
     std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_lock(unsigned int id=0);
-    onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream(unsigned int id=0);
+    onika::parallel::ParallelExecutionQueue parallel_execution_stream(unsigned int id=0);
     void wait_all_parallel_execution_streams();
     
     // free resources associated to slots
