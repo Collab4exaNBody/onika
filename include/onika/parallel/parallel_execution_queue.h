@@ -2,6 +2,7 @@
 
 #include <onika/cuda/cuda_context.h>
 #include <onika/parallel/parallel_execution_stream.h>
+#include <onika/parallel/block_parallel_for_functor.h>
 #include <mutex>
 #include <atomic>
 

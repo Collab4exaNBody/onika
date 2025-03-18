@@ -43,6 +43,7 @@ under the License.
 #include <onika/cuda/cuda_context.h>
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/parallel_execution_stream.h>
+#include <onika/parallel/parallel_execution_queue.h>
 
 namespace onika { namespace scg
 {

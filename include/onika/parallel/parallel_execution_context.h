@@ -74,7 +74,11 @@ namespace onika
       void *m_data = nullptr;
     };
 
-    template<unsigned int _NDim=1, unsigned int _ElementListNDim=0>
+    template<unsigned int ND=1> struct ElementCoordT { using type = onika::oarray_t<ssize_t,ND>; };
+    template<> struct ElementCoordT<1> { using type = ssize_t; };
+    template<unsigned int ND=1> using element_coord_t = typename ElementCoordT<ND>::type;
+
+    template<unsigned int _NDim=1, unsigned int _ElementListNDim=0, class _ElementListT = const element_coord_t<_ElementListNDim> * >
     struct ParallelExecutionSpace
     {
       static_assert( _NDim>=1 && _NDim<=3 && _ElementListNDim>=0 && _ElementListNDim<=3 );
@@ -82,10 +86,11 @@ namespace onika
       static inline constexpr unsigned int NDim = _NDim;
       static inline constexpr unsigned int ElementListNDim = _ElementListNDim;
       using coord_t = onika::oarray_t<ssize_t,NDim>;
-      using element_t = onika::oarray_t<ssize_t,ElementListNDim>;
+      using element_list_t = _ElementListT;
+      using element_t = std::remove_cv_t< std::remove_reference_t< decltype( _ElementListT{}[0] ) > >;
       coord_t m_start;
       coord_t m_end;
-      const element_t * m_elements = nullptr;
+      element_list_t m_elements = {};
     };
 
     struct ParallelExecutionStream;

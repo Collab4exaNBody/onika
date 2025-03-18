@@ -25,6 +25,7 @@ under the License.
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/parallel_execution_stream.h>
 #include <onika/parallel/block_parallel_for_adapter.h>
+#include <onika/parallel/parallel_execution_operators.h>
 #include <onika/lambda_tools.h>
 #include <onika/stream_utils.h>
 

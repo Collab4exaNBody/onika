@@ -4,6 +4,7 @@
 #include <onika/parallel/stream_utils.h>
 #include <mutex>
 #include <atomic>
+#include <functional>
 
 namespace onika
 {
@@ -54,6 +55,8 @@ namespace onika
       }
     };
     
+    using ParallelExecutionStreamAllocator = std::function<ParallelExecutionStream*(int)>;
+
   }
 
 }
