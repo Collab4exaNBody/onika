@@ -76,9 +76,13 @@ namespace onika
 
     template<unsigned int ND=1> struct ElementCoordT { using type = onika::oarray_t<ssize_t,ND>; };
     template<> struct ElementCoordT<1> { using type = ssize_t; };
-    template<unsigned int ND=1> using element_coord_t = typename ElementCoordT<ND>::type;
+    template<unsigned int ND> using element_coord_t = typename ElementCoordT<ND>::type;
+    
+    template<class T, bool = std::is_integral_v<T> > struct ElementCoordND { static inline constexpr unsigned int value = 1; };
+    template<class T> struct ElementCoordND<T,false> { static inline constexpr unsigned int value = T::array_size; };
+    template<class T> static inline constexpr unsigned int element_coord_nd_v = ElementCoordND<T>::value;
 
-    template<unsigned int _NDim=1, unsigned int _ElementListNDim=0, class _ElementListT = const element_coord_t<_ElementListNDim> * >
+    template<unsigned int _NDim=1, unsigned int _ElementListNDim=0, class _ElementListT = std::span< element_coord_t<_ElementListNDim> > >
     struct ParallelExecutionSpace
     {
       static_assert( _NDim>=1 && _NDim<=3 && _ElementListNDim>=0 && _ElementListNDim<=3 );
@@ -197,11 +201,6 @@ namespace onika
       static inline int gpu_sm_add() { return ( s_gpu_sm_add >= 0 ) ? s_gpu_sm_add : parallel_task_core_add() ; }
       static inline int gpu_block_size() { return  s_gpu_block_size; }
       static inline onikaDim3_t gpu_block_dims() { return  s_gpu_block_dims; }
-    };
-
-    struct ParallelExecutionGraphQueue
-    {
-      // to be defined ...
     };
 
   }

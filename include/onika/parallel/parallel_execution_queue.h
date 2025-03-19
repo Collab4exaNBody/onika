@@ -12,6 +12,9 @@ namespace onika
   namespace parallel
   {
 
+    static inline constexpr int DEFAULT_EXECUTION_LANE = -1;
+    using ParallelExecutionStreamPool = std::function<ParallelExecutionStream*(int lane)>;
+
     struct ParallelExecutionQueue
     {
       ParallelExecutionStream* m_stream = nullptr;        // execution stream to schedule paralel operations

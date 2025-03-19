@@ -12,13 +12,14 @@ namespace onika
     // ========================== GPU execution kernels ==========================
     
     // GPU execution kernel for fixed size grid, using workstealing element assignment to blocks
-    template<class ElementIndices, class FuncT>
+    template<class ElementCoordRangeT, class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     ONIKA_STATIC_INLINE_KERNEL
-    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, const ElementIndices * idx, ONIKA_CU_GRID_CONSTANT const FuncT func )
+    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, const ElementCoordRangeT idx, ONIKA_CU_GRID_CONSTANT const FuncT func )
     {
-      static constexpr unsigned int ElemND = ElementIndices::array_size;
+      using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
+      static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
       // avoid use of compute buffer when possible
       ONIKA_CU_BLOCK_SHARED unsigned int i;
       do
@@ -38,13 +39,14 @@ namespace onika
     }
 
     // GPU execution kernel for adaptable size grid, a.k.a. conventional Cuda kernel execution on N element blocks
-    template<class ElementIndices, class FuncT>
+    template<class ElementCoordRangeT, class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     ONIKA_STATIC_INLINE_KERNEL
-    void block_parallel_for_gpu_kernel_regulargrid( const ElementIndices * idx , ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start )
+    void block_parallel_for_gpu_kernel_regulargrid( const ElementCoordRangeT idx , ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start )
     {
-      static constexpr unsigned int ElemND = ElementIndices::array_size;
+      using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
+      static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
       if constexpr (ElemND==0) func( start + ONIKA_CU_BLOCK_IDX );
       if constexpr (ElemND>=1) func( idx[ start + ONIKA_CU_BLOCK_IDX ] );
     }
@@ -174,7 +176,7 @@ namespace onika
         pes->m_omp_execution_count.fetch_add(1);
         assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
         const size_t N = m_parallel_space.m_end[0];
-        const auto * __restrict__ idx = m_parallel_space.m_elements;
+        const auto * __restrict__ idx = m_parallel_space.m_elements.data();
 
 #       ifdef ONIKA_OMP_NUM_THREADS_WORKAROUND
         omp_set_num_threads( omp_get_max_threads() );
