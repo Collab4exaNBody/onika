@@ -41,8 +41,7 @@ namespace onika
             int n = st->m_omp_execution_count.load();
             if( n > 0 )
             {
-              log_err()<<"Internal error : unterminated OpenMP tasks ("<<n<<") in queue remain"<<std::endl;
-              std::abort();
+              fatal_error()<<"Internal error : unterminated OpenMP tasks ("<<n<<") remain in queue"<<std::endl;
             }
           }
         }

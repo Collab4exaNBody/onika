@@ -38,25 +38,11 @@ namespace onika
 
     void ParallelExecutionContext::reset()
     {
-      // reset to default state
-      m_tag = nullptr;
-      m_sub_tag = nullptr;
-      m_cuda_ctx = nullptr;
-      m_default_stream = nullptr;
-      m_omp_num_tasks = 0;
-      m_next = nullptr;
-      m_execution_end_callback = ParallelExecutionCallback{};
-      m_finalize = ParallelExecutionFinalize{};
-      m_return_data_input = nullptr;
-      m_return_data_output = nullptr;
-      m_return_data_size = 0;
-      m_execution_target = EXECUTION_TARGET_OPENMP;
-      m_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
-      m_grid_size = 0; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
-      //m_parallel_space = ParallelExecutionSpace{};
-      m_reset_counters = false;
-      m_total_cpu_execution_time = 0.0;
-      m_total_gpu_execution_time = 0.0;
+      const auto backup_start_evt = m_start_evt;
+      const auto backup_stop_evt = m_stop_evt;
+      *this = ParallelExecutionContext{};
+      m_start_evt = backup_start_evt;
+      m_stop_evt = backup_stop_evt;
     }
 
     ParallelExecutionContext::~ParallelExecutionContext()

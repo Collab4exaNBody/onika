@@ -97,7 +97,7 @@ namespace onika
       element_list_t m_elements = {};
     };
 
-    struct ParallelExecutionStream;
+    struct ParallelExecutionQueue;
 
     struct ParallelExecutionContext
     {
@@ -110,9 +110,16 @@ namespace onika
       // GPU device context, null if non device available for parallel execution
       onika::cuda::CudaContext* m_cuda_ctx = nullptr;
 
-      // default stream to use for immediate execution if parallel operation is not
-      // queued in any stream or graph queue.
-      ParallelExecutionStream* m_default_stream = nullptr;
+      // default queue to schedule immediate execution if parallel operation is not
+      // explicitly pushed to a queue
+      ParallelExecutionQueue* m_default_queue = nullptr;
+      
+      // execution stream this operation is executing (i.e. has been scheduled) in
+      // this is set only after current operations has been scheduled
+      ParallelExecutionQueue* m_stream = nullptr;
+      
+      // preferred lane, an opportunity for manual concurrent execution is not default one is selected
+      int m_preferred_lane = DEFAULT_EXECUTION_LANE;
 
       // desired number of OpenMP tasks.
       // m_omp_num_tasks == 0 means no task (opens and then close its own parallel region).
