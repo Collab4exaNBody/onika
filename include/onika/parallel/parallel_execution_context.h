@@ -24,6 +24,8 @@ under the License.
 #include <onika/cuda/cuda_error.h>
 #include <onika/memory/allocator.h>
 
+#include <onika/parallel/constants.h>
+
 #include <mutex>
 #include <condition_variable>
 
@@ -32,13 +34,6 @@ namespace onika
 
   namespace parallel
   {
-
-    enum OMPScheduling
-    {
-      OMP_SCHED_DYNAMIC ,
-      OMP_SCHED_GUIDED ,
-      OMP_SCHED_STATIC
-    };
 
     struct HostKernelExecutionScratch
     {
@@ -98,6 +93,7 @@ namespace onika
     };
 
     struct ParallelExecutionQueue;
+    struct ParallelExecutionStream;
 
     struct ParallelExecutionContext
     {
@@ -110,13 +106,12 @@ namespace onika
       // GPU device context, null if non device available for parallel execution
       onika::cuda::CudaContext* m_cuda_ctx = nullptr;
 
-      // default queue to schedule immediate execution if parallel operation is not
-      // explicitly pushed to a queue
+      // default queue for scheduling of immediate execution when parallel operation is not pushed onto any existing queue
       ParallelExecutionQueue* m_default_queue = nullptr;
       
       // execution stream this operation is executing (i.e. has been scheduled) in
       // this is set only after current operations has been scheduled
-      ParallelExecutionQueue* m_stream = nullptr;
+      ParallelExecutionStream* m_stream = nullptr;
       
       // preferred lane, an opportunity for manual concurrent execution is not default one is selected
       int m_preferred_lane = DEFAULT_EXECUTION_LANE;

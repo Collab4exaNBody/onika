@@ -1,7 +1,9 @@
 #pragma once
 
 #include <onika/cuda/cuda_context.h>
+#include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/parallel_execution_stream.h>
+#include <onika/parallel/constants.h>
 #include <onika/parallel/block_parallel_for_functor.h>
 #include <mutex>
 #include <atomic>
@@ -11,9 +13,6 @@ namespace onika
 
   namespace parallel
   {
-
-    static inline constexpr int DEFAULT_EXECUTION_LANE = -1;
-    static inline constexpr int MAX_EXECUTION_LANES = 256;
 
     struct ParallelExecutionStreamPool
     {
@@ -25,22 +24,115 @@ namespace onika
     struct ParallelExecutionQueue
     {
       ParallelExecutionStreamPool m_stream_pool = {};     // execution stream to schedule paralel operations
-      ParallelExecutionContext* m_exec_ctx = nullptr;  // head of parallel operations to schedule (following item chained through m_exec_ctx->m_next)
+      int m_preffered_lane = UNDEFINED_EXECUTION_LANE;
+      ParallelExecutionContext* m_queue_list = nullptr;  // head of scheduled parallel operations list
+      ParallelExecutionContext* m_exec_list = nullptr;
       std::mutex m_mutex;                              // for thread safe manipulation of queue
-                     
-      inline ~ParallelExecutionQueue()
+
+      ParallelExecutionQueue() = default;
+      
+      inline ParallelExecutionQueue(const ParallelExecutionStreamPool& pesp , int pl)
+        : m_stream_pool( pesp )
+        , m_preffered_lane( pl )
       {
+      }
+
+      inline ParallelExecutionQueue& operator = (const ParallelExecutionQueue & other)
+      {
+        assert( other.m_queue_list == nullptr );
+        assert( other.m_exec_list == nullptr );
+        const std::lock_guard lk_self( m_mutex );
+        schedule_all();
         wait();
-        m_stream = nullptr;
+        m_stream_pool = other.m_stream_pool;
+        m_preffered_lane = other.m_preffered_lane;
+      }
+
+      inline ParallelExecutionQueue(const ParallelExecutionQueue& other)
+        : m_stream_pool( other.m_stream_pool )
+        , m_preffered_lane( other.m_preffered_lane )
+      {
+        assert( other.m_queue_list == nullptr );
+        assert( other.m_exec_list == nullptr );
+      }
+
+      inline ParallelExecutionQueue(ParallelExecutionQueue && other)
+        : m_stream_pool( other.m_stream_pool )
+        , m_preffered_lane( other.m_preffered_lane )
+        , m_queue_list( other.m_queue_list )
+        , m_exec_list( other.m_exec_list )
+      {
+        const std::lock_guard lk_self( other.m_mutex );
+        other.m_queue_list = nullptr;
+        other.m_exec_list = nullptr;
       }
       
-      inline void enqueue_and_schedule(ParallelExecutionContext* pec)
+      inline ParallelExecutionQueue& operator = (ParallelExecutionQueue && other)
       {
-        std::lock_guard lk_self( m_mutex );
-        
-        // if no automatic lane selection, may ask parallel operation if it has a preferred one
-        auto exec_stream = m_stream_pool( pec->m_preferred_lane );
+        const std::lock_guard lk_self( m_mutex );
+        const std::lock_guard lk_other( other.m_mutex );
+        m_stream_pool = other.m_stream_pool;
+        m_preffered_lane = other.m_preffered_lane;
+        m_queue_list = other.m_queue_list;
+        m_exec_list = other.m_exec_list;
+        other.m_queue_list = nullptr;
+        other.m_exec_list = nullptr;
+        return *this;
+      }
+
+      inline ~ParallelExecutionQueue()
+      {
+        schedule_all();
+        wait();
+        assert( m_queue_list == nullptr );
+        assert( m_exec_list == nullptr );
+      }
+
+      inline void enqueue(ParallelExecutionContext* pec)
+      {
+        assert( pec->m_next == nullptr );
+        assert( pec->m_stram == nullptr );
+        const std::lock_guard lk_self( m_mutex );  
+        if( m_queue_list == nullptr )
+        {
+          m_queue_list = pec;
+        }
+        else
+        {
+          ParallelExecutionContext* el = m_queue_list;
+          while( el->m_next != nullptr ) el = el->m_next;
+          assert( el->m_next == nullptr );
+          el->m_next = pec;
+        }
+      }
+
+      inline void schedule_all()
+      {
+        const std::lock_guard lk_self( m_mutex );        
+        ParallelExecutionContext* el = m_exec_list;
+        if( el != nullptr ) while( el->m_next != nullptr ) el = el->m_next;
+        while( m_queue_list != nullptr )
+        {
+          auto pec = m_queue_list;
+          m_queue_list = m_queue_list->m_next;
+          schedule( pec );
+          if( el != nullptr ) el->m_next = pec;
+          else el = m_exec_list = pec;
+          assert( el->m_next == nullptr );
+        }
+      }
+
+      inline void schedule(ParallelExecutionContext* pec)
+      {
+        assert( pec->m_stream == nullptr );
+
+        // query wich lane (i.e. stream id) to use for parallel operation scheduling
+        int lane = m_preffered_lane;
+        if( lane == UNDEFINED_EXECUTION_LANE ) lane = pec->m_preferred_lane;
+        auto exec_stream = m_stream_pool( lane );
         std::lock_guard lk_stream( exec_stream->m_mutex );
+        
+        pec->m_stream = exec_stream;
       
         const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( pec->m_host_scratch.functor_data );
         
@@ -65,7 +157,7 @@ namespace onika
           {
             if( exec_stream->m_cuda_ctx == nullptr || exec_stream->m_cuda_ctx != pec->m_cuda_ctx )
             {
-              fatal_error() << "Mismatch Cuda context, cannot queue parallel execution to this stream" << std::endl;
+              fatal_error() << "Cannot schedule GPU parallel operation onto stream with no GPU context" << std::endl;
             }
           
             // if device side scratch space hasn't be allocated yet, do it now
@@ -118,58 +210,50 @@ namespace onika
           break;
         }
         
-        // add parallel execution to queue
-        pec->m_stream = exec_stream;
-        pec->m_next = m_exec_ctx;
-        m_exec_ctx = pec;
       }
       
       inline void wait()
       {
         std::lock_guard lk_self( m_mutex );
-        if( m_exec_ctx != nullptr )
-        {          
-          // collect execution times
-          auto* pec = m_exec_ctx;
-          while(pec!=nullptr)
+        while(m_exec_list!=nullptr)
+        {
+          if( m_exec_list->m_stream == nullptr )
           {
-            if( pec->m_stream == nullptr )
-            {
-              fatal_error() << "Executing operation has invalid stream" << std::endl;
-            }
-            std::lock_guard lk( pec->m_stream->m_mutex );
-
-            // synchronize stream
-            pec->m_stream->wait_nolock();
-
-            float Tgpu = 0.0;
-            if( pec->m_execution_target == ParallelExecutionContext::EXECUTION_TARGET_CUDA )
-            {
-              ONIKA_CU_CHECK_ERRORS( ONIKA_CU_EVENT_ELAPSED(Tgpu,pec->m_start_evt,pec->m_stop_evt) );
-              pec->m_total_gpu_execution_time = Tgpu;
-            }
-            auto* next = pec->m_next;
-            if( pec->m_finalize.m_func != nullptr )
-            {
-              // may account for elapsed time, and free pec allocated memory
-              ( * pec->m_finalize.m_func ) ( pec , pec->m_finalize.m_data );
-            }
-            reinterpret_cast<BlockParallelForHostFunctor*>(pec->m_host_scratch.functor_data)-> ~BlockParallelForHostFunctor();
-            pec = next;
+            fatal_error() << "Executing operation has invalid stream" << std::endl;
           }
-          m_exec_ctx = nullptr;
+          std::lock_guard lk( m_exec_list->m_stream->m_mutex );
+
+          // synchronize stream
+          m_exec_list->m_stream->wait_nolock();
+
+          float Tgpu = 0.0;
+          if( m_exec_list->m_execution_target == ParallelExecutionContext::EXECUTION_TARGET_CUDA )
+          {
+            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_EVENT_ELAPSED(Tgpu,m_exec_list->m_start_evt,m_exec_list->m_stop_evt) );
+            m_exec_list->m_total_gpu_execution_time = Tgpu;
+          }
+          auto* next = m_exec_list->m_next;
+          if( m_exec_list->m_finalize.m_func != nullptr )
+          {
+            // may account for elapsed time, and free pec allocated memory
+            ( * m_exec_list->m_finalize.m_func ) ( m_exec_list , m_exec_list->m_finalize.m_data );
+          }
+          reinterpret_cast<BlockParallelForHostFunctor*>(m_exec_list->m_host_scratch.functor_data)-> ~BlockParallelForHostFunctor();
+          m_exec_list = next;
         }
+        assert( m_exec_list == nullptr );
       }
       
       // FIXME: way too conservative, requires all streams containing any of the executing tasks to be completed
       inline bool query_status()    
       {
-        std::lock_guard lk_self( m_mutex );
-        if( m_exec_ctx == nullptr )
+        const std::lock_guard lk_self( m_mutex );
+        if( m_exec_list == nullptr && m_queue_list == nullptr )
         {
           return true;
         }
-        auto* pec = m_exec_ctx;
+        
+        auto* pec = m_exec_list;
         while(pec!=nullptr)
         {
           std::lock_guard lk( pec->m_stream->m_mutex );
@@ -177,22 +261,24 @@ namespace onika
           {
             return false;
           }
-          if( pec->m_stream->m_cuda_ctx != nullptr && m_exec_ctx->m_stop_evt != nullpt )
+          if( pec->m_stream->m_cuda_ctx != nullptr && pec->m_stop_evt != nullptr )
           {
-            if( ONIKA_CU_EVENT_QUERY( m_exec_ctx->m_stop_evt ) != onikaSuccess )
+            if( ONIKA_CU_EVENT_QUERY( pec->m_stop_evt ) != onikaSuccess )
             {
               return false;
             }
           }
-        }               
+          pec = pec->m_next;
+        } 
+        
         wait();
         return true;
       }
       
-      inline bool empty() const     
+      inline bool empty()     
       {
-        std::lock_guard lk( m_stream->m_mutex );
-        return m_exec_ctx == nullptr;
+        const std::lock_guard lk_self( m_mutex );
+        return m_exec_list == nullptr && m_queue_list  == nullptr;
       }
 
     };

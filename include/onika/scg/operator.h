@@ -259,10 +259,12 @@ namespace onika { namespace scg
     // each call allocates a new context to be used to build up a new parallel operation
     void set_task_group_mode( bool m );
     bool task_group_mode() const;
+    bool is_task_region_master() const;
+    OperatorNode * task_group_ancestor();
     onika::parallel::ParallelExecutionContext* parallel_execution_context( const char* app_tag = nullptr );
-    std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_nolock(unsigned int id=0);
-    std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_lock(unsigned int id=0);
-    onika::parallel::ParallelExecutionQueue parallel_execution_stream(unsigned int id=0);
+    onika::parallel::ParallelExecutionStream* parallel_execution_stream(int lane = onika::parallel::DEFAULT_EXECUTION_LANE);
+    onika::parallel::ParallelExecutionQueue& parallel_execution_queue();
+    onika::parallel::ParallelExecutionQueue parallel_execution_custom_queue(int preffered_lane = onika::parallel::DEFAULT_EXECUTION_LANE);
     void wait_all_parallel_execution_streams();
     
     // free resources associated to slots
@@ -331,6 +333,7 @@ namespace onika { namespace scg
     // contains necessary resources to globalize parallel executions accross diferent operators and allow asynchornous parallel executions.
     std::mutex m_parallel_execution_access;
     OperatorNode* m_task_group_ancestor = nullptr; // highest ancestor creator of the encapsulating task group
+    std::shared_ptr<onika::parallel::ParallelExecutionQueue> m_parallel_execution_queue = nullptr;
     std::vector< std::shared_ptr<onika::parallel::ParallelExecutionStream> > m_parallel_execution_streams;
     std::vector< onika::parallel::ParallelExecutionContext* > m_free_parallel_execution_contexts;
     std::unordered_set< onika::parallel::ParallelExecutionContext* > m_allocated_parallel_execution_contexts;

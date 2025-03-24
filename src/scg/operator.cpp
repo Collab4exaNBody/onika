@@ -430,9 +430,14 @@ namespace onika { namespace scg
     }
   }
 
+  bool OperatorNode::is_task_region_master() const
+  {
+     return (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode();
+  }
+
   void OperatorNode::run()
   {
-    const bool open_new_task_region = (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode() ;
+    const bool open_new_task_region = is_task_region_master();
 
     wait_all_parallel_execution_streams();
 
@@ -488,7 +493,7 @@ namespace onika { namespace scg
   void OperatorNode::run_epilog()
   {
     const bool do_profiling = global_profiling() && profiling();
-    const bool open_new_task_region = (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode() ;
+    const bool open_new_task_region = is_task_region_master();
     const bool mem_prof = global_mem_profiling() && is_terminal() && ( !task_group_mode() || open_new_task_region );
 
     if( do_profiling )
@@ -572,16 +577,15 @@ namespace onika { namespace scg
     self->m_allocated_parallel_execution_contexts.erase( it );
   }
 
-
   onika::parallel::ParallelExecutionStream* OperatorNode::parallel_execution_stream(int id)
   {
     if( id == onika::parallel::DEFAULT_EXECUTION_LANE ) id = 0;
-    if( id < 0 || id >= onika::parallel::MAX_EXECUTION_LANES )
+    if( id < 0 || id >= onika::parallel::MAX_EXECUTION_LANES )
     {
       fatal_error() << "Invalid execution stream id ("<<id<<")"<<std::endl;
     }    
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
-    if( id > m_parallel_execution_streams.size() )
+    if( size_t(id) > m_parallel_execution_streams.size() )
     {
       m_parallel_execution_streams.resize( id+1 , nullptr );
       m_parallel_execution_streams[id] = std::make_shared<onika::parallel::ParallelExecutionStream>();
@@ -592,7 +596,7 @@ namespace onika { namespace scg
       }
       m_parallel_execution_streams[id]->m_stream_id = id;
     }
-    return m_parallel_execution_streams[id];
+    return m_parallel_execution_streams[id].get();
   }
 
   static inline onika::parallel::ParallelExecutionStream* OperatorNode_parallel_execution_stream_cb(void* _self, int id)
@@ -601,29 +605,35 @@ namespace onika { namespace scg
     return self->parallel_execution_stream(id);
   }
 
-  onika::parallel::ParallelExecutionQueue& OperatorNode::parallel_execution_queue()
+  OperatorNode * OperatorNode::task_group_ancestor()
   {
     if( m_task_group_ancestor == nullptr )
     {
       m_task_group_ancestor = this;
       while( m_task_group_ancestor->task_group_mode() && m_task_group_ancestor->parent()!=nullptr && m_task_group_ancestor->parent()->task_group_mode() ) m_task_group_ancestor = m_task_group_ancestor->parent();
     }
+    return m_task_group_ancestor;
+  }
 
-    if( m_task_group_ancestor == this )
+  onika::parallel::ParallelExecutionQueue OperatorNode::parallel_execution_custom_queue(int preffered_lane)
+  {
+    return onika::parallel::ParallelExecutionQueue{ onika::parallel::ParallelExecutionStreamPool{ OperatorNode_parallel_execution_stream_cb , this } , preffered_lane };
+  }
+
+  onika::parallel::ParallelExecutionQueue& OperatorNode::parallel_execution_queue()
+  {
+    if(  task_group_ancestor() != this )
     {
-      const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
-      if( m_parallel_execution_queue == nullptr )
-      {
-        m_parallel_execution_queue = std::make_shared<onika::parallel::ParallelExecutionQueue>();
-        m_parallel_execution_queue->m_stream_pool = { OperatorNode_parallel_execution_stream_cb , this };
-        m_parallel_execution_queue->m_exec_ctx = nullptr;
-      }
-      return * m_parallel_execution_queue;
+      return task_group_ancestor()->parallel_execution_queue();
     }
-    else
+
+    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
+    if( m_parallel_execution_queue == nullptr )
     {
-      return m_task_group_ancestor->parallel_execution_queue();
+      m_parallel_execution_queue = std::make_shared<onika::parallel::ParallelExecutionQueue>();
+      m_parallel_execution_queue->m_stream_pool = { OperatorNode_parallel_execution_stream_cb , this };
     }
+    return * m_parallel_execution_queue;
   }
 
   onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(const char* app_tag)
