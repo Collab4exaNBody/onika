@@ -37,17 +37,6 @@ namespace onika
       {
       }
 
-      inline ParallelExecutionQueue& operator = (const ParallelExecutionQueue & other)
-      {
-        assert( other.m_queue_list == nullptr );
-        assert( other.m_exec_list == nullptr );
-        const std::lock_guard lk_self( m_mutex );
-        schedule_all();
-        wait();
-        m_stream_pool = other.m_stream_pool;
-        m_preffered_lane = other.m_preffered_lane;
-      }
-
       inline ParallelExecutionQueue(const ParallelExecutionQueue& other)
         : m_stream_pool( other.m_stream_pool )
         , m_preffered_lane( other.m_preffered_lane )
@@ -67,6 +56,18 @@ namespace onika
         other.m_exec_list = nullptr;
       }
       
+      inline ParallelExecutionQueue& operator = (const ParallelExecutionQueue & other)
+      {
+        assert( other.m_queue_list == nullptr );
+        assert( other.m_exec_list == nullptr );
+        const std::lock_guard lk_self( m_mutex );
+        schedule_all();
+        wait();
+        m_stream_pool = other.m_stream_pool;
+        m_preffered_lane = other.m_preffered_lane;
+        return *this;
+      }
+
       inline ParallelExecutionQueue& operator = (ParallelExecutionQueue && other)
       {
         const std::lock_guard lk_self( m_mutex );
@@ -115,6 +116,7 @@ namespace onika
         {
           auto pec = m_queue_list;
           m_queue_list = m_queue_list->m_next;
+          pec->m_next = nullptr;
           schedule( pec );
           if( el != nullptr ) el->m_next = pec;
           else el = m_exec_list = pec;
@@ -125,6 +127,7 @@ namespace onika
       inline void schedule(ParallelExecutionContext* pec)
       {
         assert( pec->m_stream == nullptr );
+        assert( pec->m_next == nullptr );
 
         // query wich lane (i.e. stream id) to use for parallel operation scheduling
         int lane = m_preffered_lane;
@@ -217,34 +220,33 @@ namespace onika
         std::lock_guard lk_self( m_mutex );
         while(m_exec_list!=nullptr)
         {
-          if( m_exec_list->m_stream == nullptr )
-          {
-            fatal_error() << "Executing operation has invalid stream" << std::endl;
-          }
+          assert( m_exec_list->m_stream != nullptr );
           std::lock_guard lk( m_exec_list->m_stream->m_mutex );
 
           // synchronize stream
-          m_exec_list->m_stream->wait_nolock();
+          auto * pec = m_exec_list;
+          m_exec_list = m_exec_list->m_next;
+          pec->m_next = nullptr;
+          
+          pec->m_stream->wait_nolock();
 
           float Tgpu = 0.0;
-          if( m_exec_list->m_execution_target == ParallelExecutionContext::EXECUTION_TARGET_CUDA )
+          if( pec->m_execution_target == ParallelExecutionContext::EXECUTION_TARGET_CUDA )
           {
-            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_EVENT_ELAPSED(Tgpu,m_exec_list->m_start_evt,m_exec_list->m_stop_evt) );
-            m_exec_list->m_total_gpu_execution_time = Tgpu;
+            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_EVENT_ELAPSED(Tgpu,pec->m_start_evt,pec->m_stop_evt) );
+            pec->m_total_gpu_execution_time = Tgpu;
           }
-          auto* next = m_exec_list->m_next;
-          if( m_exec_list->m_finalize.m_func != nullptr )
+          if( pec->m_finalize.m_func != nullptr )
           {
             // may account for elapsed time, and free pec allocated memory
-            ( * m_exec_list->m_finalize.m_func ) ( m_exec_list , m_exec_list->m_finalize.m_data );
+            ( * pec->m_finalize.m_func ) ( pec , pec->m_finalize.m_data );
           }
-          reinterpret_cast<BlockParallelForHostFunctor*>(m_exec_list->m_host_scratch.functor_data)-> ~BlockParallelForHostFunctor();
-          m_exec_list = next;
+          pec->m_stream = nullptr;
+          reinterpret_cast<BlockParallelForHostFunctor*>(pec->m_host_scratch.functor_data) -> ~BlockParallelForHostFunctor();
         }
         assert( m_exec_list == nullptr );
       }
       
-      // FIXME: way too conservative, requires all streams containing any of the executing tasks to be completed
       inline bool query_status()    
       {
         const std::lock_guard lk_self( m_mutex );
@@ -252,7 +254,11 @@ namespace onika
         {
           return true;
         }
-        
+        if( m_queue_list != nullptr )
+        {
+          return false;
+        }
+          
         auto* pec = m_exec_list;
         while(pec!=nullptr)
         {
@@ -270,12 +276,12 @@ namespace onika
           }
           pec = pec->m_next;
         } 
-        
+
         wait();
         return true;
       }
       
-      inline bool empty()     
+      inline bool empty()
       {
         const std::lock_guard lk_self( m_mutex );
         return m_exec_list == nullptr && m_queue_list  == nullptr;
