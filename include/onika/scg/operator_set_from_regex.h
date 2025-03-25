@@ -30,7 +30,7 @@ namespace onika
   namespace scg
   {
 
-    std::unordered_set<size_t> operator_set_from_regex(
+    inline std::unordered_set<size_t> operator_set_from_regex(
       std::shared_ptr<OperatorNode> graph,
       const std::vector<std::string> & re_strings,
       const std::vector< std::pair<std::string,std::size_t> >& special_values = {} ,
