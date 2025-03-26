@@ -92,7 +92,7 @@ namespace onika
       inline void enqueue(ParallelExecutionContext* pec)
       {
         assert( pec->m_next == nullptr );
-        assert( pec->m_stram == nullptr );
+        assert( pec->m_stream == nullptr );
         const std::lock_guard lk_self( m_mutex );  
         if( m_queue_list == nullptr )
         {

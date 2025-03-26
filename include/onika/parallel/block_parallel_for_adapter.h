@@ -106,9 +106,7 @@ namespace onika
       inline void stream_gpu_kernel(ParallelExecutionContext* pec, ParallelExecutionStream* pes) const override final
       {
         if constexpr ( GPUSupport )
-        {
-          assert( m_parallel_space.m_elements == nullptr );
-          
+        {          
           // launch compute kernel
           const size_t N = m_parallel_space.m_end[0] - m_parallel_space.m_start[0];
           onikaInt3_t block_offset = { m_parallel_space.m_start[0], 0, 0 };
@@ -174,7 +172,7 @@ namespace onika
         static_assert( FuncParamDim>=1 && FuncParamDim<=3 , "OpenMP backend only support 1D, 2D and 3D parallel execution spaces" );
 
         pes->m_omp_execution_count.fetch_add(1);
-        assert( m_parallel_space.m_start[0] == 0 && m_parallel_space.m_elements == nullptr );
+
         const size_t N = m_parallel_space.m_end[0];
         const auto * __restrict__ idx = m_parallel_space.m_elements.data();
 
