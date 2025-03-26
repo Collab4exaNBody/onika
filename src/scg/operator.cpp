@@ -367,6 +367,7 @@ namespace onika { namespace scg
 
   void OperatorNode::set_task_group_mode( bool m )
   {
+    if( !m_omp_task_mode && m ) lout << "enable task group for "<<pathname()<<std::endl;
     m_omp_task_mode = m;
   }
   
@@ -640,7 +641,7 @@ namespace onika { namespace scg
     return * m_parallel_execution_queue;
   }
 
-  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(const char* app_tag)
+  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(const char* sub_tag)
   {
     auto & default_queue = parallel_execution_queue();
     
@@ -655,7 +656,7 @@ namespace onika { namespace scg
 
     pec->reset();
     pec->m_tag = m_tag.get();
-    pec->m_sub_tag = app_tag;
+    pec->m_sub_tag = sub_tag;
     pec->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
     pec->m_default_queue = & default_queue;
     pec->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
@@ -913,6 +914,7 @@ namespace onika { namespace scg
     bool tg = task_group_mode();
     while( p!=nullptr && ! tg )
     {
+      //ldbg << pathname()<< " : tg="<<tg<<", ancestor "<<p->pathname()<<" has tg="<<p->task_group_mode()<<std::endl;
       tg = tg || p->task_group_mode();
       p = p->parent();
     }

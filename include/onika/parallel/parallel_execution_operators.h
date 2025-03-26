@@ -33,15 +33,24 @@ namespace onika
       inline ~ParallelExecutionWrapper();
     };
 
+    struct flush_t {};
+    static inline constexpr flush_t flush = {};
+
     // real implementation of how a parallel operation is pushed onto a stream queue
     inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , ParallelExecutionWrapper && pew )
     {
       auto * pec = pew.m_pec;
       pew.m_pec = nullptr;
       pesq.enqueue( pec );
+      return pesq;
+    }
+
+    inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , flush_t )
+    {
       pesq.schedule_all();
       return pesq;
     }
+
 
     inline ParallelExecutionWrapper::~ParallelExecutionWrapper()
     {

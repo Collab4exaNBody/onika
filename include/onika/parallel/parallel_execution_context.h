@@ -46,9 +46,9 @@ namespace onika
     struct GPUKernelExecutionScratch
     {
       static constexpr size_t SCRATCH_BUFFER_SIZE = 1024; // total device side temporary buffer
-      static constexpr size_t MAX_COUNTERS = 8; // only one is used so far, for dynamic attribution of cell indices
+      static constexpr size_t MAX_COUNTERS = 8; // only 1 counter used so far, others are reserved for future use
       static constexpr size_t MAX_RETURN_SIZE = SCRATCH_BUFFER_SIZE - MAX_COUNTERS * sizeof(unsigned long long);
-
+      static constexpr unsigned int WORKSTEALING_COUNTER = 0;
       unsigned long long int counters[MAX_COUNTERS];
       char return_data[MAX_RETURN_SIZE];
     };
