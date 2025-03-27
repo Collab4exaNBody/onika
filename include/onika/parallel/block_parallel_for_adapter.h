@@ -121,7 +121,7 @@ namespace onika
 
     // =============== Execution functor adapter for Cuda, OpenMP parallel and OpenMP tasks ==========================
 
-    template<class FuncT, bool GPUSupport , unsigned int ND=1, unsigned int ElemND=0>
+    template<class FuncT, bool GPUSupport , unsigned int ND=1, unsigned int ElemND=0, class ElementListT = std::span< const element_coord_t<ElemND> > >
     class BlockParallelForHostAdapter : public BlockParallelForHostFunctor
     {
       static_assert( !GPUSupport || gpu_frontend_compiler() );
@@ -132,16 +132,18 @@ namespace onika
       using FuncParamType = std::conditional_t< FuncParamDim==1 , ssize_t , onikaInt3_t >;
       static_assert( lambda_is_compatible_with_v<FuncT,void,FuncParamType> , "User defined functor is not compatible with execution space");
 
+      using ParExecSpaceT = ParallelExecutionSpace<ND,ElemND,ElementListT>;
+
       static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
       static inline constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_prolog_t>;
       static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
       static inline constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_epilog_t>;
       
       alignas( alignof(FuncT) ) const FuncT m_func;
-      const ParallelExecutionSpace<ND,ElemND> m_parallel_space;
+      const ParExecSpaceT m_parallel_space;
       
     public:
-      inline BlockParallelForHostAdapter( const FuncT& f , const ParallelExecutionSpace<ND,ElemND>& ps ) : m_func(f) , m_parallel_space(ps) {}
+      inline BlockParallelForHostAdapter( const FuncT& f , const ParExecSpaceT& ps ) : m_func(f) , m_parallel_space(ps) {}
 
 
       // ================ GPU execution interface ======================

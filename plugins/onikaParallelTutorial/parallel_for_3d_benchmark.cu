@@ -25,6 +25,7 @@ under the License.
 #include <onika/memory/allocator.h>
 #include <onika/parallel/block_parallel_for.h>
 #include <onika/parallel/parallel_for.h>
+#include <iomanip>
 
 namespace onika
 {

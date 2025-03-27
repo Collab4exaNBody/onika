@@ -53,11 +53,11 @@ namespace onika
       OMPScheduling omp_scheduling = ONIKA_BLKPARFOR_OMPSCHED_DEFAULT;
     };
 
-    template< class FuncT , unsigned int ND, unsigned int ElemND>
+    template< class FuncT , unsigned int ND, unsigned int ElemND, class ElementListT>
     static inline
     ParallelExecutionWrapper
     block_parallel_for(
-        ParallelExecutionSpace<ND,ElemND> par_space
+        ParallelExecutionSpace<ND,ElemND,ElementListT> par_space
       , const FuncT& func
       , ParallelExecutionContext * pec
       , const BlockParallelForOptions& opts = BlockParallelForOptions{} )
@@ -70,7 +70,7 @@ namespace onika
 
       //static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
       
-      using HostFunctorAdapter = BlockParallelForHostAdapter< FuncT , functor_gpu_support_v<FuncT> , ND,ElemND >;
+      using HostFunctorAdapter = BlockParallelForHostAdapter< FuncT , functor_gpu_support_v<FuncT> , ND,ElemND,ElementListT >;
       [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(HostFunctorAdapter) , HostKernelExecutionScratch::MAX_FUNCTOR_SIZE , FuncT > _check_cpu_functor_size = {};
       assert( pec != nullptr );
 

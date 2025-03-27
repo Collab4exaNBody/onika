@@ -28,6 +28,7 @@ under the License.
 
 #include <mutex>
 #include <condition_variable>
+#include <span>
 
 namespace onika
 {
@@ -77,7 +78,7 @@ namespace onika
     template<class T> struct ElementCoordND<T,false> { static inline constexpr unsigned int value = T::array_size; };
     template<class T> static inline constexpr unsigned int element_coord_nd_v = ElementCoordND<T>::value;
 
-    template<unsigned int _NDim=1, unsigned int _ElementListNDim=0, class _ElementListT = std::span< element_coord_t<_ElementListNDim> > >
+    template<unsigned int _NDim=1, unsigned int _ElementListNDim=0, class _ElementListT = std::span< const element_coord_t<_ElementListNDim> > >
     struct ParallelExecutionSpace
     {
       static_assert( _NDim>=1 && _NDim<=3 && _ElementListNDim>=0 && _ElementListNDim<=3 );
