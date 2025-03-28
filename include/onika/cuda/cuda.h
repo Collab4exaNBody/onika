@@ -52,11 +52,6 @@ under the License.
 
 #define ONIKA_ALWAYS_INLINE inline __attribute__((always_inline))
 
-// do we have access to atomicMin and atomicMax on double types ?
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
-#define ONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE 1
-#endif
-
 namespace onika
 {
   namespace cuda
@@ -275,6 +270,8 @@ namespace onika
 #   endif
 /************** end host code definitions ***************/
 
+
+
 /***************************************************************/
 /****************** Cuda hardware intrinsics *******************/
 /***************************************************************/
@@ -286,8 +283,30 @@ namespace onika
       asm("mov.u32 %0, %smid;" : "=r"(ret) );
       return ret;
     }
+    
+    ONIKA_DEVICE_FUNC inline long long int onika_double_as_longlong(double x) { return __double_as_longlong(x); }
+    ONIKA_DEVICE_FUNC inline double onika_longlong_as_double(long long int x) { return __longlong_as_double(x); }
+    
 #   else
+
     inline constexpr unsigned int get_smid(void) { return 0; }
+    
+    // this might be unefficient as hell, but it doesn't break strict aliasing rules
+    ONIKA_DEVICE_FUNC inline long long int onika_double_as_longlong(double x)
+    {
+      long long int x_ll = 0;
+      static_assert( sizeof(x) == sizeof(x_ll) );
+      memcpy( & x_ll , & x , sizeof(x) );
+      return x_ll;
+    }
+    ONIKA_DEVICE_FUNC inline double onika_longlong_as_double(long long int x_ll)
+    {
+      double x = 0.0;
+      static_assert( sizeof(x) == sizeof(x_ll) );
+      memcpy( & x , & x_ll , sizeof(x_ll) );
+      return x;
+    }
+    
 #   endif
 
     template<class T>
@@ -297,21 +316,46 @@ namespace onika
       unsigned char byte[sizeof(T)];
       ONIKA_HOST_DEVICE_FUNC inline T& get_ref() { return * reinterpret_cast<T*>(byte); }
     };
-
   }
 }
 
-// fallback implementation for cuda functions not present in olded releases
+/***************************************************************/
+/************** Cuda extended atomic operations ****************/
+/***************************************************************/
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 #ifndef ONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE
 ONIKA_DEVICE_FUNC inline double atomicMin(double* xp , double y)
 {
-  ONIKA_CU_ABORT();
+  using onika::cuda::onika_double_as_longlong;
+  using onika::cuda::onika_longlong_as_double;
+  const unsigned long long int y_ull = onika_double_as_longlong( y );
+  unsigned long long int x_ull = atomicAdd( (unsigned long long int *) xp , 0ull ); // this ensures a portable way to perform an atomic fetch of value at address xp
+  double x = onika_longlong_as_double( x_ull );
+  while( x > y )
+  {
+    x_ull = atomicCAS( (unsigned long long int *) xp , x_ull , y_ull );
+    x = onika_longlong_as_double( x_ull );
+  }
+  return x;
 }
 ONIKA_DEVICE_FUNC inline double atomicMax(double* xp , double y)
 {
-  ONIKA_CU_ABORT();
+  using onika::cuda::onika_double_as_longlong;
+  using onika::cuda::onika_longlong_as_double;
+  const unsigned long long int y_ull = onika_double_as_longlong( y );
+  unsigned long long int x_ull = atomicAdd( (unsigned long long int *) xp , 0ull ); // this ensures a portable way to perform an atomic fetch of value at address xp
+  double x = onika_longlong_as_double( x_ull );
+  while( x < y )
+  {
+    x_ull = atomicCAS( (unsigned long long int *) xp , x_ull , y_ull );
+    x = onika_longlong_as_double( x_ull );
+  }
+  return x;
 }
-# endif
+#endif // if hardware atomicMin / atomicMax are missing
+#endif // device code only
+
+
 
 // user helpers to select implementations depending on Cuda or Host execution space
 #include <onika/integral_constant.h>
