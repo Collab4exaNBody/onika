@@ -240,7 +240,7 @@ namespace onika
 
         pes->m_omp_execution_count.fetch_add(1);
 
-        printf("OpenMP/parfor %s/%s\n",pec->m_tag,pec->m_sub_tag);
+        //printf("OpenMP/parfor %s/%s\n",pec->m_tag,pec->m_sub_tag);
 
         const auto * __restrict__ idx = m_parallel_space.m_elements.data();
 
@@ -365,7 +365,7 @@ namespace onika
         const auto ps = m_parallel_space;
 #       pragma omp task default(none) firstprivate(pec,pes,ps,num_tasks) depend(inout:pes[0])
         {
-          printf("OpenMP/taskloop %s/%s\n",pec->m_tag,pec->m_sub_tag);
+          //printf("OpenMP/taskloop %s/%s\n",pec->m_tag,pec->m_sub_tag);
           const size_t Ni = ps.m_end[0] - ps.m_start[0];
           const size_t Nj = ps.m_end[1] - ps.m_start[1];
           const size_t Nk = ps.m_end[2] - ps.m_start[2];
