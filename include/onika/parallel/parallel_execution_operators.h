@@ -36,6 +36,13 @@ namespace onika
     struct flush_t {};
     static inline constexpr flush_t flush = {};
 
+    struct synchronize_t {};
+    static inline constexpr synchronize_t synchronize = {};
+
+    struct set_lane_t { int m_lane = UNDEFINED_EXECUTION_LANE; };
+    static inline constexpr set_lane_t set_lane(int l) { return { l }; }
+    static inline constexpr set_lane_t any_lane() { return {}; }
+
     // real implementation of how a parallel operation is pushed onto a stream queue
     inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , ParallelExecutionWrapper && pew )
     {
@@ -48,6 +55,18 @@ namespace onika
     inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , flush_t )
     {
       pesq.schedule_all();
+      return pesq;
+    }
+
+    inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , synchronize_t )
+    {
+      pesq.wait();
+      return pesq;
+    }
+
+    inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , set_lane_t sl )
+    {
+      pesq.set_lane( sl.m_lane );
       return pesq;
     }
 

@@ -114,8 +114,8 @@ namespace onika
       // this is set only after current operations has been scheduled
       ParallelExecutionStream* m_stream = nullptr;
       
-      // preferred lane, an opportunity for manual concurrent execution is not default one is selected
-      int m_preferred_lane = DEFAULT_EXECUTION_LANE;
+      // lane, i.e. index of execution stream this operation is executing on 
+      int m_lane = UNDEFINED_EXECUTION_LANE;
 
       // desired number of OpenMP tasks.
       // m_omp_num_tasks == 0 means no task (opens and then close its own parallel region).
