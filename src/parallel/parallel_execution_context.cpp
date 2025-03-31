@@ -41,7 +41,7 @@ namespace onika
       m_cuda_ctx = nullptr;
       m_default_queue = nullptr;
       m_stream = nullptr;
-      m_preferred_lane = DEFAULT_EXECUTION_LANE;
+      m_lane = UNDEFINED_EXECUTION_LANE;
       m_omp_num_tasks = 0;
       m_next = nullptr;
       m_tag = nullptr;
