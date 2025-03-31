@@ -69,6 +69,10 @@ namespace onika
         lout << "schedule for execution ..." << std::endl;
         parallel_execution_queue() << onika::parallel::flush;
 
+        //parallel_execution_queue().wait(1); // wait for all operations in stream #1 to complete
+        //parallel_execution_queue().wait(0); // wait for all operations in stream #0 to complete
+        
+        // parallel_execution_queue().wait(); // wait for all opeartions in all streams to complete
         parallel_execution_queue() << onika::parallel::synchronize ; // the same as above
         
         lout << "All operations have terminated !" << std::endl;
