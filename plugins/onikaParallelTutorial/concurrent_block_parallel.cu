@@ -65,14 +65,13 @@ namespace onika
         lout << "Enqueue parallel operations ..." << std::endl;
         parallel_execution_queue() << onika::parallel::set_lane(0) << std::move(array1_par_op1) << std::move(array1_par_op2)
                                    << onika::parallel::set_lane(1) << std::move(array2_par_op1) << std::move(array2_par_op2);
-
+                                           
         lout << "schedule for execution ..." << std::endl;
         parallel_execution_queue() << onika::parallel::flush;
 
-        lout << "Parallel operations are executing..." << std::endl;
-        parallel_execution_queue().wait( 1 ); // wait for all operations in stream queue #1 to complete
-        parallel_execution_queue().wait( 0 ); // wait for all operations in stream queue #0 to complete
-        lout << "All parallel operations have terminated !" << std::endl;
+        parallel_execution_queue() << onika::parallel::synchronize ; // the same as above
+        
+        lout << "All operations have terminated !" << std::endl;
       }
     };
 

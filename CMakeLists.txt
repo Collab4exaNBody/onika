@@ -72,7 +72,7 @@ find_package(OpenMP REQUIRED)
 list(APPEND ONIKA_LIBRARIES ${OpenMP_CXX_LIBRARIES})
 list(APPEND ONIKA_COMPILE_OPTIONS ${OpenMP_CXX_FLAGS})
 
-# for export to onika-config file)
+# for export to onika-config file
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "find_package(OpenMP REQUIRED)\n")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
@@ -105,6 +105,15 @@ endif()
 if(ONIKA_HAVE_OPENMP_DETACH)
   message(STATUS "OpenMP detach enabled")
   list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_HAVE_OPENMP_DETACH=1)
+endif()
+
+
+# ======================================================
+# === Onika specific debug and optimization features ===
+# ======================================================
+set(ONIKA_ENABLE_KERNEL_DEBUG_INFO OFF CACHE BOOL "Enable parallel kernel debug info")
+if(ONIKA_ENABLE_KERNEL_DEBUG_INFO)
+  list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_ENABLE_KERNEL_DEBUG_INFO=1)
 endif()
 
 # configure maximum number of openmp task dependences

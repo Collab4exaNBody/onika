@@ -4,15 +4,13 @@
 #include <onika/parallel/parallel_execution_stream.h>
 #include <omp.h>
 
-// #define ONIKA_ENABLE_KERNEL_TAG_ARGS 1
-
 namespace onika
 {
   namespace parallel
   {
 
     // ========================== GPU execution kernels ==========================
-#   ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
+#   ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
 #   define ONIKA_KERNEL_TAG_ARGS ,ONIKA_CU_GRID_CONSTANT const uint64_t ktag, ONIKA_CU_GRID_CONSTANT const uint64_t ksubtag
 #   else
 #   define ONIKA_KERNEL_TAG_ARGS /**/
@@ -50,7 +48,7 @@ namespace onika
     ONIKA_STATIC_INLINE_KERNEL
     void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, const ElementCoordRangeT idx, ONIKA_CU_GRID_CONSTANT const FuncT func ONIKA_KERNEL_TAG_ARGS )
     {
-#     ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
+#     ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
       if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
       {
         char t[9]; str_from_uint64( t , ktag );
@@ -86,7 +84,7 @@ namespace onika
     ONIKA_STATIC_INLINE_KERNEL
     void block_parallel_for_gpu_kernel_regulargrid( const ElementCoordRangeT idx , ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start ONIKA_KERNEL_TAG_ARGS )
     {
-#     ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
+#     ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
       if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
       {
         char t[9]; str_from_uint64( t , ktag );
@@ -106,7 +104,7 @@ namespace onika
     ONIKA_STATIC_INLINE_KERNEL
     void block_parallel_for_gpu_kernel_regulargrid_3D( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const onikaInt3_t start_coord ONIKA_KERNEL_TAG_ARGS )
     {
-#     ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
+#     ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
       if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
       {
         char t[9]; str_from_uint64( t , ktag );
@@ -164,7 +162,7 @@ namespace onika
       // GPU execution kernel call
       inline void stream_gpu_kernel(ParallelExecutionContext* pec, ParallelExecutionStream* pes) const override final
       {
-#       ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
+#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
         const uint64_t ktag = str_to_uint64(pec->m_tag);
         const uint64_t ksubtag = str_to_uint64(pec->m_sub_tag);
 #       define ONIKA_KERNEL_TAG_CALL_ARGS ,ktag,ksubtag
@@ -240,7 +238,15 @@ namespace onika
 
         pes->m_omp_execution_count.fetch_add(1);
 
-        //printf("OpenMP/parfor %s/%s\n",pec->m_tag,pec->m_sub_tag);
+#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+        {
+          const auto & ps = m_parallel_space;
+          unsigned long long N = ps.m_end[0] - ps.m_start[0];
+          if constexpr (ND>=2) N *= ps.m_end[1] - ps.m_start[1];
+          if constexpr (ND>=3) N *= ps.m_end[2] - ps.m_start[2];
+          printf("OpenMP/parfor %s/%s , NDim=%d , N=%llu\n",pec->m_tag,pec->m_sub_tag,int((ElemND==0)?ND:ElemND),N);
+        }
+#       endif
 
         const auto * __restrict__ idx = m_parallel_space.m_elements.data();
 
@@ -365,11 +371,12 @@ namespace onika
         const auto ps = m_parallel_space;
 #       pragma omp task default(none) firstprivate(pec,pes,ps,num_tasks) depend(inout:pes[0])
         {
-          //printf("OpenMP/taskloop %s/%s\n",pec->m_tag,pec->m_sub_tag);
-          const size_t Ni = ps.m_end[0] - ps.m_start[0];
-          const size_t Nj = ps.m_end[1] - ps.m_start[1];
-          const size_t Nk = ps.m_end[2] - ps.m_start[2];
-          const size_t N = Ni*Nj*Nk;
+          unsigned long long N = ps.m_end[0] - ps.m_start[0];
+          if constexpr (ND>=2) N *= ps.m_end[1] - ps.m_start[1];
+          if constexpr (ND>=3) N *= ps.m_end[2] - ps.m_start[2];
+#         ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+          printf("OpenMP/taskloop %s/%s , NDim=%d , N=%llu\n",pec->m_tag,pec->m_sub_tag,int((ElemND==0)?ND:ElemND),N);
+#         endif
           const auto T0 = std::chrono::high_resolution_clock::now();
           execute_prolog( pec , pes );
           if( N > 0 )
