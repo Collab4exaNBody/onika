@@ -37,8 +37,10 @@ namespace onika
 
       inline void execute() override final
       {
+        ldbg << "next_time_step : timestep=" << ( *timestep ) << " , physical_time=" << (*physical_time) << "  ==>  ";
         ++ *timestep;
         *physical_time += *dt;
+        ldbg << "timestep=" << ( *timestep ) << " , physical_time=" << (*physical_time) << std::endl;
       }
 
     };
