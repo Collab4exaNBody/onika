@@ -24,21 +24,17 @@ under the License.
 #include <onika/cuda/cuda_error.h>
 #include <onika/memory/allocator.h>
 
+#include <onika/parallel/constants.h>
+
 #include <mutex>
 #include <condition_variable>
+#include <span>
 
 namespace onika
 {
 
   namespace parallel
   {
-
-    enum OMPScheduling
-    {
-      OMP_SCHED_DYNAMIC ,
-      OMP_SCHED_GUIDED ,
-      OMP_SCHED_STATIC
-    };
 
     struct HostKernelExecutionScratch
     {
@@ -51,9 +47,9 @@ namespace onika
     struct GPUKernelExecutionScratch
     {
       static constexpr size_t SCRATCH_BUFFER_SIZE = 1024; // total device side temporary buffer
-      static constexpr size_t MAX_COUNTERS = 8; // only one is used so far, for dynamic attribution of cell indices
+      static constexpr size_t MAX_COUNTERS = 8; // only 1 counter used so far, others are reserved for future use
       static constexpr size_t MAX_RETURN_SIZE = SCRATCH_BUFFER_SIZE - MAX_COUNTERS * sizeof(unsigned long long);
-
+      static constexpr unsigned int WORKSTEALING_COUNTER = 0;
       unsigned long long int counters[MAX_COUNTERS];
       char return_data[MAX_RETURN_SIZE];
     };
@@ -74,14 +70,30 @@ namespace onika
       void *m_data = nullptr;
     };
 
-    // abstract parallel space indices
+    template<unsigned int ND=1> struct ElementCoordT { using type = onika::oarray_t<ssize_t,ND>; };
+    template<> struct ElementCoordT<1> { using type = ssize_t; };
+    template<unsigned int ND> using element_coord_t = typename ElementCoordT<ND>::type;
+    
+    template<class T, bool = std::is_integral_v<T> > struct ElementCoordND { static inline constexpr unsigned int value = 1; };
+    template<class T> struct ElementCoordND<T,false> { static inline constexpr unsigned int value = T::array_size; };
+    template<class T> static inline constexpr unsigned int element_coord_nd_v = ElementCoordND<T>::value;
+
+    template<unsigned int _NDim=1, unsigned int _ElementListNDim=0, class _ElementListT = std::span< const element_coord_t<_ElementListNDim> > >
     struct ParallelExecutionSpace
     {
-      uint64_t m_start = 0;
-      uint64_t m_end = 0;
-      uint64_t * __restrict__ m_idx = nullptr;
+      static_assert( _NDim>=1 && _NDim<=3 && _ElementListNDim>=0 && _ElementListNDim<=3 );
+      static_assert( _ElementListNDim==0 || _NDim==1 , "Element lists are only supported for 1D parallel execution spaces" );
+      static inline constexpr unsigned int NDim = _NDim;
+      static inline constexpr unsigned int ElementListNDim = _ElementListNDim;
+      using coord_t = onika::oarray_t<ssize_t,NDim>;
+      using element_list_t = _ElementListT;
+      using element_t = std::remove_cv_t< std::remove_reference_t< decltype( _ElementListT{}[0] ) > >;
+      coord_t m_start;
+      coord_t m_end;
+      element_list_t m_elements = {};
     };
 
+    struct ParallelExecutionQueue;
     struct ParallelExecutionStream;
 
     struct ParallelExecutionContext
@@ -95,9 +107,15 @@ namespace onika
       // GPU device context, null if non device available for parallel execution
       onika::cuda::CudaContext* m_cuda_ctx = nullptr;
 
-      // default stream to use for immediate execution if parallel operation is not
-      // queued in any stream or graph queue.
-      ParallelExecutionStream* m_default_stream = nullptr;
+      // default queue for scheduling of immediate execution when parallel operation is not pushed onto any existing queue
+      ParallelExecutionQueue* m_default_queue = nullptr;
+      
+      // execution stream this operation is executing (i.e. has been scheduled) in
+      // this is set only after current operations has been scheduled
+      ParallelExecutionStream* m_stream = nullptr;
+      
+      // preferred lane, an opportunity for manual concurrent execution is not default one is selected
+      int m_preferred_lane = DEFAULT_EXECUTION_LANE;
 
       // desired number of OpenMP tasks.
       // m_omp_num_tasks == 0 means no task (opens and then close its own parallel region).
@@ -123,10 +141,11 @@ namespace onika
       void * m_return_data_output = nullptr;
       unsigned int m_return_data_size = 0;
       ExecutionTarget m_execution_target = EXECUTION_TARGET_OPENMP;
-      unsigned int m_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
-      unsigned int m_grid_size = 0; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
+      unsigned int m_block_threads = ONIKA_CU_MAX_THREADS_PER_BLOCK;
+      onikaDim3_t m_block_size = { m_block_threads , 1 , 1 };
+      onikaDim3_t m_grid_size = { 0, 0, 0 }; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
       OMPScheduling m_omp_sched = OMP_SCHED_DYNAMIC;
-      ParallelExecutionSpace m_parallel_space = {};
+      //ParallelExecutionSpace m_parallel_space = {};
       bool m_reset_counters = false;
 
       // executuion profiling 
@@ -177,17 +196,14 @@ namespace onika
       static int s_gpu_sm_mult; // if -1, s_parallel_task_core_mult is used
       static int s_gpu_sm_add;  // if -1, s_parallel_task_core_add is used instead
       static int s_gpu_block_size;
+      static onikaDim3_t s_gpu_block_dims;
       
       static inline int parallel_task_core_mult() { return s_parallel_task_core_mult; }
       static inline int parallel_task_core_add() { return s_parallel_task_core_add; }
       static inline int gpu_sm_mult() { return ( s_gpu_sm_mult >= 0 ) ? s_gpu_sm_mult : parallel_task_core_mult() ; }
       static inline int gpu_sm_add() { return ( s_gpu_sm_add >= 0 ) ? s_gpu_sm_add : parallel_task_core_add() ; }
       static inline int gpu_block_size() { return  s_gpu_block_size; }
-    };
-
-    struct ParallelExecutionGraphQueue
-    {
-      // to be defined ...
+      static inline onikaDim3_t gpu_block_dims() { return  s_gpu_block_dims; }
     };
 
   }
