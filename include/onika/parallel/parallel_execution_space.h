@@ -48,6 +48,7 @@ namespace onika
       coord_t m_start;
       coord_t m_end;
       element_list_t m_elements = {};
+      
     };
   }
 
