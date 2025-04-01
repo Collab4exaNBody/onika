@@ -34,25 +34,29 @@ namespace onika
     int ParallelExecutionContext::s_gpu_sm_mult = -1; // if -1, s_parallel_task_core_mult is used
     int ParallelExecutionContext::s_gpu_sm_add = -1;  // if -1, s_parallel_task_core_add is used instead
     int ParallelExecutionContext::s_gpu_block_size = 128;
+    onikaDim3_t ParallelExecutionContext::s_gpu_block_dims = { 8 , 8 , 4 };
 
     void ParallelExecutionContext::reset()
     {
-      // reset to default state
-      m_tag = nullptr;
-      m_sub_tag = nullptr;
       m_cuda_ctx = nullptr;
-      m_default_stream = nullptr;
+      m_default_queue = nullptr;
+      m_stream = nullptr;
+      m_preferred_lane = DEFAULT_EXECUTION_LANE;
       m_omp_num_tasks = 0;
       m_next = nullptr;
+      m_tag = nullptr;
+      m_sub_tag = nullptr;
+      // additional information about what to do before/after kernel execution
       m_execution_end_callback = ParallelExecutionCallback{};
       m_finalize = ParallelExecutionFinalize{};
       m_return_data_input = nullptr;
       m_return_data_output = nullptr;
       m_return_data_size = 0;
       m_execution_target = EXECUTION_TARGET_OPENMP;
-      m_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
-      m_grid_size = 0; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
-      m_parallel_space = ParallelExecutionSpace{};
+      m_block_threads = ONIKA_CU_MAX_THREADS_PER_BLOCK;
+      m_block_size = onikaDim3_t{ m_block_threads , 1 , 1 };
+      m_grid_size = onikaDim3_t{ 0, 0, 0 }; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
+      m_omp_sched = OMP_SCHED_DYNAMIC;
       m_reset_counters = false;
       m_total_cpu_execution_time = 0.0;
       m_total_gpu_execution_time = 0.0;
@@ -61,8 +65,8 @@ namespace onika
     ParallelExecutionContext::~ParallelExecutionContext()
     {
       reset();
-      if( m_start_evt != nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_EVENT( m_start_evt ) ); }
-      if( m_stop_evt  != nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_EVENT( m_stop_evt  ) ); }
+      if( m_start_evt != nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_EVENT( m_start_evt ) ); m_start_evt = nullptr; }
+      if( m_stop_evt  != nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_EVENT( m_stop_evt  ) ); m_stop_evt  = nullptr; }
     }
     
     void ParallelExecutionContext::initialize_stream_events()

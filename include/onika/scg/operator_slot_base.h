@@ -175,7 +175,7 @@ namespace onika { namespace scg
     inline bool is_output_connectable() const { return m_is_output_connectable; }
     inline void set_output_connectable(bool oc) { m_is_output_connectable = oc; }
     
-    inline bool is_private() { return !is_input_connectable() && !is_output_connectable(); }
+    inline bool is_private() const { return !is_input_connectable() && !is_output_connectable(); }
 
     // owning OperatorNode
     inline OperatorNode* owner() const { return m_owner; }
