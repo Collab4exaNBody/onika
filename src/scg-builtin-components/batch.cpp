@@ -755,7 +755,6 @@ namespace onika { namespace scg_builtin
     if( batch->is_trivial_encapsulation() )
     {
       ::onika::ldbg  << "Simplify "<<tmp_operator_name << std::endl;
-      bool batch_task_group_mode = batch->task_group_mode();
       std::shared_ptr<OperatorNode> op = batch->at(0);
       for(auto key_value : op->in_slots() )
       {
@@ -778,7 +777,6 @@ namespace onika { namespace scg_builtin
         }
       }
       final_op = op;
-      final_op->set_task_group_mode( final_op->task_group_mode() || batch_task_group_mode );
     }
     
     batch = nullptr;

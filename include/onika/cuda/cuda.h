@@ -141,14 +141,10 @@ namespace onika
 #   define ONIKA_CU_CLOCK_ELAPSED(a,b) ((b)-(a))
     using onika_cu_clock_t = long long int;
 
-#   define ONIKA_CU_GRID_DIMS    gridDim
-#   define ONIKA_CU_GRID_SIZE    (gridDim.x*gridDim.y*gridDim.z)
-#   define ONIKA_CU_BLOCK_COORD  blockIdx
-#   define ONIKA_CU_BLOCK_IDX    ( ( ( (blockIdx.z*gridDim.y) + blockIdx.y ) * gridDim.x ) + blockIdx.x )
-#   define ONIKA_CU_BLOCK_DIMS   blockDim
-#   define ONIKA_CU_BLOCK_SIZE   (blockDim.x*blockDim.y*blockDim.z)
-#   define ONIKA_CU_THREAD_COORD threadIdx
-#   define ONIKA_CU_THREAD_IDX   ( ( ( (threadIdx.z*blockDim.y) + threadIdx.y ) * blockDim.x ) + threadIdx.x )
+#   define ONIKA_CU_GRID_SIZE  gridDim.x
+#   define ONIKA_CU_BLOCK_IDX  blockIdx.x
+#   define ONIKA_CU_BLOCK_SIZE blockDim.x
+#   define ONIKA_CU_THREAD_IDX threadIdx.x
 
 #   define ONIKA_CU_VALUE_IF_CUDA(a,b) (a)
 
@@ -204,14 +200,17 @@ namespace onika
 #   define ONIKA_CU_CLOCK_ELAPSED(a,b) std::chrono::duration<double,std::micro>((b)-(a)).count()
     using onika_cu_clock_t = decltype(std::chrono::high_resolution_clock::now());
 
-#   define ONIKA_CU_GRID_SIZE    omp_get_num_threads()
-#   define ONIKA_CU_GRID_DIMS    onikaDim3_t{ static_cast<unsigned int>(omp_get_num_threads()),1,1} // should never be used
-#   define ONIKA_CU_BLOCK_IDX    static_cast<unsigned int>(omp_get_thread_num())
-#   define ONIKA_CU_BLOCK_COORD  onikaDim3_t{static_cast<unsigned int>(omp_get_thread_num()),0,0}  // should never be used
-#   define ONIKA_CU_BLOCK_SIZE   1
-#   define ONIKA_CU_BLOCK_DIMS   onikaDim3_t{1,1,1}
-#   define ONIKA_CU_THREAD_IDX   0
-#   define ONIKA_CU_THREAD_COORD onikaDim3_t{0,0,0}
+/*
+namespace onika { namespace cuda { namespace _details {
+  static unsigned int __onika_cu_grid_size = 1;
+  static unsigned int __onika_cu_block_idx = 0;
+//  inline unsigned int __onika_cu_gvars_use(){ return __onika_cu_grid_size + __onika_cu_block_idx; }
+} } }
+*/
+#   define ONIKA_CU_GRID_SIZE  omp_get_num_threads()
+#   define ONIKA_CU_BLOCK_IDX  omp_get_thread_num()
+#   define ONIKA_CU_BLOCK_SIZE 1
+#   define ONIKA_CU_THREAD_IDX 0
 
 #   define ONIKA_CU_VALUE_IF_CUDA(a,b) (b)
 

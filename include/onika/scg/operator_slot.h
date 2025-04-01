@@ -26,7 +26,7 @@ under the License.
 #include <onika/yaml/yaml_utils.h>
 
 #include <onika/memory/memory_usage.h>
-//#include <onika/dac/dac.h>
+#include <onika/dac/dac.h>
 #include <onika/lambda_tools.h>
 
 #include <sstream>
@@ -56,9 +56,25 @@ inline std::ostream& operator << ( std::ostream& out , const onika::scg::Operato
 namespace onika { namespace scg 
 {
 
+  // set of DataSlicesSubSet (mind the final s)
+  template<typename... DS> struct DataAccessPattern
+  {
+    static inline std::vector<uint64_t> dac_masks() { return { (DS::bit_mask_v) ... }; }
+  };
+
+  // builds up a DataAccessPatterns<N>
+  template<class... SlicesSubSetT>
+  static inline auto dap( SlicesSubSetT ... )
+  {
+    return DataAccessPattern< SlicesSubSetT ... >{};
+  }
+
   // ================== internal gory details no one wants to see ===================================
   namespace operator_slot_details
   {
+    template<class T> struct IsDAC : public std::false_type {};
+    template<class... T> struct IsDAC< DataAccessPattern<T...> > : public std::true_type {};
+    template<class T> static inline constexpr bool is_dac_v = IsDAC<T>::value ;
   
     // utility templates to construct T from a set of arguments
     template<class T, class Args> struct is_constructible_from_tuple : std::false_type {};
@@ -85,7 +101,7 @@ namespace onika { namespace scg
       static constexpr bool is_optional_v = false;
       static constexpr bool is_private_v = false;
       using default_value_t = std::nullopt_t;
-      //using dap_t = DataAccessPattern<>;
+      using dap_t = DataAccessPattern<>;
 
       static inline DocString m_empty_doc{};
       static inline const DocString & doc() { return m_empty_doc; }
@@ -112,10 +128,9 @@ namespace onika { namespace scg
                                          || std::is_same_v<T0,typename OperatorNode::PRIVATE_t>
                                          || std::is_same_v<T0,DocString>
                                          || std::is_same_v<T0,SlotDirection>
-                                         // || is_dac_v<T0>
-                                         ;
+                                         || is_dac_v<T0>;
 
-      //using dap_t = std::conditional_t< is_dac_v<T0> , T0 , typename SlotConstructArgs<T...>::dap_t >;
+      using dap_t = std::conditional_t< is_dac_v<T0> , T0 , typename SlotConstructArgs<T...>::dap_t >;
 
       using default_value_t = std::conditional_t< !T0_known_type , T0 , typename SlotConstructArgs<T...>::default_value_t > ;
       template<typename U> static inline constexpr bool is_constructible_single_arg_v() { return std::is_constructible_v<U,default_value_t>; }
@@ -371,6 +386,28 @@ namespace onika { namespace scg
       }
       
       m_pointer_cache_intialized = true;
+    }
+
+    template<class C, class... E>
+    inline auto make_access_controler( onika::dac::stencil_t<C,E...> )
+    {
+      static_assert( ! ( IsInputOnly && onika::dac::stencil_t<C,E...>::is_rw_v ) , "cannot use RW access on a read-only slot" );
+      return onika::dac::DataAccessControler<T , onika::dac::stencil_t<C,E...> >{ m_data_pointer_cache };
+    }
+
+    template<class... S>
+    inline auto make_access_controler( onika::dac::ro_t , S... )
+    {
+      using slices_t = std::conditional_t< sizeof...(S)==0 , typename onika::dac::DataDecompositionTraits<T>::slices_t , onika::dac::DataSlices<S...> >;
+      return onika::dac::DataAccessControler<T , onika::dac::stencil_t< onika::dac::stencil_element_t<slices_t,onika::dac::DataSlices<> > > >{ m_data_pointer_cache };      
+    }
+
+    template<class... S>
+    inline auto make_access_controler( onika::dac::rw_t , S... )
+    {
+      static_assert( ! IsInputOnly , "cannot use RW access on a read-only slot" );
+      using slices_t = std::conditional_t< sizeof...(S)==0 , typename onika::dac::DataDecompositionTraits<T>::slices_t , onika::dac::DataSlices<S...> >;
+      return onika::dac::DataAccessControler<T , onika::dac::stencil_t< onika::dac::stencil_element_t<onika::dac::DataSlices<>,slices_t> > >{ m_data_pointer_cache };      
     }
 
     inline void reset_input() override final
