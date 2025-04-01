@@ -1,7 +1,0 @@
-run_test:
-  name: concurrent_block_parallel_test
-  task_group: true
-  body:
-#    - concurrent_block_parallel: { value: 2.3 , rows: 4 , columns: 65536 , iter_count: 65536 }
-    - concurrent_block_parallel: { value: 2.3 , rows: 8 , columns: 256 , iter_count: 256 }
-
