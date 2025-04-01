@@ -56,21 +56,6 @@ namespace onika
       virtual inline void operator () (uint64_t i, uint64_t end) const { for(;i<end;i++) this->operator () (i); }
       virtual inline void operator () (const uint64_t * __restrict__ idx, uint64_t N) const { for(uint64_t i=0;i<N;i++) this->operator () (idx[i]); }
 
-      virtual inline void operator () (const onikaInt3_t& c) const {}
-      virtual inline void operator () (const onikaInt3_t& s, const onikaInt3_t& e) const
-      {
-        for(ssize_t k=s.z;k<e.z;k++) 
-        for(ssize_t j=s.y;j<e.y;j++) 
-        for(ssize_t i=s.x;i<e.x;i++)
-        {
-          this->operator () ( onikaInt3_t{i,j,k} );
-        }
-      }
-      virtual inline void operator () (const onikaInt3_t * __restrict__ idx, uint64_t N) const
-      {
-        for(uint64_t i=0;i<N;i++) this->operator () ( idx[i] );
-      }
-
       // GPU Kernel launch interface
       virtual inline void stream_gpu_initialize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
       virtual inline void stream_gpu_kernel(ParallelExecutionContext*,ParallelExecutionStream*) const {}
