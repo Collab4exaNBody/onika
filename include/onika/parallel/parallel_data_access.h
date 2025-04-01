@@ -28,37 +28,14 @@ namespace onika
 
   namespace parallel
   {
-    template<bool _RelativeCoord, ssize_t ... _CoordVec>
-    struct StaticElementCoord
-    {
-      static inline constexpr bool IsParallelSpaceRelative = _RelativeCoord;
-      static inline constexpr unsigned int NDim = sizeof...(_CoordVec);
-      static inline constexpr onika::oarray_t<ssize_t,NDim> m_value = { _CoordVec ... };
-    };
 
-    template<bool _RelativeCoord, unsigned int _NDim>
-    struct DynamicElementCoord
-    {
-      static inline constexpr bool IsParallelSpaceRelative = _RelativeCoord;
-      static inline constexpr unsigned int NDim = _NDim;
-      const onika::oarray_t<ssize_t,NDim> m_value = {};
-    };
-
-    template<class AccessElementCoordT>                  struct IsAccessElementCoord                                                    : public std::false_type {};
-    template<bool _RelativeCoord, ssize_t ... _CoordVec> struct IsAccessElementCoord< StaticElementCoord<_RelativeCoord,_CoordVec...> > : public std::true_type {};
-    template<bool _RelativeCoord, unsigned int _NDim>    struct IsAccessElementCoord< DynamicElementCoord<_RelativeCoord,_NDim> >       : public std::true_type {};
-    template<class T> static inline constexpr bool is_access_element_coord_v = IsAccessElementCoord<T>::value ;
-
-    template<unsigned int _NDim , class... _AccessStencilCoords>
     struct ParallelDataAccess
     {
-      static_assert( ( ... && is_access_element_coord_v<_AccessStencilCoords> ) );
-      static_assert( ( ... && (_AccessStencilCoords::NDim==_NDim) ) );
-      static inline constexpr unsigned int NDim = _NDim;
-      static inline constexpr unsigned int StencilSize = sizeof...(_AccessStencilCoords);
-      using access_stencil_t = FlatTuple< _AccessStencilCoords ... >;
-      const void * const m_data_id = nullptr;
-      const access_stencil_t m_access_stencil = {};
+      const void * const m_data_ptr = nullptr; // acts as a unique id for data. can be object's address, array start, etc.
+      const ssize_t * const m_access_stencil = nullptr; // number of elements mus be m_ndim * m_stencil_size
+      const char * const m_name = nullptr; // optional, may hold a string constant with the name of 
+      const unsigned int m_ndim = 0; // 0 means scalar, or, not parallel execution space correlated data access
+      const unsigned int m_stencil_size = 0;
     };
 
   }
