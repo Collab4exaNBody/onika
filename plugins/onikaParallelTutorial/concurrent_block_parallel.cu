@@ -61,17 +61,17 @@ namespace onika
         // we finally create a third parallel operation we want to execute concurrently with the two others
         auto array2_par_op2 = block_parallel_for( array2->rows(), array2_kernel2, parallel_execution_context("a2_k2") );
 
-        // we create 2 custom queues with different default execution lane
-        auto& stream_0_control = parallel_execution_queue(); // parallel_execution_custom_queue(0); // in this queue, when stream id is not specified it will default to stream #0
-        auto& stream_1_control = parallel_execution_queue(); // parallel_execution_custom_queue(1); // in this queue, when stream id is not specified it will default to stream #1
+        // enqueue operations in two distinct custom queues with different default stream ids
+        lout << "Enqueue parallel operations ..." << std::endl;
+        parallel_execution_queue() << onika::parallel::set_lane(0) << std::move(array1_par_op1) << std::move(array1_par_op2)
+                                   << onika::parallel::set_lane(1) << std::move(array2_par_op1) << std::move(array2_par_op2);
 
-        // enqueue operations in two distinct custom queues with different default stream ids        
-        stream_0_control << std::move(array1_par_op1) << std::move(array1_par_op2) << onika::parallel::flush ;
-        stream_1_control << std::move(array2_par_op1) << std::move(array2_par_op2) << onika::parallel::flush ;
-        
+        lout << "schedule for execution ..." << std::endl;
+        parallel_execution_queue() << onika::parallel::flush;
+
         lout << "Parallel operations are executing..." << std::endl;
-        stream_1_control.wait(); // wait for all operations in stream queue #1 to complete
-        stream_0_control.wait(); // wait for all operations in stream queue #0 to complete
+        parallel_execution_queue().wait( 1 ); // wait for all operations in stream queue #1 to complete
+        parallel_execution_queue().wait( 0 ); // wait for all operations in stream queue #0 to complete
         lout << "All parallel operations have terminated !" << std::endl;
       }
     };
