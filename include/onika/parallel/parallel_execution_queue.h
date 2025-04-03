@@ -215,7 +215,7 @@ namespace onika
         
       }
       
-      inline void wait()
+      inline void wait( int __unused_lane__ = UNDEFINED_EXECUTION_LANE )
       {
         std::lock_guard lk_self( m_mutex );
         while(m_exec_list!=nullptr)
@@ -247,7 +247,7 @@ namespace onika
         assert( m_exec_list == nullptr );
       }
       
-      inline bool query_status()    
+      inline bool query_status( int __unused_lane__ = UNDEFINED_EXECUTION_LANE )    
       {
         const std::lock_guard lk_self( m_mutex );
         if( m_exec_list == nullptr && m_queue_list == nullptr )
