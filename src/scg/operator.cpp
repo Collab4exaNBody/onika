@@ -620,11 +620,6 @@ namespace onika { namespace scg
     return m_task_group_ancestor;
   }
 
-  onika::parallel::ParallelExecutionQueue OperatorNode::parallel_execution_custom_queue(int preffered_lane)
-  {
-    return onika::parallel::ParallelExecutionQueue{ onika::parallel::ParallelExecutionStreamPool{ OperatorNode_parallel_execution_stream_cb , task_group_ancestor() } , preffered_lane };
-  }
-
   onika::parallel::ParallelExecutionQueue& OperatorNode::parallel_execution_queue()
   {
     if(  task_group_ancestor() != this )

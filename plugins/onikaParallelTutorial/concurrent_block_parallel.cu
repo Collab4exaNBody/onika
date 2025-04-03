@@ -62,8 +62,8 @@ namespace onika
         auto array2_par_op2 = block_parallel_for( array2->rows(), array2_kernel2, parallel_execution_context("a2_k2") );
 
         // we create 2 custom queues with different default execution lane
-        auto stream_0_control = parallel_execution_custom_queue(0); // in this queue, when stream id is not specified it will default to stream #0
-        auto stream_1_control = parallel_execution_custom_queue(1); // in this queue, when stream id is not specified it will default to stream #1
+        auto& stream_0_control = parallel_execution_queue(); // parallel_execution_custom_queue(0); // in this queue, when stream id is not specified it will default to stream #0
+        auto& stream_1_control = parallel_execution_queue(); // parallel_execution_custom_queue(1); // in this queue, when stream id is not specified it will default to stream #1
 
         // enqueue operations in two distinct custom queues with different default stream ids        
         stream_0_control << std::move(array1_par_op1) << std::move(array1_par_op2) << onika::parallel::flush ;
