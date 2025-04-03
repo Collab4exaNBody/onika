@@ -279,7 +279,7 @@ namespace onika
         m_exec_list = sync_and_remove( m_exec_list , lane );
       }
       
-      inline bool query_status( int __unused_lane__ = UNDEFINED_EXECUTION_LANE )    
+      inline bool query_status(int lane = UNDEFINED_EXECUTION_LANE)
       {
         const std::lock_guard lk_self( m_mutex );
         if( m_exec_list == nullptr && m_queue_list == nullptr )
