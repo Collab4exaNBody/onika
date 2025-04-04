@@ -235,6 +235,10 @@ else()
   endif()
 endif()
 
+if(ONIKA_BUILD_CUDA)
+  set(ONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE OFF CACHE BOOL "GPU supports atomicMin(double) and atomicMax(double)")
+endif()
+
 # add GPU flags and compile features
 list(APPEND ONIKA_COMPILE_FEATURES ${ONIKA_GPU_COMPILE_FEATURES})
 list(APPEND ONIKA_COMPILE_DEFINITIONS ${ONIKA_GPU_COMPILE_DEFINITIONS})
