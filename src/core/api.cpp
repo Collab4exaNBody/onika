@@ -559,7 +559,14 @@ namespace onika
       onika::parallel::ParallelExecutionContext::s_gpu_sm_mult    = configuration.onika.gpu_sm_mult;
       onika::parallel::ParallelExecutionContext::s_gpu_sm_add     = configuration.onika.gpu_sm_add;
       onika::parallel::ParallelExecutionContext::s_gpu_block_size = configuration.onika.gpu_block_size;
-
+      if( ! configuration.onika.gpu_block_dims.empty() )
+      {
+        const size_t sz = configuration.onika.gpu_block_dims.size();
+        onika::parallel::ParallelExecutionContext::s_gpu_block_dims = {1,1,1};
+        if( sz >= 1 ) onika::parallel::ParallelExecutionContext::s_gpu_block_dims.x = configuration.onika.gpu_block_dims[0];
+        if( sz >= 2 ) onika::parallel::ParallelExecutionContext::s_gpu_block_dims.y = configuration.onika.gpu_block_dims[1];
+        if( sz >= 3 ) onika::parallel::ParallelExecutionContext::s_gpu_block_dims.z = configuration.onika.gpu_block_dims[2];
+      }
       return n_gpus;
     }
       
