@@ -40,6 +40,7 @@ namespace onika
     using StringIntMap = std::map<std::string,int>;
     using UInt64Vector = std::vector<uint64_t>;
     using IntVector = std::vector<long>;
+    static const IntVector DEFAULT_GPU_BLOCK_DIMS = {8,8,4};
 
     ONIKA_APP_CONFIG_Begin( logging                              , "log streams configuration" );
       ONIKA_APP_CONFIG_Item( bool        , parallel , false      , "Allows all processes (not only rank 0) to output to log streams" );
@@ -97,7 +98,8 @@ namespace onika
       ONIKA_APP_CONFIG_Item( int          , parallel_task_core_add  , 0                              , "Additional number of OpenMP tasks when using task mode" );
       ONIKA_APP_CONFIG_Item( int          , gpu_sm_mult             , ONIKA_CU_MIN_BLOCKS_PER_SM     , "GPU number of blocks per SM" );
       ONIKA_APP_CONFIG_Item( int          , gpu_sm_add              , 0                              , "GPU number of blocks added to grid size" );
-      ONIKA_APP_CONFIG_Item( int          , gpu_block_size          , ONIKA_CU_MAX_THREADS_PER_BLOCK , "GPU kernel block size" );
+      ONIKA_APP_CONFIG_Item( int          , gpu_block_size          , ONIKA_CU_MAX_THREADS_PER_BLOCK , "GPU kernel block size, in threads, for 1D kernels" );
+      ONIKA_APP_CONFIG_Item( IntVector    , gpu_block_dims          , DEFAULT_GPU_BLOCK_DIMS         , "GPU kernel block preferred dimensions for ND kernels" );
       ONIKA_APP_CONFIG_Item( StringVector , gpu_disable_filter      , {}                             , "list of regular expressions matching paths of operators whose access to the GPU is disabled" );
       ONIKA_APP_CONFIG_Item( StringVector , gpu_enable_filter       , {}                             , "list of regular expressions matching paths of operators with GPU enabled, regardless of gpu_disable_filter settings" );
     ONIKA_APP_CONFIG_End();

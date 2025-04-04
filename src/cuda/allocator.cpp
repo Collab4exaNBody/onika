@@ -46,8 +46,10 @@ namespace onika
     }
 #   endif
 
+#   ifndef NDEBUG
     bool GenericHostAllocator::s_enable_debug_log = false;
     void GenericHostAllocator::set_debug_log(bool b) { s_enable_debug_log = b; }
+#   endif
 
     bool GenericHostAllocator::operator == (const GenericHostAllocator& other) const
     {
