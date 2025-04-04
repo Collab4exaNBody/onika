@@ -3,6 +3,7 @@
 #include <onika/cuda/cuda_context.h>
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/parallel_execution_stream.h>
+#include <onika/parallel/parallel_data_access.h>
 #include <onika/parallel/constants.h>
 #include <onika/parallel/block_parallel_for_functor.h>
 #include <mutex>
@@ -27,6 +28,7 @@ namespace onika
       int m_lane = DEFAULT_EXECUTION_LANE;
       ParallelExecutionContext* m_queue_list = nullptr;  // head of scheduled parallel operations list
       ParallelExecutionContext* m_exec_list = nullptr;
+      std::vector<ParallelDataAccess> m_data_access;
       std::mutex m_mutex;                              // for thread safe manipulation of queue
 
       ParallelExecutionQueue() = default;
@@ -92,6 +94,20 @@ namespace onika
       inline void set_lane(int l)
       {
         m_lane = l;
+      }
+
+      inline void reset_data_access()
+      {
+        m_data_access.clear();
+      }
+
+      inline void add_data_access(const ParallelDataAccess& pda)
+      {
+        m_data_access.push_back(pda);
+      }
+      inline void add_data_access(ParallelDataAccess && pda)
+      {
+        m_data_access.emplace_back( std::move(pda) );
       }
 
       inline void enqueue(ParallelExecutionContext* pec)
