@@ -26,6 +26,7 @@ under the License.
 #include <onika/omp/ompt_task_timing.h>
 #include <onika/memory/memory_usage.h>
 #include <onika/cuda/cuda_context.h>
+#include <onika/parallel/parallel_execution_operators.h>
 
 #include <cassert>
 #include <memory>
@@ -424,14 +425,6 @@ namespace onika { namespace scg
     this->initialize_slots_resource();
   }
 
-  void OperatorNode::wait_all_parallel_execution_streams()
-  {
-    for(auto & pes : m_parallel_execution_streams)
-    {
-      if( pes != nullptr ) pes->wait();
-    }
-  }
-
   bool OperatorNode::is_task_region_master() const
   {
      return (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode();
@@ -441,8 +434,7 @@ namespace onika { namespace scg
   {
     const bool open_new_task_region = is_task_region_master();
 
-    wait_all_parallel_execution_streams();
-
+    parallel_execution_queue() << parallel::flush << parallel::synchronize ; 
 
     int old_omp_max_threads = omp_get_max_threads();
     if( m_omp_num_threads > 0 )
@@ -465,7 +457,7 @@ namespace onika { namespace scg
           {
             execute();
           } // --- end of task group ---
-          wait_all_parallel_execution_streams();          
+          parallel_execution_queue() << parallel::flush << parallel::synchronize ; 
           run_epilog();
         } // --- end of single ---
       } // --- end of parallel section ---
@@ -480,7 +472,7 @@ namespace onika { namespace scg
       run_prolog();
       execute();
       // not correct : we dont' want to force synchronization here, just triggers call to run_epilog when all previously issued tasks are completed
-      wait_all_parallel_execution_streams();
+      parallel_execution_queue() << parallel::flush << parallel::synchronize ; 
       run_epilog();
     }
 

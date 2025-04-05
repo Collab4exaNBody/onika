@@ -264,7 +264,6 @@ namespace onika { namespace scg
     onika::parallel::ParallelExecutionContext* parallel_execution_context( const char* app_tag = nullptr );
     onika::parallel::ParallelExecutionStream* parallel_execution_stream(int lane = onika::parallel::DEFAULT_EXECUTION_LANE);
     onika::parallel::ParallelExecutionQueue& parallel_execution_queue();
-    void wait_all_parallel_execution_streams();
     
     // free resources associated to slots
     void free_all_resources();
