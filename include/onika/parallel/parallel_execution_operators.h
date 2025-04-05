@@ -81,7 +81,7 @@ namespace onika
     
     inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , ParallelDataAccess && pda )
     {
-      pesq.add_data_access( pda );
+      pesq.add_data_access( std::move(pda) );
       return pesq;
     }
 

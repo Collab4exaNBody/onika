@@ -113,6 +113,9 @@ namespace onika
       onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
       HostKernelExecutionScratch m_host_scratch;
 
+      // optional data access description. empty set means no data description (backward compatibility mode) and thus no implicit task overlapping nor deferred scheduling is allowed
+      std::vector<ParallelDataAccess> m_data_access;
+
       // additional information about what to do before/after kernel execution
       ParallelExecutionCallback m_execution_end_callback = {};
       ParallelExecutionFinalize m_finalize = {};

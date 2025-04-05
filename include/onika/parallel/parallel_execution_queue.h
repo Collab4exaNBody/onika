@@ -98,6 +98,7 @@ namespace onika
 
       inline void reset_data_access()
       {
+        const std::lock_guard lk_self( m_mutex );
         m_data_access.clear();
       }
 
@@ -115,8 +116,12 @@ namespace onika
         assert( pec->m_next == nullptr );
         assert( pec->m_stream == nullptr );
         assert( pec->m_lane == UNDEFINED_EXECUTION_LANE );
+        assert( pec->m_data_access.empty() );
         const std::lock_guard lk_self( m_mutex );
         pec->m_lane = m_lane;
+        // ensures allocated space is never lost
+        std::swap( pec->m_data_access , m_data_access );
+        m_data_access.clear();
         if( m_queue_list == nullptr )
         {
           m_queue_list = pec;
