@@ -135,9 +135,24 @@ namespace onika
         }
       }
 
+      inline void pre_process_queue( ParallelExecutionContext* head )
+      {
+        bool all_undefined_lane = true;
+        bool all_have_explicit_data_access = true;
+        ParallelExecutionContext* pec = head;
+        while( pec != nullptr )
+        {
+          all_undefined_lane = all_undefined_lane && ( pec->m_lane == UNDEFINED_EXECUTION_LANE );
+          all_have_explicit_data_access = all_have_explicit_data_access && ( ! pec->m_data_access.empty() );
+          pec = pec->m_next;
+        }
+        if( ! ( all_undefined_lane && all_have_explicit_data_access ) ) return;  
+      }
+
       inline void schedule_all()
       {
-        const std::lock_guard lk_self( m_mutex );        
+        const std::lock_guard lk_self( m_mutex );
+        // queue preprocessing here ...
         ParallelExecutionContext* el = m_exec_list;
         if( el != nullptr ) while( el->m_next != nullptr ) el = el->m_next;
         while( m_queue_list != nullptr )
