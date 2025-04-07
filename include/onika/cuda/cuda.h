@@ -96,8 +96,10 @@ namespace onika
 #   define ONIKA_CU_BLOCK_SIMD_FOR(T,i,s,e)           for(T i=s+threadIdx.x ; i<e ; i+=blockDim.x )
 #   define ONIKA_CU_BLOCK_SIMD_FOR_UNGUARDED(T,i,s,e) for(T _onika_tmp_j=s , i=s+threadIdx.x ; _onika_tmp_j<e ; _onika_tmp_j+=blockDim.x, i+=blockDim.x )
 
-#   define ONIKA_CU_BLOCK_SYNC()   __syncthreads()
-#   define ONIKA_CU_BLOCK_FENCE()  __threadfence_block()
+#   define ONIKA_CU_BLOCK_SYNC()      __syncthreads()
+#   define ONIKA_CU_BLOCK_SYNC_OR(p)  __syncthreads_or(p)
+#   define ONIKA_CU_BLOCK_SYNC_AND(p) __syncthreads_and(p)
+#   define ONIKA_CU_BLOCK_FENCE()     __threadfence_block()
 
 #   define ONIKA_CU_DEVICE_FENCE() __threadfence()
 #   define ONIKA_CU_SYSTEM_FENCE() __threadfence_system()
