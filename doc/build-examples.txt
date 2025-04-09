@@ -4,11 +4,12 @@
 ONIKA_INSTALL_DIR=${HOME}/local/onika
 ONIKA_SRC_DIR=${HOME}/dev/onika
 YAML_CPP_INSTALL_DIR=${HOME}/local/yaml-cpp-0.6.3/lib/cmake/yaml-cpp
+# CMAKE_YAML_CPP_OPT="-Dyaml-cpp_DIR=${YAML_CPP_INSTALL_DIR}" # uncomment this line if you have issues with system installed yaml-cpp
 ONIKA_SETUP_ENV_COMMANDS=""
 eval ${ONIKA_SETUP_ENV_COMMANDS}
 cmake -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTALL_DIR} \
-  -Dyaml-cpp_DIR=${YAML_CPP_INSTALL_DIR} \
+  ${CMAKE_YAML_CPP_OPT} \
   -DONIKA_BUILD_CUDA=ON \
   -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
   -DCMAKE_CUDA_ARCHITECTURES=86 \
