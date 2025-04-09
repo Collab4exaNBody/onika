@@ -46,10 +46,8 @@ namespace onika
     }
 #   endif
 
-#   ifndef NDEBUG
     bool GenericHostAllocator::s_enable_debug_log = false;
     void GenericHostAllocator::set_debug_log(bool b) { s_enable_debug_log = b; }
-#   endif
 
     bool GenericHostAllocator::operator == (const GenericHostAllocator& other) const
     {
@@ -118,15 +116,11 @@ namespace onika
       switch( info.mem_type() )
       {
         case HostAllocationPolicy::MALLOC :
-#         ifndef NDEBUG
           if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"MALLOC: free "<<info.size()<<" bytes @"<<info.base_ptr()<<" align="<<info.alignment()<<std::endl; }
-#         endif
           free(info.alloc_base);
           break;
         case HostAllocationPolicy::CUDA_HOST :
-#         ifndef NDEBUG
           if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"CUDA: free "<<info.size()<<" bytes @"<<info.base_ptr()<<" align="<<info.alignment()<<std::endl; }
-#         endif
 #         ifdef ONIKA_CUDA_VERSION
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE(info.alloc_base) );
 #         else
@@ -152,9 +146,7 @@ namespace onika
           a = std::max( a , sizeof(void*) ); // this is required by posix_memalign.
           int r = posix_memalign( &ptr, a, s + add_info_size );
           if( r != 0 ) { std::cerr<<"Allocation failed. aborting.\n"; std::abort(); }
-#         ifndef NDEBUG
           if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"MALLOC: alloc "<<s + add_info_size<<" ("<<s<<"+"<<add_info_size<<") bytes @"<<ptr<< " , align="<<a<<std::endl; }
-#         endif
         }
         break;
 
@@ -169,9 +161,7 @@ namespace onika
             std::cerr << "cudaMallocManaged returned a pointer that is not aligned on a "<<a<<" bytes boundary"<<std::endl;
             std::abort();
           }          
-#         ifndef NDEBUG
           if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"CUDA: alloc "<<s + add_info_size<<" ("<<s<<"+"<<add_info_size<<") bytes @"<<ptr<< " , align="<<a<<std::endl; }
-#         endif
           // lout << "cudaMallocManaged("<<s<<","<<a<<") -> @"<<ptr<<std::endl;
 #         else
           std::cerr << "Cuda is disabled, no support for CUDA_HOST allocation policy"<<std::endl;
@@ -196,9 +186,7 @@ namespace onika
       }
 
 #     ifdef ONIKA_MEMORY_ZERO_ALLOC
-#     ifndef NDEBUG
       if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"zero "<<s + add_info_size<<" ("<<s<<"+"<<add_info_size<<") bytes @" << ptr << std::endl; }
-#     endif
       if( ptr != nullptr ) { std::memset( ptr , 0 , s + add_info_size ); }
 #     endif
 
