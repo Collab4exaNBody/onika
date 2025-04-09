@@ -105,7 +105,6 @@ namespace onika { namespace scg
       fatal_error() << "OperatorNode cannot be re-compiled" << std::endl;
     }
 
-#   ifndef NDEBUG
     for( const auto& s : in_slots() )
     {
       assert(s.second->owner()==this);
@@ -116,7 +115,7 @@ namespace onika { namespace scg
       assert(s.second->owner()==this);
       assert(s.second->name()==s.first);
     }
-#   endif
+
     auto pn = pathname();
     m_tag = std::make_unique<char[]>( pn.size() + 1 );
     std::memcpy( m_tag.get() ,  pn.c_str() , pn.size() );
