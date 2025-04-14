@@ -107,7 +107,7 @@ namespace onika { namespace scg
     }
 
 #   ifndef NDEBUG
-    for( const auto& _s : in_slots() )
+    for( const auto& s : in_slots() )
     {
       assert(s.second->owner()==this);
       assert(s.second->name()==s.first);

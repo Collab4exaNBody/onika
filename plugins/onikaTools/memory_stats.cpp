@@ -86,9 +86,9 @@ namespace onika
           OperatorNode* root = this;
           while( root->parent() != nullptr ) root = root->parent();
 
-          lout<< "=============== Operator graph memory ==================="<<std::endl;
+          lout<< "=============================== Operator graph memory ========================================="<<std::endl;
           print_operator_memory_stats( root , comm , *musage_threshold );
-          lout<< "========================================================="<<std::endl<<std::endl;
+          lout<< "==============================================================================================="<<std::endl<<std::endl;
         }
 
         if( *graph_res_mem )

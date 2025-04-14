@@ -165,7 +165,9 @@ namespace onika { namespace scg
     }
 
     // header    
-    lout << onika::format_string( "%-40s %-10s %-10s %-10s %-10s %-80s"," Slot name","Mem. tot","Mem. min","Mem. avg","Mem. max","data type") << std::endl;
+    lout << onika::format_string( "%-40s%-11s%-11s%-11s%-11s%-81s","Slot name","| Mem. tot","| Mem. min","| Mem. avg","| Mem. max","| Data type") << std::endl
+	 << "----------------------------------------+----------+----------+----------+----------+----------"
+	 << std::endl;
 
 /*
     std::vector<OperatorSlotBaseInfo> mem_info_vec;
