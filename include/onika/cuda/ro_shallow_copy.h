@@ -39,6 +39,11 @@ namespace onika
       VectorShallowCopy(VectorShallowCopy&&) = default;
       VectorShallowCopy& operator = (const VectorShallowCopy&) = default;
       VectorShallowCopy& operator = (VectorShallowCopy&&) = default;
+
+      template<class A>
+      inline VectorShallowCopy(const std::vector<T,A>& other) : m_data(other.data()) , m_size(other.size()) {}
+
+      inline VectorShallowCopy(T* ptr, size_t sz) : m_data(ptr) , m_size(sz) {}
       
       ONIKA_HOST_DEVICE_FUNC inline T* data() { return m_data; }
       ONIKA_HOST_DEVICE_FUNC inline const T* data() const { return m_data; }
@@ -55,7 +60,6 @@ namespace onika
     template<class T, class A> struct ReadOnlyShallowCopyType< std::vector<T,A> > { using type = VectorShallowCopy<T>; };
 
     template<class T> using ro_shallow_copy_t = typename ReadOnlyShallowCopyType<T>::type;
-    
   }
 
 }
