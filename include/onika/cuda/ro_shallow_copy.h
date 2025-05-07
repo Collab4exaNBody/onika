@@ -31,7 +31,7 @@ namespace onika
 
     template<class T> struct VectorShallowCopy
     {
-      T* m_data = nullptr;
+      const T * m_data = nullptr;
       size_t m_size = 0;
       
       VectorShallowCopy() = default;
@@ -43,7 +43,7 @@ namespace onika
       template<class A>
       inline VectorShallowCopy(const std::vector<T,A>& other) : m_data(other.data()) , m_size(other.size()) {}
 
-      inline VectorShallowCopy(T* ptr, size_t sz) : m_data(ptr) , m_size(sz) {}
+      inline VectorShallowCopy(const T * ptr, size_t sz) : m_data(ptr) , m_size(sz) {}
       
       ONIKA_HOST_DEVICE_FUNC inline T* data() { return m_data; }
       ONIKA_HOST_DEVICE_FUNC inline const T* data() const { return m_data; }
