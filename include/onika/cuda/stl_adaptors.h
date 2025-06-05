@@ -74,7 +74,7 @@ namespace onika
         return size_t( this->std::vector<T,A>::_M_impl._M_finish - this->std::vector<T,A>::_M_impl._M_start );
       }
     };
-      
+
     template<class T, class A>
     ONIKA_HOST_DEVICE_FUNC inline T* vector_data( std::vector<T,A>& v )
     {
@@ -113,6 +113,18 @@ namespace onika
       }
       return end;
     }
+
+    template<class T>
+    struct span
+    {
+      T * m_start;
+      size_t m_size;
+      ONIKA_HOST_DEVICE_FUNC inline T& operator [] (size_t i) { return m_start[i]; }
+      ONIKA_HOST_DEVICE_FUNC inline const T& operator [] (size_t i) const { return m_start[i]; }
+      ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
+      ONIKA_HOST_DEVICE_FUNC inline auto begin() const { return m_start; }
+      ONIKA_HOST_DEVICE_FUNC inline auto end() const { return m_start + m_size; }
+    };
 
     struct PrintfBaseStdOutStream
     {
