@@ -21,6 +21,7 @@ under the License.
 #include <vector>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/ro_shallow_copy.h>
+#include <onika/type_utils.h>
 
 namespace onika
 {
@@ -143,5 +144,7 @@ namespace onika
     static inline constexpr PrintfBaseStdOutStream cout = {};
   }
 
+  // partial specialization to accept onika::cuda::span as span in implementation specializations
+  template<class T> struct is_span_t< ::onika::cuda::span<T> > : public std::true_type {};
 }
 
