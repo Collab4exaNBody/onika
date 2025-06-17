@@ -19,6 +19,7 @@ under the License.
 #pragma once
 
 #include <vector>
+//#include <ranges>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/ro_shallow_copy.h>
 #include <onika/type_utils.h>
@@ -127,7 +128,6 @@ namespace onika
       ONIKA_HOST_DEVICE_FUNC inline auto end() const { return m_start + m_size; }
     };
     
-
     struct PrintfBaseStdOutStream
     {
       ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( const char* s ) const { printf("%s",s); return {}; }
@@ -147,5 +147,21 @@ namespace onika
 
   // partial specialization to accept onika::cuda::span as span in implementation specializations
   template<class T> struct is_span_t< ::onika::cuda::span<T> > : public std::true_type {};
+
+  namespace cuda
+  {
+    template< std::ranges::contiguous_range T >
+    inline span<const typename T::value_type> make_const_span(const T& r)
+    {
+      return { r.data() , r.size() };
+    }
+
+    template< std::ranges::contiguous_range T >
+    inline span<typename T::value_type> make_span(T& r)
+    {
+      return { r.data() , r.size() };
+    }
+  }
+
 }
 
