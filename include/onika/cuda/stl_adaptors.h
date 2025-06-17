@@ -126,6 +126,7 @@ namespace onika
       ONIKA_HOST_DEVICE_FUNC inline auto begin() const { return m_start; }
       ONIKA_HOST_DEVICE_FUNC inline auto end() const { return m_start + m_size; }
     };
+    
 
     struct PrintfBaseStdOutStream
     {
