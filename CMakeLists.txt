@@ -39,7 +39,7 @@ file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(CMAKE_CXX_EXTENSIONS ${CMAKE_CXX_EXTENSI
 # ==========================
 # === project definition ===
 # ==========================
-project(onika VERSION 1.2 LANGUAGES C CXX)
+project(onika VERSION 1.0.3 LANGUAGES C CXX)
 
 # =======================================
 # === CMake & toolchain configuration ===
@@ -365,6 +365,7 @@ if(YAML_CPP_INCLUDE_DIR AND YAML_CPP_LIBRARIES AND NOT yaml-cpp_FOUND)
   message(STATUS "YAML manually configured :")
   message(STATUS "\tYAML_CPP_INCLUDE_DIR = ${YAML_CPP_INCLUDE_DIR}")
   message(STATUS "\tYAML_CPP_LIBRARIES   = ${YAML_CPP_LIBRARIES}")
+  list(APPEND ONIKA_INCLUDE_DIRS ${YAML_CPP_INCLUDE_DIR})
   file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(YAML_CPP_INCLUDE_DIR ${YAML_CPP_INCLUDE_DIR})\n")
   file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(YAML_CPP_LIBRARIES ${YAML_CPP_LIBRARIES})\n")
   file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_INCLUDE_DIRS \${YAML_CPP_INCLUDE_DIR})\n")
