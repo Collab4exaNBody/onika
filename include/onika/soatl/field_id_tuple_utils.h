@@ -21,6 +21,7 @@ under the License.
 
 #include <onika/cuda/cuda.h>
 #include <onika/flat_tuple.h>
+#include <onika/type_utils.h>
 #include <span>
 
 namespace onika
@@ -28,21 +29,27 @@ namespace onika
   
   namespace soatl
   {
-        
-    template<class FieldT>
+    static inline constexpr size_t DEFAULT_FIELD_PACK_ALIGNMENT = 8;
+    
+    template<class FieldOrSpanT>
     ONIKA_HOST_DEVICE_FUNC
-    inline size_t field_id_size_bytes( const onika::cuda::span<FieldT>& fa )
+    inline size_t field_id_size_bytes( const FieldOrSpanT& fa , size_t nextal = DEFAULT_FIELD_PACK_ALIGNMENT)
     {
-      using ValueType = typename FieldT::value_type ;
-      return fa.size() * sizeof(ValueType);
-    }
-
-    template<class FieldT>
-    ONIKA_HOST_DEVICE_FUNC
-    inline size_t field_id_size_bytes( const FieldT& fa )
-    {
-      using ValueType = typename FieldT::value_type ;
-      return sizeof(ValueType);
+      size_t sz = 0;
+      size_t N = 1;
+      if constexpr ( onika::is_span_v<FieldOrSpanT> )
+      {
+        using FieldT = typename FieldOrSpanT::value_type ;
+        using ValueType = typename FieldT::value_type ;
+        sz = sizeof(ValueType);
+        N = fa.size();
+      }
+      else
+      {
+        using ValueType = typename FieldOrSpanT::value_type ;
+        sz = sizeof(ValueType);
+      }
+      return ( ( (sz*N) + nextal - 1 ) / nextal ) * nextal;
     }
 
     template<class FieldTupleT, size_t ... FieldIndex>
