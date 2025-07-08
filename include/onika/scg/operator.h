@@ -20,7 +20,6 @@ under the License.
 
 #include <onika/scg/operator_slot_base.h>
 #include <onika/scg/operator_slot_direction.h>
-#include <onika/span.h>
 #include <onika/log.h>
 #include <onika/yaml/yaml_utils.h>
 
@@ -198,8 +197,8 @@ namespace onika { namespace scg
     std::set< std::pair<std::string,OperatorSlotBase*> > named_slots() const;
 
     // read only access to slots
-    inline auto in_slots() const { return make_const_span(m_in_slot_storage,in_slot_count()); }
-    inline auto out_slots() const { return make_const_span(m_out_slot_storage,out_slot_count()); }
+    inline std::span< const std::pair<std::string,OperatorSlotBase*> > in_slots() const { return { m_in_slot_storage , static_cast<size_t>(in_slot_count()) }; }
+    inline std::span< const std::pair<std::string,OperatorSlotBase*> > out_slots() const { return { m_out_slot_storage , static_cast<size_t>(out_slot_count()) }; }
 
     inline int in_slot_count() const { return m_in_slot_count; }
     int in_slot_idx(const std::string& k) const;

@@ -19,8 +19,10 @@ under the License.
 #pragma once
 
 #include <vector>
+//#include <ranges>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/ro_shallow_copy.h>
+#include <onika/type_utils.h>
 
 namespace onika
 {
@@ -117,15 +119,18 @@ namespace onika
     template<class T>
     struct span
     {
+      using value_type = T;
       T * m_start;
       size_t m_size;
+      ONIKA_HOST_DEVICE_FUNC inline T * data() { return m_start; }
+      ONIKA_HOST_DEVICE_FUNC inline const T * data() const { return m_start; }
       ONIKA_HOST_DEVICE_FUNC inline T& operator [] (size_t i) { return m_start[i]; }
       ONIKA_HOST_DEVICE_FUNC inline const T& operator [] (size_t i) const { return m_start[i]; }
       ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
       ONIKA_HOST_DEVICE_FUNC inline auto begin() const { return m_start; }
       ONIKA_HOST_DEVICE_FUNC inline auto end() const { return m_start + m_size; }
     };
-
+    
     struct PrintfBaseStdOutStream
     {
       ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( const char* s ) const { printf("%s",s); return {}; }
@@ -141,6 +146,24 @@ namespace onika
     };
 
     static inline constexpr PrintfBaseStdOutStream cout = {};
+  }
+
+  // partial specialization to accept onika::cuda::span as span in implementation specializations
+  template<class T> struct is_span_t< ::onika::cuda::span<T> > : public std::true_type {};
+
+  namespace cuda
+  {
+    template< std::ranges::contiguous_range T >
+    inline span<const typename T::value_type> make_const_span(const T& r)
+    {
+      return { r.data() , r.size() };
+    }
+
+    template< std::ranges::contiguous_range T >
+    inline span<typename T::value_type> make_span(T& r)
+    {
+      return { r.data() , r.size() };
+    }
   }
 
 }

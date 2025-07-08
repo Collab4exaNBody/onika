@@ -25,6 +25,7 @@ under the License.
 #include <utility>
 #include <cassert>
 #include <typeinfo>
+#include <span>
 
 namespace onika
 {
@@ -118,5 +119,11 @@ namespace onika
   template<class T> struct remove_pointer<T* __restrict__ volatile> { typedef T type; };
   template<class T> struct remove_pointer<T* __restrict__ const volatile> { typedef T type; };
   template<class T> using remove_pointer_t = typename ::onika::remove_pointer<T>::type ;
+  
+  template<class T> struct is_span_t : public std::false_type {};
+  template<class T, std::size_t Extent> struct is_span_t< std::span<T,Extent> > : public std::true_type {};
+  template<class T> static inline constexpr bool is_span_v = is_span_t<T>::value;
+  
+  template<typename T> concept SpanCompatible = is_span_v<T>;
 }
 
