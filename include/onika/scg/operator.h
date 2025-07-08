@@ -250,6 +250,8 @@ namespace onika { namespace scg
     void set_gpu_enabled(bool en);
     // Warning! : this methods has a wrong name, for backward compatibility purposes
 
+    void set_gpu_profile_start_stop(bool onOff);
+
     void set_omp_max_threads(int nt);
 
     void set_multiple_run(bool yn);
@@ -352,6 +354,8 @@ namespace onika { namespace scg
     bool m_gpu_execution_allowed = true;
     
     bool m_multiple_run = false;
+    
+    bool m_gpu_profile_start_stop = false;
     
     static ProfilingFunctionSet s_profiling_functions;
     static TimeStampT s_profiling_timestamp_ref;

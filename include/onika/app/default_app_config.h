@@ -68,6 +68,7 @@ namespace onika
       ONIKA_APP_CONFIG_Item( bool         , exectime       , false      , "Write execution time of each operator to standard output" );
       ONIKA_APP_CONFIG_Item( bool         , summary        , false      , "Prints a summuray of execution times at end of simulation" );
       ONIKA_APP_CONFIG_Item( StringVector , filter         , {}         , "if non empty, limits profiling to operators whose pathname matches one of the regex in list" );
+      ONIKA_APP_CONFIG_Item( StringVector , gpu_filter     , {}         , "if non empty, GPU profiling tools will trace only operators whose pathname matches one of the regex in list" );
       ONIKA_APP_CONFIG_Struct( trace );
     ONIKA_APP_CONFIG_End();
 
