@@ -182,6 +182,11 @@ namespace onika { namespace scg
     return s_debug_execution;
   }
 
+  void OperatorNode::set_gpu_profile_start_stop(bool onOff)
+  {
+    m_gpu_profile_start_stop = onOff;
+  }
+
   std::set< std::pair<std::string,OperatorSlotBase*> > OperatorNode::named_slots() const
   {
     std::set< OperatorSlotBase* > added_slots;
@@ -413,12 +418,15 @@ namespace onika { namespace scg
 
     if( do_profiling )
     {
+      if( m_gpu_profile_start_stop ) { ONIKA_CU_PROF_START(); printf("ONIKA_CU_PROF_START\n"); }
+      
       m_total_gpu_time = 0.0;
       m_total_async_cpu_time = 0.0;
       m_run_start_time = std::chrono::high_resolution_clock::now();
       const auto normalized_time = m_run_start_time - s_profiling_timestamp_ref;
       onika::omp::OpenMPToolTaskTiming evt_info = { this, m_tag.get(), omp_get_thread_num(), normalized_time, normalized_time };
       profile_task_start( evt_info );
+      
       ONIKA_CU_PROF_RANGE_PUSH( m_tag.get() );
     }
 
@@ -503,6 +511,8 @@ namespace onika { namespace scg
       profile_task_stop( evt_info );
       auto exectime = ( T1 - m_run_start_time ).count() / 1000000.0;
       m_exec_times.push_back( exectime );
+      
+      if( m_gpu_profile_start_stop ) { ONIKA_CU_PROF_STOP(); printf("ONIKA_CU_PROF_STOP\n"); }
     }
 
     if( mem_prof )
