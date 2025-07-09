@@ -910,6 +910,15 @@ namespace onika
             if( hashes.find(o->hash())==hashes.end() ) o->set_profiling(false);
             });
       }
+      if( ! configuration.profiling.gpu_filter.empty() )
+      {
+        auto hashes = onika::scg::operator_set_from_regex( simulation_graph, configuration.profiling.gpu_filter, {} , "GPU trace Start/Stop around " );
+        simulation_graph->apply_graph(
+            [&hashes](OperatorNode* o)
+            {
+              if( hashes.find(o->hash())!=hashes.end() ) o->set_gpu_profile_start_stop(true);
+            });
+      }
 
       // setup GPU disable filtering
       if( ! configuration.onika.gpu_disable_filter.empty() )

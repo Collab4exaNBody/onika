@@ -38,6 +38,8 @@ template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyAr
 #include <roctracer/roctx.h>
 #define ONIKA_CU_PROF_RANGE_PUSH(s)                    roctxRangePush(s)
 #define ONIKA_CU_PROF_RANGE_POP()                      roctxRangePop()
+#define ONIKA_CU_PROF_START()                          hipProfilerStart()
+#define ONIKA_CU_PROF_STOP()                           hipProfilerStop()
 #define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st)             hipMemPrefetchAsync((const void*)(ptr),sz,0,st) 
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) hipStreamCreateWithFlags( & streamref, hipStreamNonBlocking )
 #define ONIKA_CU_STREAM_ADD_CALLBACK(stream,cb,udata)  hipStreamAddCallback(stream,cb,udata,0u)
@@ -85,9 +87,12 @@ static inline constexpr auto onikaMemcpyHostToDevice         = hipMemcpyHostToDe
 // Cuda runtime API
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+#include <cuda_profiler_api.h>
 #include <nvtx3/nvToolsExt.h>
 #define ONIKA_CU_PROF_RANGE_PUSH(s)                    nvtxRangePush(s)
 #define ONIKA_CU_PROF_RANGE_POP()                      nvtxRangePop()
+#define ONIKA_CU_PROF_START()                          cudaProfilerStart()
+#define ONIKA_CU_PROF_STOP()                           cudaProfilerStop()
 #define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st)             cudaMemPrefetchAsync((const void*)(ptr),sz,0,st) 
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) cudaStreamCreateWithFlags( & streamref, cudaStreamNonBlocking )
 #define ONIKA_CU_STREAM_ADD_CALLBACK(stream,cb,udata)  cudaStreamAddCallback(stream,cb,udata,0u)
@@ -165,6 +170,8 @@ static inline constexpr int onikaErrorNotReady = 0;
 
 #define ONIKA_CU_PROF_RANGE_PUSH             _fake_cuda_api_noop
 #define ONIKA_CU_PROF_RANGE_POP              _fake_cuda_api_noop
+#define ONIKA_CU_PROF_START                  _fake_cuda_api_noop
+#define ONIKA_CU_PROF_STOP                   _fake_cuda_api_noop
 #define ONIKA_CU_MEM_PREFETCH                _fake_cuda_api_noop
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING  _fake_cuda_api_noop
 #define ONIKA_CU_STREAM_ADD_CALLBACK         _fake_cuda_api_noop
