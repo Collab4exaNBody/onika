@@ -25,9 +25,9 @@ namespace onika
     {
       ParallelExecutionStreamPool m_stream_pool = {};     // execution stream to schedule paralel operations
       int m_preffered_lane = UNDEFINED_EXECUTION_LANE;
-      ParallelExecutionContext* m_queue_list = nullptr;  // head of scheduled parallel operations list
-      ParallelExecutionContext* m_exec_list = nullptr;
-      std::mutex m_mutex;                              // for thread safe manipulation of queue
+      ParallelExecutionContext* m_queue_list = nullptr;  // list of scheduled parallel operations
+      ParallelExecutionContext* m_exec_list = nullptr;   // list of executing parallel operations
+      std::mutex m_mutex;                                // for thread safe manipulation of queue
 
       ParallelExecutionQueue() = default;
       
@@ -110,16 +110,27 @@ namespace onika
       inline void schedule_all()
       {
         const std::lock_guard lk_self( m_mutex );        
+
+        // fast forward to tail of executing operation list
         ParallelExecutionContext* el = m_exec_list;
         if( el != nullptr ) while( el->m_next != nullptr ) el = el->m_next;
+        assert( el==nullptr || el->m_next == nullptr );
+        
         while( m_queue_list != nullptr )
         {
           auto pec = m_queue_list;
           m_queue_list = m_queue_list->m_next;
           pec->m_next = nullptr;
           schedule( pec );
-          if( el != nullptr ) el->m_next = pec;
-          else el = m_exec_list = pec;
+          if( el != nullptr )
+          {
+            el->m_next = pec;
+            el = pec;
+          }
+          else
+          {
+            el = m_exec_list = pec;
+          }
           assert( el->m_next == nullptr );
         }
       }
