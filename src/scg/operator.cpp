@@ -417,7 +417,7 @@ namespace onika { namespace scg
 
     if( do_profiling )
     {
-      if( m_gpu_profile_start_stop ) { ONIKA_CU_PROF_START(); printf("ONIKA_CU_PROF_START\n"); }
+      if( m_gpu_profile_start_stop ) { ONIKA_CU_PROF_START(); }
       
       m_total_gpu_time = 0.0;
       m_total_async_cpu_time = 0.0;
@@ -520,7 +520,7 @@ namespace onika { namespace scg
       auto exectime = ( T1 - m_run_start_time ).count() / 1000000.0;
       m_exec_times.push_back( exectime );
       
-      if( m_gpu_profile_start_stop ) { ONIKA_CU_PROF_STOP(); printf("ONIKA_CU_PROF_STOP\n"); }
+      if( m_gpu_profile_start_stop ) { ONIKA_CU_PROF_STOP(); }
     }
 
     if( mem_prof )
