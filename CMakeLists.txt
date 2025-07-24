@@ -39,7 +39,7 @@ file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(CMAKE_CXX_EXTENSIONS ${CMAKE_CXX_EXTENSI
 # ==========================
 # === project definition ===
 # ==========================
-project(onika VERSION 1.0.3 LANGUAGES C CXX)
+project(onika VERSION 1.0.4 LANGUAGES C CXX)
 
 # =======================================
 # === CMake & toolchain configuration ===
