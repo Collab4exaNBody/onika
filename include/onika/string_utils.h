@@ -19,13 +19,15 @@ under the License.
 
 #pragma once
 
-#include <cstring>
 #include <string>
 #include <vector>
 #include <cstdlib>
 #include <cassert>
+#include <ranges>
+#include <span>
 
 #include <onika/debug.h>
+#include <onika/deprecated.h>
 
 namespace onika
 {
@@ -35,11 +37,17 @@ namespace onika
 
   inline const char* convert_format_arg(const std::string& a) { return a.c_str(); }
 
-  template<typename... Args>
-  inline int format_string_buffer(char* buf, size_t bufsize, const std::string& format, const Args & ... args)
+  inline int format_string_buffer( std::convertible_to< std::span<char> > auto && buf_arg, std::convertible_to<std::string_view> auto && format, auto && ... args)
   {
-    std::memset(buf,'\0',bufsize);
-    return std::snprintf( buf, bufsize, format.c_str(), convert_format_arg(args)... );
+    std::span<char> buf = buf_arg;
+    std::fill( buf.begin() , buf.end() , '\0' );
+    return std::snprintf( buf.data(), buf.size(), format.data(), convert_format_arg(args)... );
+  }
+
+  ONIKA_FUTURE_DEPRECATED
+  inline int format_string_buffer(char* buf, size_t bufsize, const std::string& format, auto && ... args)
+  {
+    return format_string_buffer( std::span<char>{buf,bufsize} , format , args ... );
   }
 
   template<typename... Args>
