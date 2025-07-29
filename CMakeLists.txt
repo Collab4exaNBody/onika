@@ -416,6 +416,11 @@ file(APPEND ${ONIKA_CMAKE_PACKAGE} "endif()\n")
 # === Onika lib build configuration ===
 # =====================================
 
+option(ONIKA_FUTURE_DEPRECATION "Enable future deprecation warnings" OFF)
+if(ONIKA_FUTURE_DEPRECATION)
+  list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_FUTURE_DEPRECATION=1)
+endif()
+
 # finally, add overall invariant compile options and dependent libraries
 list(APPEND ONIKA_LIBRARIES dl)
 list(APPEND ONIKA_COMPILE_OPTIONS -Wall)
