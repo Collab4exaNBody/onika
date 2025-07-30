@@ -153,8 +153,12 @@ namespace onika
       {
         const std::lock_guard lk_self( m_mutex );
         // queue preprocessing here ...
+
+        // fast forward to tail of executing operation list
         ParallelExecutionContext* el = m_exec_list;
         if( el != nullptr ) while( el->m_next != nullptr ) el = el->m_next;
+        assert( el==nullptr || el->m_next == nullptr );
+        
         while( m_queue_list != nullptr )
         {
           auto pec = m_queue_list;
