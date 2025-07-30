@@ -24,12 +24,12 @@ namespace onika
 
     struct ParallelExecutionQueue
     {
-      ParallelExecutionStreamPool m_stream_pool = {};     // execution stream to schedule paralel operations
+      ParallelExecutionStreamPool m_stream_pool = {};    // execution stream to schedule paralel operations
       int m_lane = DEFAULT_EXECUTION_LANE;
-      ParallelExecutionContext* m_queue_list = nullptr;  // head of scheduled parallel operations list
-      ParallelExecutionContext* m_exec_list = nullptr;
+      ParallelExecutionContext* m_queue_list = nullptr;  // head of "ready to be scheduled" parallel operations list
+      ParallelExecutionContext* m_exec_list = nullptr;   // list of executing ( or at least scheduled for execution ) parallel operations
       std::vector<ParallelDataAccess> m_data_access;
-      std::mutex m_mutex;                              // for thread safe manipulation of queue
+      std::mutex m_mutex;                                // for thread safe manipulation of queue
 
       ParallelExecutionQueue() = default;
       
