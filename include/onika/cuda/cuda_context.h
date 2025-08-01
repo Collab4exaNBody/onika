@@ -52,6 +52,7 @@ template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyAr
 #define ONIKA_CU_CREATE_EVENT(EVT)                     hipEventCreate(&EVT)
 #define ONIKA_CU_DESTROY_EVENT(EVT)                    hipEventDestroy(EVT)
 #define ONIKA_CU_STREAM_EVENT(EVT,STREAM)              hipEventRecord(EVT,STREAM)
+#define ONIKA_CU_STREAM_HOST_FUNC(s,f,p)               hipLaunchHostFunc(s,f,p)
 #define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2)            hipEventElapsedTime(&T,EVT1,EVT2)
 #define ONIKA_CU_MEMSET(p,v,n,...)                     hipMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY(d,s,n,...)                     hipMemcpyAsync(d,s,n,hipMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
@@ -105,6 +106,7 @@ static inline constexpr auto onikaMemcpyHostToDevice         = hipMemcpyHostToDe
 #define ONIKA_CU_CREATE_EVENT(EVT)                     cudaEventCreate(&EVT)
 #define ONIKA_CU_DESTROY_EVENT(EVT)                    cudaEventDestroy(EVT)
 #define ONIKA_CU_STREAM_EVENT(EVT,STREAM)              cudaEventRecord(EVT,STREAM)
+#define ONIKA_CU_STREAM_HOST_FUNC(s,f,p)               cudaLaunchHostFunc(s,f,p)
 #define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2)            cudaEventElapsedTime(&T,EVT1,EVT2)
 #define ONIKA_CU_MEMSET(p,v,n,...)                     cudaMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY(d,s,n,...)                     cudaMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
@@ -178,6 +180,7 @@ static inline constexpr int onikaErrorNotReady = 0;
 #define ONIKA_CU_CREATE_EVENT(EVT)           _fake_cuda_api_noop(EVT=nullptr)
 #define ONIKA_CU_DESTROY_EVENT(EVT)          _fake_cuda_api_noop(EVT=nullptr)
 #define ONIKA_CU_STREAM_EVENT(EVT,STREAM)    _fake_cuda_api_noop(EVT,STREAM)
+#define ONIKA_CU_STREAM_HOST_FUNC(s,f,p)     _fake_cuda_api_noop
 #define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2)  _fake_cuda_api_noop(T=0.0f)
 #define ONIKA_CU_DEVICE_SYNCHRONIZE()        _fake_cuda_api_noop()
 #define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  _fake_cuda_api_noop(STREAM)
