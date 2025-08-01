@@ -26,8 +26,6 @@ under the License.
 
 namespace onika
 {
-  template <size_t Nd> using ConstDim = std::integral_constant<size_t,Nd>;
-
   template<class T, size_t N>
   struct oarray_t
   {
