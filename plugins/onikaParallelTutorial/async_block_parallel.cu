@@ -43,7 +43,10 @@ namespace onika
         // my_addition is scheduled here, transfering its content/ownership (see std::move) to the default stream queue
         parallel_execution_queue() << std::move(my_addition) ;
         lout << "Parallel operation is executing..." << std::endl;
-        parallel_execution_queue().wait();    // wait for the operation to complete and results to be ready to read
+
+        // parallel_execution_queue().wait();    // wait for the operation to complete and results to be ready to read
+        parallel_execution_queue() << onika::parallel::synchronize ; // the same as above
+
         lout << "Parallel operation has completed !" << std::endl;
       }
     };

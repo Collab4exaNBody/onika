@@ -153,7 +153,10 @@ namespace onika
         pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_OPENMP;  
       }
       
+      pec->m_host_scratch.functor_data_size = sizeof(HostFunctorAdapter);
       new(pec->m_host_scratch.functor_data) HostFunctorAdapter( func , par_space );
+      assert( pec->m_host_scratch.functor_data_size == sizeof(HostFunctorAdapter) ); // serves as an additional memory overflow check
+
       return {pec};
     }
 

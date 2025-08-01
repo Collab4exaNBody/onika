@@ -9,6 +9,15 @@ namespace onika
   namespace parallel
   {
 
+    template<class BPForAdapterT>
+    struct ExecOpenMPTaskCallbackInfo
+    {
+      const BPForAdapterT* bpfor = nullptr;
+      ParallelExecutionContext* pec = nullptr;
+      ParallelExecutionStream* pes = nullptr;
+      unsigned int ntasks = 0;
+    };
+
     // ========================== GPU execution kernels ==========================
 #   ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
 #   define ONIKA_KERNEL_TAG_ARGS ,ONIKA_CU_GRID_CONSTANT const uint64_t ktag, ONIKA_CU_GRID_CONSTANT const uint64_t ksubtag
@@ -131,15 +140,18 @@ namespace onika
       static_assert( lambda_is_compatible_with_v<FuncT,void,FuncParamType> , "User defined functor is not compatible with execution space");
 
       using ParExecSpaceT = ParallelExecutionSpace<ND,ElemND,ElementListT>;
+      using OMPTaskExecCallbackT = ExecOpenMPTaskCallbackInfo<BlockParallelForHostAdapter>;
 
       static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
       static inline constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_prolog_t>;
+      static inline constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_prolog_t,ParallelExecutionStream*>;
       static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
       static inline constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_epilog_t>;
+      static inline constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_epilog_t,ParallelExecutionStream*>;
       
-      alignas( alignof(FuncT) ) const FuncT m_func;
+      const FuncT m_func;
       const ParExecSpaceT m_parallel_space;
-      
+            
     public:
       inline BlockParallelForHostAdapter( const FuncT& f , const ParExecSpaceT& ps ) : m_func(f) , m_parallel_space(ps) {}
 
@@ -151,8 +163,6 @@ namespace onika
       {
         if constexpr ( GPUSupport )
         {
-          static constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_prolog_t,ParallelExecutionStream*>;
-          static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
           if constexpr ( functor_has_gpu_prolog ) { m_func( block_parallel_for_gpu_prolog_t{} , pes ); }
           else if constexpr ( functor_has_prolog ) { m_func( block_parallel_for_prolog_t{} ); }
         }
@@ -216,8 +226,6 @@ namespace onika
       {
         if constexpr ( GPUSupport )
         {
-          static constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_epilog_t,ParallelExecutionStream*>;
-          static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
           if constexpr ( functor_has_gpu_epilog ) { m_func( block_parallel_for_gpu_epilog_t{} , pes ); }
           else if constexpr ( functor_has_epilog ) { m_func( block_parallel_for_epilog_t{} ); }
         }
@@ -228,8 +236,8 @@ namespace onika
       // ================ CPU OpenMP execution interface ======================
       inline void execute_prolog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
       {
-        if constexpr (functor_has_cpu_prolog) { m_func(block_parallel_for_cpu_prolog_t{}); }
-        else if constexpr (functor_has_prolog) { m_func(block_parallel_for_prolog_t{}); }
+        if constexpr (functor_has_cpu_prolog) { m_func( block_parallel_for_cpu_prolog_t{} ); }
+        else if constexpr (functor_has_prolog) { m_func( block_parallel_for_prolog_t{} ); }
       }
       
       inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
@@ -238,7 +246,7 @@ namespace onika
 
         pes->m_omp_execution_count.fetch_add(1);
 
-#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+#       ifdef ONIKA_ENOMPTaskExecCallbackTABLE_KERNEL_DEBUG_INFO
         {
           const auto & ps = m_parallel_space;
           unsigned long long N = ps.m_end[0] - ps.m_start[0];
@@ -363,79 +371,116 @@ namespace onika
         pes->m_omp_execution_count.fetch_sub(1);
       }
 
-      inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int num_tasks ) const override final
+      static inline void execute_omp_inner_taskloop( const BlockParallelForHostAdapter* self, ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks )
+      {
+        const auto & ps = self->m_parallel_space;
+        const auto & func = self->m_func;
+        
+        unsigned long long N = ps.m_end[0] - ps.m_start[0];
+        if constexpr (ND>=2) N *= ps.m_end[1] - ps.m_start[1];
+        if constexpr (ND>=3) N *= ps.m_end[2] - ps.m_start[2];
+        
+#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+        printf("OpenMP/taskloop %s/%s , NDim=%d , N=%llu\n",pec->m_tag,pec->m_sub_tag,int((ElemND==0)?ND:ElemND),N);
+#       endif
+
+        const auto T0 = std::chrono::high_resolution_clock::now();
+        self->execute_prolog( pec , pes );
+        
+        if( N > 0 )
+        {
+          // implicit taskgroup ensures taskloop has completed before enclosing task ends
+          // all referenced variables can be shared because of implicit enclosing taskgroup
+          if constexpr ( ND==1 )
+          {
+#           pragma omp taskloop default(none) shared(ps,func,ntasks) num_tasks(ntasks)
+            for(ssize_t i=ps.m_start[0] ; i<ps.m_end[0] ; i++ )
+            {
+              if constexpr ( ElemND==0 ) func( i );
+              if constexpr ( ElemND>=1 ) func( ps.m_elements[i] );
+            }
+          }
+          else if constexpr ( ND==2 )
+          {
+            static_assert( ElemND == 0 , "element indices must be 1D" );
+#           pragma omp taskloop collapse(2) default(none) shared(ps,func,ntasks) num_tasks(ntasks)
+            for(ssize_t j=ps.m_start[1];j<ps.m_end[1];j++) 
+            for(ssize_t i=ps.m_start[0];i<ps.m_end[0];i++)
+            {
+              func( onikaInt3_t{i,j,0} );
+            }
+          }
+          else if constexpr ( ND==3 )
+          {
+            static_assert( ElemND == 0 , "element indices must be 1D" );
+#           pragma omp taskloop collapse(3) default(none) shared(ps,func,ntasks) num_tasks(ntasks)
+            for(ssize_t k=ps.m_start[2];k<ps.m_end[2];k++) 
+            for(ssize_t j=ps.m_start[1];j<ps.m_end[1];j++) 
+            for(ssize_t i=ps.m_start[0];i<ps.m_end[0];i++)
+            {
+              func( onikaInt3_t{i,j,k} );
+            }
+          }
+          else
+          {
+            fatal_error() << "Unsuported parallel execution space dimensionality "<<FuncParamDim<<std::endl;
+          }
+        }
+
+        // here all tasks of taskloop have completed, since notaskgroup clause is _NOT_ specified
+        self->execute_epilog( pec , pes );
+        pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
+        if( pec->m_execution_end_callback.m_func != nullptr )
+        {
+          (* pec->m_execution_end_callback.m_func) ( pec->m_execution_end_callback.m_data );
+        }
+        
+        // finally, notify that one less OpenMP task is executing
+        pes->m_omp_execution_count.fetch_sub(1);
+      }
+        
+      static inline void execute_omp_inner_taskloop_cb( void* userData )
+      {
+        OMPTaskExecCallbackT * cb_info = reinterpret_cast<OMPTaskExecCallbackT*>(userData);
+        execute_omp_inner_taskloop( cb_info->bpfor, cb_info->pec, cb_info->pes, cb_info->ntasks );
+      }
+
+      inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks ) const override final
       {
         pes->m_omp_execution_count.fetch_add(1);
-        // encloses a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
-        // refrenced variables must be privately copied, because the task may run after this function ends
-        const auto ps = m_parallel_space;
-#       pragma omp task default(none) firstprivate(pec,pes,ps,num_tasks) depend(inout:pes[0])
+        
+        // if a Cuda stream is available, we'll use it to serialize OpenMP tasks based parallel operations,
+        // such that they will be also serialized with Cuda kernel executions throughout the stream
+        if( pes->m_cuda_ctx != nullptr )
         {
-          unsigned long long N = ps.m_end[0] - ps.m_start[0];
-          if constexpr (ND>=2) N *= ps.m_end[1] - ps.m_start[1];
-          if constexpr (ND>=3) N *= ps.m_end[2] - ps.m_start[2];
-#         ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-          printf("OpenMP/taskloop %s/%s , NDim=%d , N=%llu\n",pec->m_tag,pec->m_sub_tag,int((ElemND==0)?ND:ElemND),N);
-#         endif
-          const auto T0 = std::chrono::high_resolution_clock::now();
-          execute_prolog( pec , pes );
-          if( N > 0 )
+          if( pec->m_host_scratch.available_data_bytes() < sizeof(OMPTaskExecCallbackT) )
           {
-            // implicit taskgroup, ensures taskloop has completed before enclosing task ends
-            // all refrenced variables can be shared because of implicit enclosing taskgroup
-            const auto & func = m_func;
-            //const auto ps = parspace;
-            if constexpr ( ND==1 )
-            {
-#             pragma omp taskloop default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
-              for(ssize_t i=ps.m_start[0] ; i<ps.m_end[0] ; i++ )
-              {
-                if constexpr ( ElemND==0 ) m_func( i );
-                if constexpr ( ElemND>=1 ) m_func( ps.m_elements[i] );
-              }
-            }
-            else if constexpr ( ND==2 )
-            {
-              static_assert( ElemND == 0 , "element indices must be 1D" );
-#             pragma omp taskloop collapse(2) default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
-              for(ssize_t j=ps.m_start[1];j<ps.m_end[1];j++) 
-              for(ssize_t i=ps.m_start[0];i<ps.m_end[0];i++)
-              {
-                func( onikaInt3_t{i,j,0} );
-              }
-            }
-            else if constexpr ( ND==3 )
-            {
-              static_assert( ElemND == 0 , "element indices must be 1D" );
-#             pragma omp taskloop collapse(3) default(none) shared(pec,num_tasks,func,ps) num_tasks(num_tasks)
-              for(ssize_t k=ps.m_start[2];k<ps.m_end[2];k++) 
-              for(ssize_t j=ps.m_start[1];j<ps.m_end[1];j++) 
-              for(ssize_t i=ps.m_start[0];i<ps.m_end[0];i++)
-              {
-                func( onikaInt3_t{i,j,k} );
-              }
-            }
-            else
-            {
-              fatal_error() << "Unsuported parallel execution space dimensionality "<<FuncParamDim<<std::endl;
-            }
+            fatal_error() << "Internal error: no space left to delegate creation of OpenMP tasks to CU stream" << std::endl;
           }
-
-          // here all tasks of taskloop have completed, since notaskgroup clause is not specified              
-          execute_epilog( pec , pes );          
-          pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
-          if( pec->m_execution_end_callback.m_func != nullptr )
+          OMPTaskExecCallbackT cb_info = { this , pec , pes , ntasks };
+          void * cb_user_data = pec->m_host_scratch.available_data_ptr();
+          pec->m_host_scratch.append_functor_data( & cb_info , sizeof(cb_info) );
+          ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , execute_omp_inner_taskloop_cb , cb_user_data );
+        }
+        else
+        {
+          // if OpenMP only, parallel operation serialization feature is emulated
+          // via an encapsulating task which declares an in/out dependency on the Onika stream object
+          
+          // encloses a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
+          // referenced variables must be privately copied, because the task may run after this function ends
+          const auto * self = this;
+#         pragma omp task default(none) firstprivate(self,pec,pes,ntasks) depend(inout:pes[0])
           {
-            (* pec->m_execution_end_callback.m_func) ( pec->m_execution_end_callback.m_data );
+            execute_omp_inner_taskloop(self,pec,pes,ntasks);
           }
-          pes->m_omp_execution_count.fetch_sub(1);
         }
       }
 
       inline void execute_epilog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
       {
-        if constexpr (functor_has_cpu_epilog) { m_func(block_parallel_for_cpu_epilog_t{}); }
-        else if constexpr (functor_has_epilog) { m_func(block_parallel_for_epilog_t{}); }
+        if constexpr (functor_has_cpu_epilog) { m_func( block_parallel_for_cpu_epilog_t{} ); }
+        else if constexpr (functor_has_epilog) { m_func( block_parallel_for_epilog_t{} ); }
       }
 
       // ================ CPU individual task execution interface ======================

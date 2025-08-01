@@ -45,12 +45,44 @@ namespace onika
     static inline constexpr set_lane_t any_lane() { return {}; }
 
     // real implementation of how a parallel operation is pushed onto a stream queue
-    inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , ParallelExecutionWrapper && pew )
+    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , ParallelExecutionWrapper && pew )
     {
       auto * pec = pew.m_pec;
       pew.m_pec = nullptr;
       pesq.enqueue( pec );
       pesq.reset_data_access();
+      return pesq;
+    }
+
+    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , ParallelExecutionQueueBase && otherq )
+    {
+      const std::lock_guard lk_self( otherq.m_mutex );
+      while( otherq.m_queue_list != nullptr )
+      {
+        auto pec = otherq.m_queue_list;
+        otherq.m_queue_list = otherq.m_queue_list->m_next;
+        pec->m_next = nullptr;
+        pesq.enqueue( pec );
+        pesq.reset_data_access();
+      }
+      return pesq;
+    }
+
+    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , set_lane_t sl )
+    {
+      pesq.set_lane( sl.m_lane );
+      return pesq;
+    }
+
+    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , const ParallelDataAccess& pda )
+    {
+      pesq.add_data_access( pda );
+      return pesq;
+    }
+    
+    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , ParallelDataAccess && pda )
+    {
+      pesq.add_data_access( std::move(pda) );
       return pesq;
     }
 
@@ -64,24 +96,6 @@ namespace onika
     inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , synchronize_t )
     {
       pesq.wait();
-      return pesq;
-    }
-
-    inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , set_lane_t sl )
-    {
-      pesq.set_lane( sl.m_lane );
-      return pesq;
-    }
-
-    inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , const ParallelDataAccess& pda )
-    {
-      pesq.add_data_access( pda );
-      return pesq;
-    }
-    
-    inline ParallelExecutionQueue& operator << ( ParallelExecutionQueue& pesq , ParallelDataAccess && pda )
-    {
-      pesq.add_data_access( std::move(pda) );
       return pesq;
     }
 

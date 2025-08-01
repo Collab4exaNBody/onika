@@ -22,73 +22,16 @@ namespace onika
       inline ParallelExecutionStream* operator () (int lane) { return (*m_func)(m_priv,lane); }
     };
 
-    struct ParallelExecutionQueue
+    struct ParallelExecutionQueueBase
     {
-      ParallelExecutionStreamPool m_stream_pool = {};    // execution stream to schedule paralel operations
       int m_lane = DEFAULT_EXECUTION_LANE;
       ParallelExecutionContext* m_queue_list = nullptr;  // head of "ready to be scheduled" parallel operations list
-      ParallelExecutionContext* m_exec_list = nullptr;   // list of executing ( or at least scheduled for execution ) parallel operations
-      std::vector<ParallelDataAccess> m_data_access;
+      ParallelDataAccessVector m_data_access;
       std::mutex m_mutex;                                // for thread safe manipulation of queue
 
-      ParallelExecutionQueue() = default;
-      
-      inline ParallelExecutionQueue(const ParallelExecutionStreamPool& pesp , int pl)
-        : m_stream_pool( pesp )
-        , m_lane( pl )
+      inline ~ParallelExecutionQueueBase()
       {
-      }
-
-      inline ParallelExecutionQueue(const ParallelExecutionQueue& other)
-        : m_stream_pool( other.m_stream_pool )
-        , m_lane( other.m_lane )
-      {
-        assert( other.m_queue_list == nullptr );
-        assert( other.m_exec_list == nullptr );
-      }
-
-      inline ParallelExecutionQueue(ParallelExecutionQueue && other)
-        : m_stream_pool( other.m_stream_pool )
-        , m_lane( other.m_lane )
-        , m_queue_list( other.m_queue_list )
-        , m_exec_list( other.m_exec_list )
-      {
-        const std::lock_guard lk_self( other.m_mutex );
-        other.m_queue_list = nullptr;
-        other.m_exec_list = nullptr;
-      }
-      
-      inline ParallelExecutionQueue& operator = (const ParallelExecutionQueue & other)
-      {
-        assert( other.m_queue_list == nullptr );
-        assert( other.m_exec_list == nullptr );
-        const std::lock_guard lk_self( m_mutex );
-        schedule_all();
-        wait();
-        m_stream_pool = other.m_stream_pool;
-        m_lane = other.m_lane;
-        return *this;
-      }
-
-      inline ParallelExecutionQueue& operator = (ParallelExecutionQueue && other)
-      {
-        const std::lock_guard lk_self( m_mutex );
-        const std::lock_guard lk_other( other.m_mutex );
-        m_stream_pool = other.m_stream_pool;
-        m_lane = other.m_lane;
-        m_queue_list = other.m_queue_list;
-        m_exec_list = other.m_exec_list;
-        other.m_queue_list = nullptr;
-        other.m_exec_list = nullptr;
-        return *this;
-      }
-
-      inline ~ParallelExecutionQueue()
-      {
-        schedule_all();
-        wait();
         assert( m_queue_list == nullptr );
-        assert( m_exec_list == nullptr );
       }
 
       inline void set_lane(int l)
@@ -122,17 +65,7 @@ namespace onika
         // ensures allocated space is never lost
         std::swap( pec->m_data_access , m_data_access );
         m_data_access.clear();
-        if( m_queue_list == nullptr )
-        {
-          m_queue_list = pec;
-        }
-        else
-        {
-          ParallelExecutionContext* el = m_queue_list;
-          while( el->m_next != nullptr ) el = el->m_next;
-          assert( el->m_next == nullptr );
-          el->m_next = pec;
-        }
+        m_queue_list = pec_list_append( m_queue_list , pec );
       }
 
       inline void pre_process_queue( ParallelExecutionContext* head )
@@ -147,29 +80,56 @@ namespace onika
           pec = pec->m_next;
         }
         if( ! ( all_undefined_lane && all_have_explicit_data_access ) ) return;  
+        else
+        {
+          // do some lane assignment here
+        }
       }
 
-      inline void schedule_all()
+    };
+
+    struct ParallelExecutionQueue : public ParallelExecutionQueueBase
+    {
+      ParallelExecutionStreamPool m_stream_pool = {};    // execution stream to schedule paralel operations
+      ParallelExecutionContext* m_exec_list = nullptr;   // list of executing ( or at least scheduled for execution ) parallel operations
+
+      inline ~ParallelExecutionQueue()
+      {
+        schedule_all();
+        wait();
+        assert( m_exec_list == nullptr );
+      }
+
+      inline std::pair<ParallelExecutionContext*,ParallelExecutionContext*> schedule_filter_list( ParallelExecutionContext* ql, int lane )
+      {        
+        if( ql == nullptr ) return { nullptr , nullptr };
+
+        auto ql_next = ql->m_next;
+        ql->m_next = nullptr;
+        
+        if( ql->m_lane == lane || lane < 0 )
+        {
+          schedule( ql );  
+          auto [nql,nsl] = schedule_filter_list( ql_next , lane );
+          ql->m_next = nsl;
+          return { nql , ql };
+        }
+        else
+        {
+          auto [nql,nsl] = schedule_filter_list( ql_next , lane );
+          ql->m_next = nql;
+          return { ql , nsl };
+        }
+      }
+
+      inline void schedule_all(int lane = UNDEFINED_EXECUTION_LANE )
       {
         const std::lock_guard lk_self( m_mutex );
         // queue preprocessing here ...
 
-        // fast forward to tail of executing operation list
-        ParallelExecutionContext* el = m_exec_list;
-        if( el != nullptr ) while( el->m_next != nullptr ) el = el->m_next;
-        assert( el==nullptr || el->m_next == nullptr );
-        
-        while( m_queue_list != nullptr )
-        {
-          auto pec = m_queue_list;
-          m_queue_list = m_queue_list->m_next;
-          pec->m_next = nullptr;
-          schedule( pec );
-          if( el != nullptr ) el->m_next = pec;
-          else m_exec_list = pec;
-          el = pec;
-          assert( el->m_next == nullptr );
-        }
+        auto [nql,nsl] = schedule_filter_list( m_queue_list , lane );
+        m_queue_list = nql;
+        m_exec_list = pec_list_append( m_exec_list , nsl );
       }
 
       inline void schedule(ParallelExecutionContext* pec)
@@ -185,8 +145,9 @@ namespace onika
         // and each subsequent parallel operation will be assigned a scheduling lane (i.e. a stream)
         if( lane == UNDEFINED_EXECUTION_LANE ) lane = DEFAULT_EXECUTION_LANE;
 
-        // arriving here, parallel operation, or part of it, has been assigned a specific lane (i.e. stream id)
+        // arriving here, parallel operation has been assigned a specific lane (i.e. stream id)
         if( lane == DEFAULT_EXECUTION_LANE ) lane = 0;
+        
         // we update lane on the parallel operation so that it remember on what lane it's executing
         assert( lane >= 0 );
         pec->m_lane = lane;
@@ -289,6 +250,7 @@ namespace onika
             next = pec->m_next;
             pec->m_next = nullptr;
             
+            // waits for both OpenMP tasks and Cuda kernels in the specified stream to terminate
             pec->m_stream->wait_nolock();
 
             float Tgpu = 0.0;
@@ -335,21 +297,24 @@ namespace onika
         while(pec!=nullptr)
         {
           std::lock_guard lk( pec->m_stream->m_mutex );
-          if( pec->m_stream->m_omp_execution_count.load() > 0 )
+          if( pec->m_stream->m_stream_id == uint32_t(lane) || lane < 0 )
           {
-            return false;
-          }
-          if( pec->m_stream->m_cuda_ctx != nullptr && pec->m_stop_evt != nullptr )
-          {
-            if( ONIKA_CU_EVENT_QUERY( pec->m_stop_evt ) != onikaSuccess )
+            if( pec->m_stream->m_omp_execution_count.load() > 0 )
             {
               return false;
+            }
+            if( pec->m_stream->m_cuda_ctx != nullptr && pec->m_stop_evt != nullptr )
+            {
+              if( ONIKA_CU_EVENT_QUERY( pec->m_stop_evt ) != onikaSuccess )
+              {
+                return false;
+              }
             }
           }
           pec = pec->m_next;
         } 
 
-        wait();
+        wait( lane );
         return true;
       }
       
@@ -360,7 +325,7 @@ namespace onika
       }
 
     };
-    
+
   }
 
 }

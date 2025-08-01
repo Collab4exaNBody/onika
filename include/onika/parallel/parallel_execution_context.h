@@ -37,14 +37,20 @@ namespace onika
 
   namespace parallel
   {
-
+    
     struct HostKernelExecutionScratch
     {
       static constexpr size_t SCRATCH_BUFFER_SIZE = 1024; // total device side temporary buffer
-      static constexpr size_t MAX_FUNCTOR_SIZE = SCRATCH_BUFFER_SIZE;
+      static constexpr size_t MAX_FUNCTOR_SIZE = SCRATCH_BUFFER_SIZE - sizeof( unsigned long long );
       static constexpr size_t MAX_FUNCTOR_ALIGNMENT = onika::memory::DEFAULT_ALIGNMENT;
       alignas(MAX_FUNCTOR_ALIGNMENT) char functor_data[MAX_FUNCTOR_SIZE];
+      unsigned long long functor_data_size;
+      inline size_t available_data_bytes() const { return MAX_FUNCTOR_SIZE - functor_data_size; }
+      inline char* available_data_ptr() { return functor_data + functor_data_size; }
+      inline void append_functor_data(const void* ptr, size_t n) { std::memcpy(available_data_ptr(),ptr,n); functor_data_size+=n; }
     };
+
+    static_assert( sizeof(HostKernelExecutionScratch) == HostKernelExecutionScratch::SCRATCH_BUFFER_SIZE );
 
     struct GPUKernelExecutionScratch
     {
@@ -114,7 +120,7 @@ namespace onika
       HostKernelExecutionScratch m_host_scratch;
 
       // optional data access description. empty set means no data description (backward compatibility mode) and thus no implicit task overlapping nor deferred scheduling is allowed
-      std::vector<ParallelDataAccess> m_data_access;
+      ParallelDataAccessVector m_data_access;
 
       // additional information about what to do before/after kernel execution
       ParallelExecutionCallback m_execution_end_callback = {};
@@ -187,6 +193,15 @@ namespace onika
       static inline int gpu_block_size() { return  s_gpu_block_size; }
       static inline onikaDim3_t gpu_block_dims() { return  s_gpu_block_dims; }
     };
+
+    // function to append a parallele execution list at the end
+    inline ParallelExecutionContext* pec_list_append(ParallelExecutionContext* l, ParallelExecutionContext* pec)
+    {
+      if( l == nullptr ) return pec;
+      while( l->m_next != nullptr ) l = l->m_next;
+      l->m_next = pec;
+      return l;
+    }
 
   }
 
