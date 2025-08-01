@@ -148,6 +148,9 @@ namespace onika
       static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
       static inline constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_epilog_t>;
       static inline constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_epilog_t,ParallelExecutionStream*>;
+      static inline constexpr bool functor_is_single_task = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_single_task_t>;
+      
+      static_assert( !GPUSupport || !functor_is_single_task );
       
       const FuncT m_func;
       const ParExecSpaceT m_parallel_space;
@@ -180,7 +183,7 @@ namespace onika
 #       define ONIKA_KERNEL_TAG_CALL_ARGS /**/
 #       endif
         if constexpr ( GPUSupport )
-        {          
+        {
           // launch compute kernel
           const size_t N = m_parallel_space.m_end[0] - m_parallel_space.m_start[0];
           onikaInt3_t block_offset = { m_parallel_space.m_start[0], 0, 0 };
@@ -265,7 +268,11 @@ namespace onika
         const auto T0 = std::chrono::high_resolution_clock::now();  
         execute_prolog( pec , pes );
         
-        if constexpr ( ND == 1 )
+        if constexpr ( functor_is_single_task )
+        {
+          m_func( block_parallel_for_single_task_t{} );
+        }
+        else if constexpr ( ND == 1 )
         {
 #         pragma omp parallel
           {
@@ -391,7 +398,11 @@ namespace onika
         {
           // implicit taskgroup ensures taskloop has completed before enclosing task ends
           // all referenced variables can be shared because of implicit enclosing taskgroup
-          if constexpr ( ND==1 )
+          if constexpr ( functor_is_single_task )
+          {
+            func( block_parallel_for_single_task_t{} );
+          }
+          else if constexpr ( ND==1 )
           {
 #           pragma omp taskloop default(none) shared(ps,func,ntasks) num_tasks(ntasks)
             for(ssize_t i=ps.m_start[0] ; i<ps.m_end[0] ; i++ )

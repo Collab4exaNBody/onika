@@ -36,6 +36,9 @@ namespace onika
     struct block_parallel_for_gpu_epilog_t : public block_parallel_for_epilog_t {};
     struct block_parallel_for_cpu_epilog_t : public block_parallel_for_epilog_t {};
 
+    // marker for single function call with a single task (no parallelism) event though parallel execution space span several elements
+    struct block_parallel_for_single_task_t {};
+
     template<long long FunctorSize, long long MaxSize, class FuncT>
     struct AssertFunctorSizeFitIn
     {
