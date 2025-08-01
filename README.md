@@ -16,6 +16,7 @@ The documentation is available here: https://collab4exanbody.github.io/doc_onika
 
 To cite `onika`, please use:
 
+```
 @inproceedings{carrard2023exanbody,
   title={ExaNBody: a HPC framework for N-Body applications},
   author={Carrard, Thierry and Prat, Rapha{\"e}l and Latu, Guillaume and Babilotte, Killian and Lafourcade, Paul and Amarsid, Lhassan and Soulard, Laurent},
@@ -28,3 +29,4 @@ To cite `onika`, please use:
   url = {https://doi.org/10.1007/978-3-031-50684-0_27},
   doi = {10.1007/978-3-031-50684-0_27}
 }
+```
