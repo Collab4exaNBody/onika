@@ -581,38 +581,6 @@ namespace onika { namespace scg
     self->m_allocated_parallel_execution_contexts.erase( it );
   }
 
-  onika::parallel::ParallelExecutionStream* OperatorNode::parallel_execution_stream(int id)
-  {
-    assert( task_group_ancestor() == this );
-    if( id == onika::parallel::DEFAULT_EXECUTION_LANE ) id = 0;
-    if( id < 0 || id >= onika::parallel::MAX_EXECUTION_LANES )
-    {
-      fatal_error() << "Invalid execution stream id ("<<id<<")"<<std::endl;
-    }    
-    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
-    if( size_t(id) >= m_parallel_execution_streams.size() )
-    {
-      m_parallel_execution_streams.resize( id+1 , nullptr );
-    }
-    if( m_parallel_execution_streams[id] == nullptr )
-    {
-      m_parallel_execution_streams[id] = std::make_shared<onika::parallel::ParallelExecutionStream>();
-      m_parallel_execution_streams[id]->m_cuda_ctx = global_cuda_ctx();
-      if( m_parallel_execution_streams[id]->m_cuda_ctx != nullptr )
-      {
-        m_parallel_execution_streams[id]->m_cu_stream = m_parallel_execution_streams[id]->m_cuda_ctx->getThreadStream(id);
-      }
-      m_parallel_execution_streams[id]->m_stream_id = id;
-    }
-    return m_parallel_execution_streams[id].get();
-  }
-
-  static inline onika::parallel::ParallelExecutionStream* OperatorNode_parallel_execution_stream_cb(void* _self, int id)
-  {
-    OperatorNode * self = ( OperatorNode* ) _self;
-    return self->parallel_execution_stream(id);
-  }
-
   OperatorNode * OperatorNode::task_group_ancestor()
   {
     if( m_task_group_ancestor == nullptr )
@@ -629,12 +597,12 @@ namespace onika { namespace scg
     {
       return task_group_ancestor()->parallel_execution_queue();
     }
-
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
     if( m_parallel_execution_queue == nullptr )
     {
       m_parallel_execution_queue = std::make_shared<onika::parallel::ParallelExecutionQueue>();
-      m_parallel_execution_queue->m_stream_pool = { OperatorNode_parallel_execution_stream_cb , task_group_ancestor() };
+      if( m_parallel_execution_stream_allocator.m_cuda_ctx == nullptr ) m_parallel_execution_stream_allocator.m_cuda_ctx = global_cuda_ctx();
+      m_parallel_execution_queue->m_stream_pool = m_parallel_execution_stream_allocator.parallel_execution_stream_pool();
     }
     return * m_parallel_execution_queue;
   }

@@ -227,7 +227,7 @@ namespace onika
 #define ONIKA_APP_CONFIG_Begin(name,...) \
   struct ONIKA_APP_CONFIG_Struct_##name \
   { \
-    inline ONIKA_APP_CONFIG_Struct_##name ( YAML::Node n , ::onika::app::AppConfigOptionDocumentation* parent_doc=nullptr ) : m_yaml_node( n ) \
+    inline ONIKA_APP_CONFIG_Struct_##name ( YAML::Node n = YAML::Node(YAML::NodeType::Map) , ::onika::app::AppConfigOptionDocumentation* parent_doc=nullptr ) : m_yaml_node( n ) \
     { if(parent_doc!=nullptr) { parent_doc->m_sub_items.push_back( &m_doc ); } } \
     YAML::Node m_yaml_node; \
     ::onika::app::AppConfigOptionDocumentation m_doc { std::string{} , #name , std::string{__VA_ARGS__} }

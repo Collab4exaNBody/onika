@@ -38,6 +38,7 @@ namespace onika
 
     // marker for single function call with a single task (no parallelism) event though parallel execution space span several elements
     struct block_parallel_for_single_task_t {};
+    template<class T> concept block_parallel_for_single_task = std::is_same_v<T,block_parallel_for_single_task_t>;
 
     template<long long FunctorSize, long long MaxSize, class FuncT>
     struct AssertFunctorSizeFitIn

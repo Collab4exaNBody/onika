@@ -2,6 +2,8 @@
 
 #include <onika/cuda/cuda_context.h>
 #include <onika/parallel/stream_utils.h>
+#include <onika/log.h>
+
 #include <mutex>
 #include <atomic>
 #include <functional>
@@ -61,8 +63,6 @@ namespace onika
       }
     };
     
-    using ParallelExecutionStreamAllocator = std::function<ParallelExecutionStream*(int)>;
-
   }
 
 }

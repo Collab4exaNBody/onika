@@ -237,7 +237,9 @@ namespace onika
     {
       std::vector<CudaDevice> m_devices;
       std::vector<onikaStream_t> m_threadStream;
+      
       static bool s_global_gpu_enable;
+      static std::shared_ptr<CudaContext> s_default_cuda_ctx;
             
       bool has_devices() const;
       unsigned int device_count() const;
@@ -245,6 +247,7 @@ namespace onika
 
       static void set_global_gpu_enable(bool yn);
       static bool global_gpu_enable();
+      static CudaContext* default_cuda_ctx();
     };
 
   }
