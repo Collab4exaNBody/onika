@@ -592,7 +592,7 @@ namespace onika { namespace scg
     auto & default_queue = parallel_execution_queue();
     return m_parallel_execution_context_allocator.create(
         m_tag.get()
-      , sub_tag
+      , sub_tag == nullptr ? "" : sub_tag
       , & default_queue
       , m_gpu_execution_allowed ? global_cuda_ctx() : nullptr
       , m_omp_task_mode ? omp_get_max_threads() : 0
