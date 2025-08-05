@@ -169,8 +169,19 @@ namespace onika
 
   struct FatalErrorLogStream
   {
-    std::ostringstream m_oss = std::ostringstream{"*****************************************\n************* FATAL ERROR ***************\n*****************************************\n",std::ios::ate};
-        
+    std::ostringstream m_oss = std::ostringstream {
+      "*****************************************\n" 
+      "************* FATAL ERROR ***************\n"
+      "*****************************************\n"
+      , std::ios::ate };
+
+    FatalErrorLogStream() = default;
+    FatalErrorLogStream(const FatalErrorLogStream& ) = delete;
+    FatalErrorLogStream(FatalErrorLogStream && ) = default;
+
+    FatalErrorLogStream & operator = (const FatalErrorLogStream& ) = delete;
+    FatalErrorLogStream & operator = (FatalErrorLogStream && ) = default;
+
     template<class T> inline FatalErrorLogStream& operator << (const T& x)
     {
       m_oss << x;
@@ -180,7 +191,7 @@ namespace onika
     ~FatalErrorLogStream();
   };
   
-  inline FatalErrorLogStream fatal_error() { return FatalErrorLogStream(); }
+  inline FatalErrorLogStream fatal_error() { return FatalErrorLogStream{}; }
 }
 
 // bridge main objects to another namespace if it helps for the transition to standalone Onika

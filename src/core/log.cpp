@@ -198,9 +198,7 @@ namespace onika
     if( ! m_oss.view().empty() )
     {
       using namespace std::chrono_literals;
-      lerr_stream()
-        << m_oss.str() 
-        << "*****************************************" << std::endl << std::flush;
+      lerr_stream() << m_oss.str() << "*****************************************" << std::endl << std::flush;
       std::this_thread::sleep_for(500ms);
       std::abort();
     }
