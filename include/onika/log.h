@@ -191,7 +191,7 @@ namespace onika
     ~FatalErrorLogStream();
   };
   
-  inline FatalErrorLogStream fatal_error() { return FatalErrorLogStream{}; }
+  inline FatalErrorLogStream fatal_error() { return {}; }
 }
 
 // bridge main objects to another namespace if it helps for the transition to standalone Onika

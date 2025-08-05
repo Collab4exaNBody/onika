@@ -186,13 +186,12 @@ namespace onika
   LogStreamFilterHelper ldbg { ::onika::ldbg_raw , std::numeric_limits<uint64_t>::max() };
 
 
-  // fatal error handling implementation
+  // fatal_error() implementation
   FatalErrorLogStream& FatalErrorLogStream::operator << ( std::ostream& (*manip)(std::ostream&) )
   {
-     m_oss << manip ;
-     return *this;
+    m_oss << manip;
+    return *this;
   }
-
   FatalErrorLogStream::~FatalErrorLogStream()
   {
     if( ! m_oss.view().empty() )
