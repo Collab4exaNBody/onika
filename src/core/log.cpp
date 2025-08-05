@@ -185,17 +185,22 @@ namespace onika
   // create a log filter for debug messages out of operator scope
   LogStreamFilterHelper ldbg { ::onika::ldbg_raw , std::numeric_limits<uint64_t>::max() };
 
+
+  // fatal_error() implementation
+  FatalErrorLogStream& FatalErrorLogStream::operator << ( std::ostream& (*manip)(std::ostream&) )
+  {
+    m_oss << manip;
+    return *this;
+  }
   FatalErrorLogStream::~FatalErrorLogStream()
   {
-    using namespace std::chrono_literals;
-    lerr_stream()
-      << "*****************************************" << std::endl
-      << "************* FATAL ERROR ***************" << std::endl
-      << "*****************************************" << std::endl
-      << "*** " << m_oss.str() 
-      << "*****************************************" << std::endl << std::flush;
-    std::this_thread::sleep_for(500ms);
-    std::abort();
+    if( ! m_oss.view().empty() )
+    {
+      using namespace std::chrono_literals;
+      lerr_stream() << m_oss.str() << "*****************************************" << std::endl << std::flush;
+      std::this_thread::sleep_for(500ms);
+      std::abort();
+    }
   }
 
 
