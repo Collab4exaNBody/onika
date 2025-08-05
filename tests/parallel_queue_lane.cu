@@ -22,14 +22,12 @@ under the License.
 #include <onika/parallel/parallel_execution_queue.h>
 #include <onika/parallel/parallel_execution_operators.h>
 #include <onika/app/api.h>
-#include <onika/log.h>
 #include <onika/extras/array2d.h>
 #include <onika/extras/block_parallel_value_add_functor.h>
 
 int main(int argc,char*argv[])
 {
   using namespace onika::extras;
-  using onika::lout;
   using onika::parallel::block_parallel_for;
   using onika::parallel::ParallelExecutionQueueBase;
   using onika::parallel::ParallelExecutionQueue;
@@ -38,7 +36,7 @@ int main(int argc,char*argv[])
   onika::app::ApplicationConfiguration config = {};
   onika::app::intialize_openmp( config );
   onika::app::initialize_gpu( config );
-  
+
   auto & pq = ParallelExecutionQueue::default_queue();
   ParallelExecutionContextAllocator peca;
 
@@ -66,17 +64,17 @@ int main(int argc,char*argv[])
   // we finally create a third parallel operation we want to execute concurrently with the two others
   auto array2_par_op2 = block_parallel_for( array2.rows(), array2_kernel2, peca.create("a2_k2") );
 
-  lout << "Enqueue parallel operations ..." << std::endl;
+  std::cout << "Enqueue parallel operations ..." << std::endl;
   ParallelExecutionQueueBase delay_queue_a;
   ParallelExecutionQueueBase delay_queue_b;        
   delay_queue_a << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1);
   delay_queue_b << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);
 
-  lout << "schedule parallel operations ..." << std::endl;
+  std::cout << "schedule parallel operations ..." << std::endl;
   pq << std::move(delay_queue_a) << std::move(delay_queue_b) << onika::parallel::flush;
 
   pq <<  onika::parallel::synchronize ;
-  lout << "done" << std::endl;
+  std::cout << "done" << std::endl;
 
   return 0;
 }
