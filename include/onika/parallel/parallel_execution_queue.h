@@ -44,12 +44,20 @@ namespace onika
       ParallelDataAccessVector m_data_access;
       std::mutex m_mutex;                                // for thread safe manipulation of queue
 
+      ParallelExecutionQueueBase() = default;
+      ParallelExecutionQueueBase(const ParallelExecutionQueueBase&) = delete;
+      ParallelExecutionQueueBase(ParallelExecutionQueueBase&&) = default;
+
+      ParallelExecutionQueueBase& operator = (const ParallelExecutionQueueBase&) = delete;
+      ParallelExecutionQueueBase& operator = (ParallelExecutionQueueBase&&) = default;
+
       ~ParallelExecutionQueueBase();
+
       void set_lane(int l);
       void reset_data_access();
       void add_data_access(const ParallelDataAccess& pda);
       void add_data_access(ParallelDataAccess && pda);
-      void enqueue(ParallelExecutionContext* pec);
+      void enqueue(ParallelExecutionContext* pec, bool from_other_queue = false);
       void pre_process_queue( ParallelExecutionContext* head );
     };
 
@@ -65,7 +73,15 @@ namespace onika
 
       static ParallelExecutionQueue& default_queue();
 
+      ParallelExecutionQueue() = default;
+      ParallelExecutionQueue(const ParallelExecutionQueue&) = delete;
+      ParallelExecutionQueue(ParallelExecutionQueue&&) = default;
+
+      ParallelExecutionQueue& operator = (const ParallelExecutionQueue&) = delete;
+      ParallelExecutionQueue& operator = (ParallelExecutionQueue&&) = default;
+
       ~ParallelExecutionQueue();
+
       std::pair<ParallelExecutionContext*,ParallelExecutionContext*> schedule_filter_list( ParallelExecutionContext* ql, int lane );
       void schedule_all(int lane = UNDEFINED_EXECUTION_LANE );
       void schedule(ParallelExecutionContext* pec);

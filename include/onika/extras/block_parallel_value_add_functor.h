@@ -34,7 +34,7 @@ namespace onika
 
       ONIKA_HOST_DEVICE_FUNC                   // works on CPU and GPU
       inline void operator () (size_t i) const // call operator with i in [0;n[
-      {                                        // a whole block (all its threads) execute iteration i
+      {
         const size_t cols = m_array.columns();
         ONIKA_CU_BLOCK_SIMD_FOR(size_t, j, 0, cols)   // parallelization among the threads of the current block
         {                                             // for iterations on j in [0;columns[

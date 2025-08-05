@@ -95,9 +95,8 @@ namespace onika
       {
         assert( pec != nullptr );
         pec->reset();
-
         std::lock_guard<std::mutex> lock(m_mutex);
-
+        
         auto it = m_allocated_parallel_execution_contexts.find( pec );
         assert( it != m_allocated_parallel_execution_contexts.end() );
         m_free_parallel_execution_contexts.push_back( *it );

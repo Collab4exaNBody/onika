@@ -19,52 +19,20 @@ namespace onika
     };
 
     // ========================== GPU execution kernels ==========================
-#   ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-#   define ONIKA_KERNEL_TAG_ARGS ,ONIKA_CU_GRID_CONSTANT const uint64_t ktag, ONIKA_CU_GRID_CONSTANT const uint64_t ksubtag
-#   else
-#   define ONIKA_KERNEL_TAG_ARGS /**/
-#   endif
 
-    ONIKA_HOST_DEVICE_FUNC
-    static inline uint64_t str_to_uint64(const char* s)
-    {
-      if( s == nullptr ) return 0;
-      uint64_t x = 0;
-      unsigned int c = 0;
-      while( c<8 && s[c]!='\0' )
-      {
-        x = x | ( uint64_t(s[c]) << (c*8) );
-        ++ c;
-      }
-      return x;
-    }
+    // debug messages to spot start/end of kernel executions
+    void dmesg_gpu_start_kernel(void* userData);
+    void dmesg_gpu_end_kernel(void* userData);
+    void dmesg_omp_start_kernel(ParallelExecutionContext * pec);
+    void dmesg_omp_end_kernel(ParallelExecutionContext * pec);
 
-    ONIKA_HOST_DEVICE_FUNC
-    static inline void str_from_uint64(char* s , uint64_t x)
-    {
-      for(unsigned int i=0;i<8;i++)
-      {
-        s[i] = x & 0xFF;
-        x = x >> 8;
-      }
-      s[8] = '\0';
-    }
-    
     // GPU execution kernel for fixed size grid, using workstealing element assignment to blocks
     template<class ElementCoordRangeT, class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     ONIKA_STATIC_INLINE_KERNEL
-    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, const ElementCoordRangeT idx, ONIKA_CU_GRID_CONSTANT const FuncT func ONIKA_KERNEL_TAG_ARGS )
+    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, const ElementCoordRangeT idx, ONIKA_CU_GRID_CONSTANT const FuncT func )
     {
-#     ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-      if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
-      {
-        char t[9]; str_from_uint64( t , ktag );
-        char st[9]; str_from_uint64( st , ksubtag );
-        printf("Cuda workstealing %s/%s\n",t,st);
-      }
-#     endif
       using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
       static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
       
@@ -91,16 +59,8 @@ namespace onika
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     ONIKA_STATIC_INLINE_KERNEL
-    void block_parallel_for_gpu_kernel_regulargrid( const ElementCoordRangeT idx , ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start ONIKA_KERNEL_TAG_ARGS )
+    void block_parallel_for_gpu_kernel_regulargrid( const ElementCoordRangeT idx , ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start )
     {
-#     ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-      if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
-      {
-        char t[9]; str_from_uint64( t , ktag );
-        char st[9]; str_from_uint64( st , ksubtag );
-        printf("Cuda regulargrid1D %s / %s\n",t,st);
-      }
-#     endif
       using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
       static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
       if constexpr (ElemND==0) func( start + ONIKA_CU_BLOCK_IDX );
@@ -111,16 +71,8 @@ namespace onika
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     ONIKA_STATIC_INLINE_KERNEL
-    void block_parallel_for_gpu_kernel_regulargrid_3D( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const onikaInt3_t start_coord ONIKA_KERNEL_TAG_ARGS )
+    void block_parallel_for_gpu_kernel_regulargrid_3D( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const onikaInt3_t start_coord )
     {
-#     ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-      if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
-      {
-        char t[9]; str_from_uint64( t , ktag );
-        char st[9]; str_from_uint64( st , ksubtag );
-        printf("Cuda regulargrid3D %s / %s\n",t,st);
-      }
-#     endif
       func( start_coord + ONIKA_CU_BLOCK_COORD );
     }
 
@@ -166,6 +118,9 @@ namespace onika
       {
         if constexpr ( GPUSupport )
         {
+#         ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+          ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , dmesg_gpu_start_kernel , pec );
+#         endif
           if constexpr ( functor_has_gpu_prolog ) { m_func( block_parallel_for_gpu_prolog_t{} , pes ); }
           else if constexpr ( functor_has_prolog ) { m_func( block_parallel_for_prolog_t{} ); }
         }
@@ -175,13 +130,6 @@ namespace onika
       // GPU execution kernel call
       inline void stream_gpu_kernel(ParallelExecutionContext* pec, ParallelExecutionStream* pes) const override final
       {
-#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-        const uint64_t ktag = str_to_uint64(pec->m_tag);
-        const uint64_t ksubtag = str_to_uint64(pec->m_sub_tag);
-#       define ONIKA_KERNEL_TAG_CALL_ARGS ,ktag,ksubtag
-#       else
-#       define ONIKA_KERNEL_TAG_CALL_ARGS /**/
-#       endif
         if constexpr ( GPUSupport )
         {
           // launch compute kernel
@@ -193,7 +141,7 @@ namespace onika
           {
             if constexpr ( ND == 1 )
             {
-              ONIKA_CU_LAUNCH_KERNEL(pec->m_grid_size.x,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec->m_cuda_scratch.get(), m_parallel_space.m_elements, m_func ONIKA_KERNEL_TAG_CALL_ARGS );
+              ONIKA_CU_LAUNCH_KERNEL(pec->m_grid_size.x,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec->m_cuda_scratch.get(), m_parallel_space.m_elements, m_func );
             }
             else
             {
@@ -204,7 +152,7 @@ namespace onika
           {
             if constexpr ( ND == 1 )
             {            
-              ONIKA_CU_LAUNCH_KERNEL(N,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, m_parallel_space.m_elements, m_func, block_offset.x ONIKA_KERNEL_TAG_CALL_ARGS );
+              ONIKA_CU_LAUNCH_KERNEL(N,pec->m_block_size.x,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, m_parallel_space.m_elements, m_func, block_offset.x );
             }
             else if constexpr ( ND > 1 )
             {
@@ -213,7 +161,7 @@ namespace onika
                                            , static_cast<unsigned int>( m_parallel_space.m_end[1] - m_parallel_space.m_start[1] )
                                            , static_cast<unsigned int>( m_parallel_space.m_end[2] - m_parallel_space.m_start[2] ) };
               //lout << "Kernel execute grid=("<<exec_grid_size.x<<","<<exec_grid_size.y<<","<<exec_grid_size.z<<") , block=("<<pec->m_block_size.x<<","<<pec->m_block_size.y<<","<<pec->m_block_size.z<<")" << std::endl;
-              ONIKA_CU_LAUNCH_KERNEL(exec_grid_size , pec->m_block_size , 0 , pes->m_cu_stream , block_parallel_for_gpu_kernel_regulargrid_3D, m_func, block_offset ONIKA_KERNEL_TAG_CALL_ARGS );
+              ONIKA_CU_LAUNCH_KERNEL(exec_grid_size , pec->m_block_size , 0 , pes->m_cu_stream , block_parallel_for_gpu_kernel_regulargrid_3D, m_func, block_offset );
             }
           }          
         }
@@ -221,7 +169,6 @@ namespace onika
         {
           fatal_error() << "called stream_gpu_kernel with no GPU support" << std::endl;
         }
-#       undef ONIKA_KERNEL_TAG_CALL_ARGS
       }
       
       // GPU execution epilog
@@ -231,6 +178,9 @@ namespace onika
         {
           if constexpr ( functor_has_gpu_epilog ) { m_func( block_parallel_for_gpu_epilog_t{} , pes ); }
           else if constexpr ( functor_has_epilog ) { m_func( block_parallel_for_epilog_t{} ); }
+#         ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+          ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , dmesg_gpu_end_kernel , pec );
+#         endif
         }
         else { fatal_error() << "called stream_gpu_finalize with no GPU support" << std::endl; }
       }
@@ -239,6 +189,9 @@ namespace onika
       // ================ CPU OpenMP execution interface ======================
       inline void execute_prolog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
       {
+#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+        dmesg_omp_start_kernel(pec);
+#       endif
         if constexpr (functor_has_cpu_prolog) { m_func( block_parallel_for_cpu_prolog_t{} ); }
         else if constexpr (functor_has_prolog) { m_func( block_parallel_for_prolog_t{} ); }
       }
@@ -248,16 +201,6 @@ namespace onika
         static_assert( FuncParamDim>=1 && FuncParamDim<=3 , "OpenMP backend only support 1D, 2D and 3D parallel execution spaces" );
 
         pes->m_omp_execution_count.fetch_add(1);
-
-#       ifdef ONIKA_ENOMPTaskExecCallbackTABLE_KERNEL_DEBUG_INFO
-        {
-          const auto & ps = m_parallel_space;
-          unsigned long long N = ps.m_end[0] - ps.m_start[0];
-          if constexpr (ND>=2) N *= ps.m_end[1] - ps.m_start[1];
-          if constexpr (ND>=3) N *= ps.m_end[2] - ps.m_start[2];
-          printf("OpenMP/parfor %s/%s , NDim=%d , N=%llu\n",pec->m_tag,pec->m_sub_tag,int((ElemND==0)?ND:ElemND),N);
-        }
-#       endif
 
         const auto * __restrict__ idx = m_parallel_space.m_elements.data();
 
@@ -387,10 +330,6 @@ namespace onika
         if constexpr (ND>=2) N *= ps.m_end[1] - ps.m_start[1];
         if constexpr (ND>=3) N *= ps.m_end[2] - ps.m_start[2];
         
-#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-        printf("OpenMP/taskloop %s/%s , NDim=%d , N=%llu\n",pec->m_tag,pec->m_sub_tag,int((ElemND==0)?ND:ElemND),N);
-#       endif
-
         const auto T0 = std::chrono::high_resolution_clock::now();
         self->execute_prolog( pec , pes );
         
@@ -492,6 +431,9 @@ namespace onika
       {
         if constexpr (functor_has_cpu_epilog) { m_func( block_parallel_for_cpu_epilog_t{} ); }
         else if constexpr (functor_has_epilog) { m_func( block_parallel_for_epilog_t{} ); }
+#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+        dmesg_omp_end_kernel(pec);
+#       endif
       }
 
       // ================ CPU individual task execution interface ======================

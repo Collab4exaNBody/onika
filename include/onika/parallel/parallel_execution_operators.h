@@ -45,7 +45,8 @@ namespace onika
     static inline constexpr set_lane_t any_lane() { return {}; }
 
     // real implementation of how a parallel operation is pushed onto a stream queue
-    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , ParallelExecutionWrapper && pew )
+    template< std::derived_from<ParallelExecutionQueueBase> PEQ >
+    inline PEQ & operator << ( PEQ & pesq , ParallelExecutionWrapper && pew )
     {
       auto * pec = pew.m_pec;
       pew.m_pec = nullptr;
@@ -54,33 +55,36 @@ namespace onika
       return pesq;
     }
 
-    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , ParallelExecutionQueueBase && otherq )
+    template< std::derived_from<ParallelExecutionQueueBase> PEQ >
+    inline PEQ & operator << ( PEQ & pesq , ParallelExecutionQueueBase && otherq )
     {
-      const std::lock_guard lk_self( otherq.m_mutex );
+      std::lock_guard lk_other( otherq.m_mutex );
       while( otherq.m_queue_list != nullptr )
       {
         auto pec = otherq.m_queue_list;
         otherq.m_queue_list = otherq.m_queue_list->m_next;
         pec->m_next = nullptr;
-        pesq.enqueue( pec );
-        pesq.reset_data_access();
+        pesq.enqueue(pec,true);
       }
       return pesq;
     }
 
-    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , set_lane_t sl )
+    template< std::derived_from<ParallelExecutionQueueBase> PEQ >
+    inline PEQ & operator << ( PEQ & pesq , set_lane_t sl )
     {
       pesq.set_lane( sl.m_lane );
       return pesq;
     }
 
-    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , const ParallelDataAccess& pda )
+    template< std::derived_from<ParallelExecutionQueueBase> PEQ >
+    inline PEQ & operator << ( PEQ & pesq , const ParallelDataAccess& pda )
     {
       pesq.add_data_access( pda );
       return pesq;
     }
     
-    inline auto & operator << ( std::derived_from<ParallelExecutionQueueBase> auto & pesq , ParallelDataAccess && pda )
+    template< std::derived_from<ParallelExecutionQueueBase> PEQ >
+    inline PEQ & operator << ( PEQ & pesq , ParallelDataAccess && pda )
     {
       pesq.add_data_access( std::move(pda) );
       return pesq;

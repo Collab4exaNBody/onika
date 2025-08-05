@@ -56,23 +56,31 @@ int main(int argc,char*argv[])
   auto array1_par_op1 = block_parallel_for( array1.rows(), array1_kernel1, peca.create("Array1","Kernel1") );
 
   // we create a second parallel operation we want to execute sequentially after the first addition
-  auto array1_par_op2 = block_parallel_for( array1.rows(), array1_kernel2, peca.create("a1_k2") );
+  auto array1_par_op2 = block_parallel_for( array1.rows(), array1_kernel2, peca.create("Array1","Kernel2") );
 
   // we finally create a third parallel operation we want to execute concurrently with the two others
-  auto array2_par_op1 = block_parallel_for( array2.rows(), array2_kernel1, peca.create("a2_k1") );
+  auto array2_par_op1 = block_parallel_for( array2.rows(), array2_kernel1, peca.create("Array2","Kernel1") );
 
   // we finally create a third parallel operation we want to execute concurrently with the two others
-  auto array2_par_op2 = block_parallel_for( array2.rows(), array2_kernel2, peca.create("a2_k2") );
+  auto array2_par_op2 = block_parallel_for( array2.rows(), array2_kernel2, peca.create("Array2","Kernel2") );
 
-  std::cout << "Enqueue parallel operations ..." << std::endl;
+  std::cout << "Delay parallel operations ..." << std::endl;
   ParallelExecutionQueueBase delay_queue_a;
   ParallelExecutionQueueBase delay_queue_b;        
   delay_queue_a << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1);
   delay_queue_b << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);
 
-  std::cout << "schedule parallel operations ..." << std::endl;
-  pq << std::move(delay_queue_a) << std::move(delay_queue_b) << onika::parallel::flush;
+  std::cout << "Enqueue operations ..." << std::endl;
+  pq << std::move(delay_queue_a) << std::move(delay_queue_b) ;
+  
+  // would be the same as following
+  // pq << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1)
+  //    << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);
 
+  std::cout << "Schedule parallel operations ..." << std::endl;
+  pq << onika::parallel::flush;
+
+  std::cout << "Synchronize parallel operations ..." << std::endl;
   pq <<  onika::parallel::synchronize ;
   std::cout << "done" << std::endl;
 

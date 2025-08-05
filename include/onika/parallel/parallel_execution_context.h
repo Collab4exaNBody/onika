@@ -198,8 +198,9 @@ namespace onika
     inline ParallelExecutionContext* pec_list_append(ParallelExecutionContext* l, ParallelExecutionContext* pec)
     {
       if( l == nullptr ) return pec;
-      while( l->m_next != nullptr ) l = l->m_next;
-      l->m_next = pec;
+      auto * el = l;
+      while( el->m_next != nullptr ) el = el->m_next;
+      el->m_next = pec;
       return l;
     }
 

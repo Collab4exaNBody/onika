@@ -62,8 +62,6 @@ namespace onika
       return { parallel_execution_stream_cb , this };
     }
 
-
-
     // ======== ParallelExecutionQueueBase implementation ==============
     
     ParallelExecutionQueueBase::~ParallelExecutionQueueBase()
@@ -91,16 +89,21 @@ namespace onika
       m_data_access.emplace_back( std::move(pda) );
     }
 
-    void ParallelExecutionQueueBase::enqueue(ParallelExecutionContext* pec)
+    void ParallelExecutionQueueBase::enqueue(ParallelExecutionContext* pec, bool from_other_queue)
     {
       assert( pec->m_next == nullptr );
       assert( pec->m_stream == nullptr );
-      assert( pec->m_lane == UNDEFINED_EXECUTION_LANE );
-      assert( pec->m_data_access.empty() );
+      if( ! from_other_queue )
+      {
+        assert( pec->m_lane == UNDEFINED_EXECUTION_LANE );
+        assert( pec->m_data_access.empty() );
+      }
       const std::lock_guard lk_self( m_mutex );
-      pec->m_lane = m_lane;
-      // ensures allocated space is never lost
-      std::swap( pec->m_data_access , m_data_access );
+      if( ! from_other_queue )
+      {
+        pec->m_lane = m_lane;
+        std::swap( pec->m_data_access , m_data_access );
+      }
       m_data_access.clear();
       m_queue_list = pec_list_append( m_queue_list , pec );
     }
@@ -179,7 +182,6 @@ namespace onika
     {
       const std::lock_guard lk_self( m_mutex );
       // queue preprocessing here ...
-
       auto [nql,nsl] = schedule_filter_list( m_queue_list , lane );
       m_queue_list = nql;
       m_exec_list = pec_list_append( m_exec_list , nsl );
@@ -206,10 +208,9 @@ namespace onika
       pec->m_lane = lane;
       
       auto exec_stream = m_stream_pool( lane );
-      std::lock_guard lk_stream( exec_stream->m_mutex );
-      
+      std::lock_guard lk_stream( exec_stream->m_mutex );      
+
       pec->m_stream = exec_stream;
-    
       const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( pec->m_host_scratch.functor_data );
       
       switch( pec->m_execution_target )
