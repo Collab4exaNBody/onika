@@ -169,20 +169,14 @@ namespace onika
 
   struct FatalErrorLogStream
   {
-    std::ostringstream m_oss;
-    
-    inline FatalErrorLogStream() {}
-    
+    std::ostringstream m_oss = std::ostringstream{"*****************************************\n************* FATAL ERROR ***************\n*****************************************\n",std::ios::ate};
+        
     template<class T> inline FatalErrorLogStream& operator << (const T& x)
     {
       m_oss << x;
       return *this;
     }
-    inline FatalErrorLogStream& operator << ( std::ostream& (*manip)(std::ostream&) )
-    {
-       m_oss << manip ;
-       return *this;
-    }
+    FatalErrorLogStream& operator << ( std::ostream& (*manip)(std::ostream&) );
     ~FatalErrorLogStream();
   };
   

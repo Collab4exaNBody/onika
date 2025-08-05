@@ -3,12 +3,13 @@
 #include <onika/scg/operator_factory.h>
 #include <onika/parallel/block_parallel_for.h>
 
-#include "array2d.h"
-#include "block_parallel_value_add_functor.h"
+#include <onika/extras/array2d.h>
+#include <onika/extras/block_parallel_value_add_functor.h>
 
 namespace onika
 {
   using namespace scg;
+  using namespace extras;
 
   namespace tutorial
   {

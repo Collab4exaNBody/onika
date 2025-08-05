@@ -43,6 +43,7 @@ under the License.
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/parallel_execution_stream.h>
 #include <onika/parallel/parallel_execution_queue.h>
+#include <onika/parallel/parallel_execution_context_allocator.h>
 
 namespace onika { namespace scg
 {
@@ -331,10 +332,9 @@ namespace onika { namespace scg
     // contains necessary resources to globalize parallel executions accross diferent operators and allow asynchornous parallel executions.
     std::mutex m_parallel_execution_access;
     OperatorNode* m_task_group_ancestor = nullptr; // highest ancestor creator of the encapsulating task group
-    onika::parallel::ParallelExecutionStreamAutoAllocator m_parallel_execution_stream_allocator;
-    std::shared_ptr<onika::parallel::ParallelExecutionQueue> m_parallel_execution_queue = nullptr;
-    std::vector< onika::parallel::ParallelExecutionContext* > m_free_parallel_execution_contexts;
-    std::unordered_set< onika::parallel::ParallelExecutionContext* > m_allocated_parallel_execution_contexts;
+    parallel::ParallelExecutionStreamAutoAllocator m_parallel_execution_stream_allocator;
+    parallel::ParallelExecutionContextAllocator m_parallel_execution_context_allocator;
+    std::shared_ptr<parallel::ParallelExecutionQueue> m_parallel_execution_queue = nullptr;
 
     // if not -1, this will limit the number of OpenMP threads available in parallel regions for this particular operator
     int m_omp_num_threads = -1;
