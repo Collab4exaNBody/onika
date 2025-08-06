@@ -40,22 +40,26 @@ namespace onika
     void dmesg_gpu_start_kernel(void* userData)
     {
       ParallelExecutionContext * pec = (ParallelExecutionContext*) userData;
+#     pragma omp critical(dbg_mesg)
       printf("Cuda start %s/%s : stream=%d\n",pec->m_tag,pec->m_sub_tag,int(pec->m_stream->m_stream_id));
     }
     
     void dmesg_gpu_end_kernel(void* userData)
     {
       ParallelExecutionContext * pec = (ParallelExecutionContext*) userData;
+#     pragma omp critical(dbg_mesg)
       printf("Cuda end %s/%s\n",pec->m_tag,pec->m_sub_tag);
     }
 
     void dmesg_omp_start_kernel(ParallelExecutionContext * pec)
     {
+#     pragma omp critical(dbg_mesg)
       printf("OpenMP start %s/%s : stream=%d, tasks=%d, sched=%s\n",pec->m_tag,pec->m_sub_tag,int(pec->m_stream->m_stream_id),int(pec->m_omp_num_tasks),omp_scheduling_as_string(pec->m_omp_sched));
     }
     
     void dmesg_omp_end_kernel(ParallelExecutionContext * pec)
     {
+#     pragma omp critical(dbg_mesg)
       printf("OpenMP end %s/%s\n",pec->m_tag,pec->m_sub_tag);
     }
 

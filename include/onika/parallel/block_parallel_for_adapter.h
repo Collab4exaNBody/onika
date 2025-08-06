@@ -323,6 +323,9 @@ namespace onika
 
       static inline void execute_omp_inner_taskloop( const BlockParallelForHostAdapter* self, ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks )
       {
+//#       pragma omp critical(dbg_mesg)
+//        std::cout<<"exec "<<std::hex<<std::this_thread::get_id()<<'/'<<omp_get_num_threads()<<std::endl;
+
         const auto & ps = self->m_parallel_space;
         const auto & func = self->m_func;
         
@@ -391,40 +394,54 @@ namespace onika
         
       static inline void execute_omp_inner_taskloop_cb( void* userData )
       {
-        OMPTaskExecCallbackT * cb_info = reinterpret_cast<OMPTaskExecCallbackT*>(userData);
-        execute_omp_inner_taskloop( cb_info->bpfor, cb_info->pec, cb_info->pes, cb_info->ntasks );
+        omp_event_handle_t * cu_sream_sync_event = reinterpret_cast<omp_event_handle_t*>(userData);
+        omp_fulfill_event( *cu_sream_sync_event );
       }
 
       inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks ) const override final
       {
         pes->m_omp_execution_count.fetch_add(1);
+
+        const auto * self = this;
         
         // if a Cuda stream is available, we'll use it to serialize OpenMP tasks based parallel operations,
         // such that they will be also serialized with Cuda kernel executions throughout the stream
         if( pes->m_cuda_ctx != nullptr )
         {
-          if( pec->m_host_scratch.available_data_bytes() < sizeof(OMPTaskExecCallbackT) )
+          if( pec->m_host_scratch.available_data_bytes() < sizeof(omp_event_handle_t) )
           {
-            fatal_error() << "Internal error: no space left to delegate creation of OpenMP tasks to CU stream" << std::endl;
+            fatal_error() << "Internal error: not enaough functor scratch space left to chain OpenMP task to CU stream" << std::endl;
           }
-          OMPTaskExecCallbackT cb_info = { this , pec , pes , ntasks };
+          
+          // we schedule an empty task wich uses depend(inout:pes[0]) like all other parallel tasks,
+          // and we also add a detach clause to be able to trigger its completion event from an other thread.
+          // finally, we enqueue a host function (execute_omp_inner_taskloop_cb) in cuda stream
+          // which execution calls omp_fulfill_event so that it triggers completion of previously scheduled empty task,
+          // which in turn unlock real parallel OpenMP taskloop through depend clause
           void * cb_user_data = pec->m_host_scratch.available_data_ptr();
-          pec->m_host_scratch.append_functor_data( & cb_info , sizeof(cb_info) );
+          omp_event_handle_t cu_stream_sync_point_event;
+          std::memset( & cu_stream_sync_point_event , 0 , sizeof(omp_event_handle_t) );
+#         pragma omp task default(none) firstprivate(self,pec,pes,ntasks) depend(inout:pes[0]) detach(cu_stream_sync_point_event)
+          {
+            if(int(ntasks)<0) { printf("ERROR: ntasks=%d\n",int(ntasks)); }
+          }
+          pec->m_host_scratch.append_functor_data( & cu_stream_sync_point_event , sizeof(omp_event_handle_t) );
           ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , execute_omp_inner_taskloop_cb , cb_user_data );
         }
-        else
+                
+//#       pragma omp critical(dbg_mesg)
+//        std::cout<<"sched "<<std::hex<<std::this_thread::get_id()<<'/'<<omp_get_num_threads()<<std::endl;
+
+        // if OpenMP only, parallel operation serialization feature is emulated
+        // via an encapsulating task which declares an in/out dependency on the Onika stream object
+        
+        // encloses a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
+        // referenced variables must be privately copied, because the task may run after this function ends
+#       pragma omp task default(none) firstprivate(self,pec,pes,ntasks) depend(inout:pes[0])
         {
-          // if OpenMP only, parallel operation serialization feature is emulated
-          // via an encapsulating task which declares an in/out dependency on the Onika stream object
-          
-          // encloses a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
-          // referenced variables must be privately copied, because the task may run after this function ends
-          const auto * self = this;
-#         pragma omp task default(none) firstprivate(self,pec,pes,ntasks) depend(inout:pes[0])
-          {
-            execute_omp_inner_taskloop(self,pec,pes,ntasks);
-          }
+          execute_omp_inner_taskloop(self,pec,pes,ntasks);
         }
+
       }
 
       inline void execute_epilog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
