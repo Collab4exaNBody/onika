@@ -25,20 +25,48 @@ under the License.
 #include <onika/extras/array2d.h>
 #include <onika/extras/block_parallel_value_add_functor.h>
 
+#include <chrono>
+
+#include <omp.h>
+
+#define USE_OMP_TASK_MODE 1
+
+#ifdef USE_OMP_TASK_MODE
+#define START_OMP_TASK_MODE _Pragma("omp parallel") { _Pragma("omp master") { _Pragma("omp taskgroup") {
+#define END_OMP_TASK_MODE } } }
+#else
+#define START_OMP_TASK_MODE /**/
+#define END_OMP_TASK_MODE /**/
+#endif
+
 int main(int argc,char*argv[])
 {
   using namespace onika::extras;
   using onika::parallel::block_parallel_for;
   using onika::parallel::ParallelExecutionQueueBase;
   using onika::parallel::ParallelExecutionQueue;
+  using onika::parallel::ParallelExecutionContext;
   using onika::parallel::ParallelExecutionContextAllocator;
+  using onika::cuda::CudaContext;
  
   onika::app::ApplicationConfiguration config = {};
   onika::app::intialize_openmp( config );
   onika::app::initialize_gpu( config );
 
+  START_OMP_TASK_MODE
+
   auto & pq = ParallelExecutionQueue::default_queue();
   ParallelExecutionContextAllocator peca;
+  auto parallel_execution_context = [pq_ptr=&pq,cu_ctx=CudaContext::default_cuda_ctx(),&peca](auto tag, auto sub_tag)
+  -> ParallelExecutionContext *
+  {
+#   ifdef USE_OMP_TASK_MODE
+    const int omp_num_tasks = omp_get_max_threads();
+#   else
+    const int omp_num_tasks = 0;
+#   endif
+    return peca.create(tag,sub_tag,pq_ptr,cu_ctx,omp_num_tasks);
+  };
 
   Array2D array1;  
   Array2D array2;
@@ -53,16 +81,16 @@ int main(int argc,char*argv[])
   // Launching the parallel operation, which can execute on GPU if the execution context allows
   // result of parallel operation construct is captured into variable 'my_addition',
   // thus it can be scheduled in a stream queue for asynchronous execution rather than being executed right away
-  auto array1_par_op1 = block_parallel_for( array1.rows(), array1_kernel1, peca.create("Array1","Kernel1") );
+  auto array1_par_op1 = block_parallel_for( array1.rows(), array1_kernel1, parallel_execution_context("Array1","Kernel1") );
 
   // we create a second parallel operation we want to execute sequentially after the first addition
-  auto array1_par_op2 = block_parallel_for( array1.rows(), array1_kernel2, peca.create("Array1","Kernel2") );
+  auto array1_par_op2 = block_parallel_for( array1.rows(), array1_kernel2, parallel_execution_context("Array1","Kernel2") );
 
   // we finally create a third parallel operation we want to execute concurrently with the two others
-  auto array2_par_op1 = block_parallel_for( array2.rows(), array2_kernel1, peca.create("Array2","Kernel1") );
+  auto array2_par_op1 = block_parallel_for( array2.rows(), array2_kernel1, parallel_execution_context("Array2","Kernel1") );
 
   // we finally create a third parallel operation we want to execute concurrently with the two others
-  auto array2_par_op2 = block_parallel_for( array2.rows(), array2_kernel2, peca.create("Array2","Kernel2") );
+  auto array2_par_op2 = block_parallel_for( array2.rows(), array2_kernel2, parallel_execution_context("Array2","Kernel2") );
 
   std::cout << "Delay parallel operations ..." << std::endl;
   ParallelExecutionQueueBase delay_queue_a;
@@ -83,6 +111,8 @@ int main(int argc,char*argv[])
   std::cout << "Synchronize parallel operations ..." << std::endl;
   pq <<  onika::parallel::synchronize ;
   std::cout << "done" << std::endl;
+
+  END_OMP_TASK_MODE
 
   return 0;
 }

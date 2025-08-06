@@ -40,26 +40,27 @@ namespace onika
       }
 
       inline void wait_nolock()
-      {
+      {        
+        // Cuda wait
+        if( m_cuda_ctx != nullptr )
+        {
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_SYNCHRONIZE( m_cu_stream ) );
+        }
+
         // OpenMP wait
         if( m_omp_execution_count.load() > 0 )
         {
-          auto * st = this;
-#         pragma omp task default(none) firstprivate(st) depend(in:st[0]) if(0)
+          auto * pes = this;
+#         pragma omp task default(none) firstprivate(pes) depend(in:pes[0]) if(0)
           {
-            int n = st->m_omp_execution_count.load();
+            auto n = pes->m_omp_execution_count.load();
             if( n > 0 )
             {
               fatal_error()<<"Internal error : unterminated OpenMP tasks ("<<n<<") remain in queue"<<std::endl;
             }
           }
         }
-        
-        // Cuda wait
-        if( m_cuda_ctx != nullptr )
-        {
-          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_SYNCHRONIZE( m_cu_stream ) );
-        }
+
       }
     };
     
