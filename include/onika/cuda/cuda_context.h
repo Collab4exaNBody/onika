@@ -184,14 +184,19 @@ static inline constexpr int onikaErrorNotReady = 0;
 #define ONIKA_CU_CREATE_EVENT(EVT)           _fake_cuda_api_noop(EVT=nullptr)
 #define ONIKA_CU_DESTROY_EVENT(EVT)          _fake_cuda_api_noop(EVT=nullptr)
 #define ONIKA_CU_STREAM_EVENT(EVT,STREAM)    _fake_cuda_api_noop(EVT,STREAM)
-#define ONIKA_CU_STREAM_HOST_FUNC(s,f,p)     _fake_cuda_api_noop
+#define ONIKA_CU_STREAM_HOST_FUNC(s,f,p)     _fake_cuda_api_noop(s,f,p)
 #define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2)  _fake_cuda_api_noop(T=0.0f)
 #define ONIKA_CU_DEVICE_SYNCHRONIZE()        _fake_cuda_api_noop()
 #define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  _fake_cuda_api_noop(STREAM)
+#define ONIKA_CU_GET_DEVICE_PROPERTIES       _fake_cuda_api_noop
 #define ONIKA_CU_EVENT_QUERY(EVT)            (onikaSuccess)
 #define ONIKA_CU_MEMSET(p,v,n,...)           std::memset(p,v,n)
 #define ONIKA_CU_MEMCPY(d,s,n,...)           std::memcpy(d,s,n)
 #define ONIKA_CU_MEMCPY_TO_SYMBOL(d,s,n,...) std::memcpy(d,s,n)
+#define ONIKA_CU_GET_DEVICE_COUNT(iPtr)      _fake_cuda_api_noop(*iPtr=0)
+#define ONIKA_CU_MALLOC(devPtrPtr,N)         _fake_cuda_api_noop(*(void**)devPtrPtr=malloc(N))
+#define ONIKA_CU_MALLOC_MANAGED(devPtrPtr,N) _fake_cuda_api_noop(*(void**)devPtrPtr=malloc(N))
+#define ONIKA_CU_FREE(devPtr)                _fake_cuda_api_noop( (free(devPtr),0) )
 #define ONIKA_CU_NAME_STR "GPU "
 #endif // ONIKA_CUDA_VERSION
 

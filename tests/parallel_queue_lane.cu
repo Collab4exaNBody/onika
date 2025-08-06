@@ -29,7 +29,7 @@ under the License.
 
 #include <omp.h>
 
-#define USE_OMP_TASK_MODE 1
+//#define USE_OMP_TASK_MODE 1
 
 #ifdef USE_OMP_TASK_MODE
 #define START_OMP_TASK_MODE _Pragma("omp parallel") { _Pragma("omp master") { _Pragma("omp taskgroup") {
@@ -48,7 +48,7 @@ int main(int argc,char*argv[])
   using onika::parallel::ParallelExecutionContext;
   using onika::parallel::ParallelExecutionContextAllocator;
   using onika::cuda::CudaContext;
- 
+
   onika::app::ApplicationConfiguration config = {};
   onika::app::intialize_openmp( config );
   onika::app::initialize_gpu( config );
@@ -68,7 +68,7 @@ int main(int argc,char*argv[])
     return peca.create(tag,sub_tag,pq_ptr,cu_ctx,omp_num_tasks);
   };
 
-  Array2D array1;  
+  Array2D array1;
   Array2D array2;
   array1.resize( 1024 , 1024 );
   array2.resize( 1024 , 1024 );
@@ -94,13 +94,13 @@ int main(int argc,char*argv[])
 
   std::cout << "Delay parallel operations ..." << std::endl;
   ParallelExecutionQueueBase delay_queue_a;
-  ParallelExecutionQueueBase delay_queue_b;        
+  ParallelExecutionQueueBase delay_queue_b;
   delay_queue_a << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1);
   delay_queue_b << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);
 
   std::cout << "Enqueue operations ..." << std::endl;
   pq << std::move(delay_queue_a) << std::move(delay_queue_b) ;
-  
+
   // would be the same as following
   // pq << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1)
   //    << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);

@@ -37,7 +37,7 @@ namespace onika
 
   namespace parallel
   {
-    
+
     struct HostKernelExecutionScratch
     {
       static constexpr size_t SCRATCH_BUFFER_SIZE = 1024; // total device side temporary buffer
@@ -48,6 +48,7 @@ namespace onika
       inline size_t available_data_bytes() const { return MAX_FUNCTOR_SIZE - functor_data_size; }
       inline char* available_data_ptr() { return functor_data + functor_data_size; }
       inline void append_functor_data(const void* ptr, size_t n) { std::memcpy(available_data_ptr(),ptr,n); functor_data_size+=n; }
+      inline char* alloc_functor_data(size_t n) { char* alloc_ptr=available_data_ptr(); functor_data_size+=n; return alloc_ptr; }
     };
 
     static_assert( sizeof(HostKernelExecutionScratch) == HostKernelExecutionScratch::SCRATCH_BUFFER_SIZE );
@@ -61,7 +62,7 @@ namespace onika
       unsigned long long int counters[MAX_COUNTERS];
       char return_data[MAX_RETURN_SIZE];
     };
-    
+
     static_assert( sizeof(GPUKernelExecutionScratch) == GPUKernelExecutionScratch::SCRATCH_BUFFER_SIZE );
 
     struct ParallelExecutionContext;
@@ -88,18 +89,18 @@ namespace onika
         EXECUTION_TARGET_OPENMP ,
         EXECUTION_TARGET_CUDA
       };
-    
+
       // GPU device context, null if non device available for parallel execution
       onika::cuda::CudaContext* m_cuda_ctx = nullptr;
 
       // default queue for scheduling of immediate execution when parallel operation is not pushed onto any existing queue
       ParallelExecutionQueue* m_default_queue = nullptr;
-      
+
       // execution stream this operation is executing (i.e. has been scheduled) in
       // this is set only after current operations has been scheduled
       ParallelExecutionStream* m_stream = nullptr;
-      
-      // lane, i.e. index of execution stream this operation is executing on 
+
+      // lane, i.e. index of execution stream this operation is executing on
       int m_lane = UNDEFINED_EXECUTION_LANE;
 
       // desired number of OpenMP tasks.
@@ -107,14 +108,14 @@ namespace onika
       // if m_omp_num_tasks > 0, assume we're in a parallel region running on a single thread (parallel->single/master->taskgroup),
       // thus uses taskloop construcut underneath
       unsigned int m_omp_num_tasks = 0;
-      
+
       // allows chaining, for stream queues
       ParallelExecutionContext* m_next = nullptr;
-      
+
       // keep track of creation site
       const char* m_tag = nullptr;
       const char* m_sub_tag = nullptr;
-      
+
       // device side scratch memory for counters, return_data and functor_data
       onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
       HostKernelExecutionScratch m_host_scratch;
@@ -136,7 +137,7 @@ namespace onika
       //ParallelExecutionSpace m_parallel_space = {};
       bool m_reset_counters = false;
 
-      // executuion profiling 
+      // executuion profiling
       onikaEvent_t m_start_evt = nullptr;
       onikaEvent_t m_stop_evt = nullptr;
       double m_total_cpu_execution_time = 0.0;
@@ -147,7 +148,7 @@ namespace onika
       ~ParallelExecutionContext();
       bool has_gpu_context() const;
       void init_device_scratch();
-      
+
       // device side return_data ptr
       void* get_device_return_data_ptr();
 
@@ -159,10 +160,10 @@ namespace onika
 
       // GPU device context, or nullptr if node device available
       onika::cuda::CudaContext* gpu_context() const;
-      
+
       const char* tag() const;
       const char* sub_tag() const;
-      
+
       // convivnience templates
       template<class T> inline void set_return_data_input( const T* init_value )
       {
@@ -174,10 +175,10 @@ namespace onika
         static_assert( sizeof(T) <= GPUKernelExecutionScratch::MAX_RETURN_SIZE , "return type size too large" );
         set_return_data_output( result , sizeof(T) );
       }
-      
+
       // callback trampoline function
       static void execution_end_callback( onikaStream_t stream,  onikaError_t status, void*  userData );
-      
+
       // ============ global configuration variables ===============
       static int s_parallel_task_core_mult;
       static int s_parallel_task_core_add;
@@ -185,7 +186,7 @@ namespace onika
       static int s_gpu_sm_add;  // if -1, s_parallel_task_core_add is used instead
       static int s_gpu_block_size;
       static onikaDim3_t s_gpu_block_dims;
-      
+
       static inline int parallel_task_core_mult() { return s_parallel_task_core_mult; }
       static inline int parallel_task_core_add() { return s_parallel_task_core_add; }
       static inline int gpu_sm_mult() { return ( s_gpu_sm_mult >= 0 ) ? s_gpu_sm_mult : parallel_task_core_mult() ; }

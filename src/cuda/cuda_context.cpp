@@ -56,12 +56,12 @@ namespace onika
     {
       return ! m_devices.empty();
     }
-    
+
     unsigned int CudaContext::device_count() const
     {
       return m_devices.size();
     }
-    
+
     onikaStream_t CudaContext::getThreadStream(unsigned int tid)
     {
       if( tid >= m_threadStream.size() )
