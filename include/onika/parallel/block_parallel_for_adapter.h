@@ -215,6 +215,11 @@ namespace onika
         {
 #         pragma omp parallel
           {
+#           pragma omp master
+            {
+#             pragma omp critical(dbg_mesg)
+              std::cout<<"exec (omp.pfor) "<<std::hex<<std::this_thread::get_id()<<'/'<<std::dec<<omp_get_num_threads()<<std::endl;
+            }
             switch( pec->m_omp_sched )
             {
               case OMP_SCHED_DYNAMIC :
@@ -319,8 +324,8 @@ namespace onika
 
       static inline void execute_omp_inner_taskloop( const BlockParallelForHostAdapter* self, ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks )
       {
-//#       pragma omp critical(dbg_mesg)
-//        std::cout<<"exec "<<std::hex<<std::this_thread::get_id()<<'/'<<omp_get_num_threads()<<std::endl;
+#       pragma omp critical(dbg_mesg)
+        std::cout<<"exec (omp.task) "<<std::hex<<std::this_thread::get_id()<<'/'<<std::dec<<omp_get_num_threads()<<std::endl;
 
         const auto & ps = self->m_parallel_space;
         const auto & func = self->m_func;
@@ -425,8 +430,8 @@ namespace onika
           ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , execute_omp_inner_taskloop_cb , cb_info );
         }
 
-//#       pragma omp critical(dbg_mesg)
-//        std::cout<<"sched "<<std::hex<<std::this_thread::get_id()<<'/'<<omp_get_num_threads()<<std::endl;
+#       pragma omp critical(dbg_mesg)
+        std::cout<<"sched (omp.task) "<<std::hex<<std::this_thread::get_id()<<'/'<<std::dec<<omp_get_num_threads()<<std::endl;
 
         // if OpenMP only, parallel operation serialization feature is emulated
         // via an encapsulating task which declares an in/out dependency on the Onika stream object

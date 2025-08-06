@@ -29,7 +29,7 @@ under the License.
 
 #include <omp.h>
 
-//#define USE_OMP_TASK_MODE 1
+#define USE_OMP_TASK_MODE 1
 
 #ifdef USE_OMP_TASK_MODE
 #define START_OMP_TASK_MODE _Pragma("omp parallel") { _Pragma("omp master") { _Pragma("omp taskgroup") {
