@@ -40,7 +40,7 @@ template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyAr
 #define ONIKA_CU_PROF_RANGE_POP()                      roctxRangePop()
 #define ONIKA_CU_PROF_START()                          hipProfilerStart()
 #define ONIKA_CU_PROF_STOP()                           hipProfilerStop()
-#define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st)             hipMemPrefetchAsync((const void*)(ptr),sz,0,st) 
+#define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st)             hipMemPrefetchAsync((const void*)(ptr),sz,0,st)
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) hipStreamCreateWithFlags( & streamref, hipStreamNonBlocking )
 #define ONIKA_CU_STREAM_ADD_CALLBACK(stream,cb,udata)  hipStreamAddCallback(stream,cb,udata,0u)
 #define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)            hipStreamSynchronize(STREAM)
@@ -58,12 +58,13 @@ template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyAr
 #define ONIKA_CU_MEMCPY(d,s,n,...)                     hipMemcpyAsync(d,s,n,hipMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY_TO_SYMBOL(d,s,n,...)           hipMemcpyToSymbol(d,s,n,hipMemcpyHostToDevice OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY_KIND(d,s,n,k,...)              hipMemcpyAsync(d,s,n,k OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#define ONIKA_CU_GET_DEVICE_COUNT(iPtr)	               hipGetDeviceCount(iPtr)
-#define ONIKA_CU_SET_DEVICE(id)	                       hipSetDevice(id)
+#define ONIKA_CU_GET_DEVICE_COUNT(iPtr)                hipGetDeviceCount(iPtr)
+#define ONIKA_CU_SET_DEVICE(id)                        hipSetDevice(id)
 #define ONIKA_CU_SET_SHARED_MEM_CONFIG(shmc)           hipDeviceSetSharedMemConfig(shmc)
-#define ONIKA_CU_SET_LIMIT(l,v)	                       hipDeviceSetLimit(l,v)
+#define ONIKA_CU_SET_LIMIT(l,v)                        hipDeviceSetLimit(l,v)
 #define ONIKA_CU_GET_LIMIT(vptr,l)                     hipDeviceGetLimit(vptr,l)
 #define ONIKA_CU_GET_DEVICE_PROPERTIES(propPtr,id)     hipGetDeviceProperties(propPtr,id)
+#define ONIKA_CU_GET_DEVICE_ATTRIBUTE(valPtr,attr,id)  hipDeviceGetAttribute(valPtr,attr,id)
 #define ONIKA_CU_DEVICE_SYNCHRONIZE()                  hipDeviceSynchronize()
 #define ONIKA_CU_GET_ERROR_STRING(c)                   hipGetErrorString(code)
 #define ONIKA_CU_NAME_STR                              "HIP "
@@ -82,6 +83,7 @@ static inline constexpr auto onikaLimitPrintfFifoSize        = hipLimitPrintfFif
 static inline constexpr auto onikaLimitMallocHeapSize        = hipLimitMallocHeapSize;
 static inline constexpr auto onikaMemcpyDeviceToHost         = hipMemcpyDeviceToHost;
 static inline constexpr auto onikaMemcpyHostToDevice         = hipMemcpyHostToDevice;
+static inline constexpr auto onikaDevAttrClockRate           = hipDevAttrClockRate;
 
 #else
 
@@ -94,7 +96,7 @@ static inline constexpr auto onikaMemcpyHostToDevice         = hipMemcpyHostToDe
 #define ONIKA_CU_PROF_RANGE_POP()                      nvtxRangePop()
 #define ONIKA_CU_PROF_START()                          cudaProfilerStart()
 #define ONIKA_CU_PROF_STOP()                           cudaProfilerStop()
-#define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st)             cudaMemPrefetchAsync((const void*)(ptr),sz,0,st) 
+#define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st)             cudaMemPrefetchAsync((const void*)(ptr),sz,0,st)
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) cudaStreamCreateWithFlags( & streamref, cudaStreamNonBlocking )
 #define ONIKA_CU_STREAM_ADD_CALLBACK(stream,cb,udata)  cudaStreamAddCallback(stream,cb,udata,0u)
 #define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)            cudaStreamSynchronize(STREAM)
@@ -112,12 +114,13 @@ static inline constexpr auto onikaMemcpyHostToDevice         = hipMemcpyHostToDe
 #define ONIKA_CU_MEMCPY(d,s,n,...)                     cudaMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY_TO_SYMBOL(d,s,n,...)           cudaMemcpyToSymbol(d,s,n,cudaMemcpyHostToDevice OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #define ONIKA_CU_MEMCPY_KIND(d,s,n,k,...)              cudaMemcpyAsync(d,s,n,k OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#define ONIKA_CU_GET_DEVICE_COUNT(iPtr)	               cudaGetDeviceCount(iPtr)
-#define ONIKA_CU_SET_DEVICE(id)	                       cudaSetDevice(id)
+#define ONIKA_CU_GET_DEVICE_COUNT(iPtr)                cudaGetDeviceCount(iPtr)
+#define ONIKA_CU_SET_DEVICE(id)                        cudaSetDevice(id)
 #define ONIKA_CU_SET_SHARED_MEM_CONFIG(shmc)           cudaDeviceSetSharedMemConfig(shmc)
-#define ONIKA_CU_SET_LIMIT(l,v)	                       cudaDeviceSetLimit(l,v)
+#define ONIKA_CU_SET_LIMIT(l,v)                        cudaDeviceSetLimit(l,v)
 #define ONIKA_CU_GET_LIMIT(vptr,l)                     cudaDeviceGetLimit(vptr,l)
 #define ONIKA_CU_GET_DEVICE_PROPERTIES(propPtr,id)     cudaGetDeviceProperties(propPtr,id)
+#define ONIKA_CU_GET_DEVICE_ATTRIBUTE(valPtr,attr,id)  cudaDeviceGetAttribute(valPtr,attr,id)
 #define ONIKA_CU_DEVICE_SYNCHRONIZE()                  cudaDeviceSynchronize()
 #define ONIKA_CU_GET_ERROR_STRING(c)                   cudaGetErrorString(code)
 #define ONIKA_CU_NAME_STR                              "Cuda"
@@ -136,6 +139,7 @@ static inline constexpr auto onikaLimitPrintfFifoSize        = cudaLimitPrintfFi
 static inline constexpr auto onikaLimitMallocHeapSize        = cudaLimitMallocHeapSize;
 static inline constexpr auto onikaMemcpyDeviceToHost         = cudaMemcpyDeviceToHost;
 static inline constexpr auto onikaMemcpyHostToDevice         = cudaMemcpyHostToDevice;
+static inline constexpr auto onikaDevAttrClockRate           = cudaDevAttrClockRate;
 
 #endif
 
@@ -212,7 +216,7 @@ namespace onika
 {
 
   namespace memory
-  {    
+  {
     template<> struct MemoryUsage<onikaDeviceProp_t>
     {
       static inline constexpr size_t memory_bytes(const onikaDeviceProp_t&) { return sizeof(onikaDeviceProp_t); }
@@ -237,10 +241,10 @@ namespace onika
     {
       std::vector<CudaDevice> m_devices;
       std::vector<onikaStream_t> m_threadStream;
-      
+
       static bool s_global_gpu_enable;
       static std::shared_ptr<CudaContext> s_default_cuda_ctx;
-            
+
       bool has_devices() const;
       unsigned int device_count() const;
       onikaStream_t getThreadStream(unsigned int tid);
