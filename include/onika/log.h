@@ -29,22 +29,10 @@ under the License.
 #include <sstream>
 
 #include <onika/stream_utils.h>
+#include <onika/string_utils.h>
 
 namespace onika
 {
-
-  // direct access to user console (or graphic system)
-  struct FormattedText
-  {
-    enum TextFormat { TEXT_FORMAT_RAW, TEXT_FORMAT_ANSI, TEXT_FORMAT_MARKDOWN };
-    std::string_view m_text;
-    TextFormat m_format = TEXT_FORMAT_RAW;
-
-    inline TextFormat format() const { return m_format; }
-    inline std::string_view formatted_text() const { return m_text; }
-    std::string to_raw() const;
-    std::string to_ansi() const;
-  };
 
   inline std::ostream& null_stream_manip(std::ostream& os) { return os; }
 
@@ -148,7 +136,7 @@ namespace onika
     {
 #     pragma omp critical(onika_log_manip)
       {
-        if( fmt_text.format()==FormattedText::TEXT_FORMAT_ANSI && log.is_a_tty() )
+        if( fmt_text.format()==TEXT_FORMAT_ANSI && log.is_a_tty() )
         {
           log.m_out() << fmt_text.to_ansi();
         }
@@ -203,24 +191,29 @@ namespace onika
   // fatal error messages (followed by an abort)
   struct FatalErrorLogStream
   {
-    std::ostringstream m_oss;
+    std::ostringstream m_oss = std::ostringstream {
+      "*****************************************\n"
+      "************* FATAL ERROR ***************\n"
+      "*****************************************\n"
+      , std::ios::ate };
 
-    inline FatalErrorLogStream() {}
+    FatalErrorLogStream() = default;
+    FatalErrorLogStream(const FatalErrorLogStream& ) = delete;
+    FatalErrorLogStream(FatalErrorLogStream && ) = default;
+
+    FatalErrorLogStream & operator = (const FatalErrorLogStream& ) = delete;
+    FatalErrorLogStream & operator = (FatalErrorLogStream && ) = default;
 
     template<class T> inline FatalErrorLogStream& operator << (const T& x)
     {
       m_oss << x;
       return *this;
     }
-    inline FatalErrorLogStream& operator << ( std::ostream& (*manip)(std::ostream&) )
-    {
-       m_oss << manip ;
-       return *this;
-    }
+    FatalErrorLogStream& operator << ( std::ostream& (*manip)(std::ostream&) );
     ~FatalErrorLogStream();
   };
 
-  inline FatalErrorLogStream fatal_error() { return FatalErrorLogStream(); }
+  inline FatalErrorLogStream fatal_error() { return {}; }
 }
 
 // bridge main objects to another namespace if it helps for the transition to standalone Onika

@@ -52,7 +52,7 @@ namespace onika { namespace scg
   std::shared_ptr<onika::cuda::CudaContext> OperatorNode::s_global_cuda_ctx = nullptr;
 
   OperatorNode::TimeStampT OperatorNode::s_profiling_timestamp_ref;
-  
+
   bool OperatorNode::s_global_profiling = false;
   bool OperatorNode::s_global_mem_profiling = false;
   bool OperatorNode::s_debug_execution = false;
@@ -111,7 +111,7 @@ namespace onika { namespace scg
       assert(s.second->owner()==this);
       assert(s.second->name()==s.first);
     }
-    for( const auto& s : out_slots() ) 
+    for( const auto& s : out_slots() )
     {
       assert(s.second->owner()==this);
       assert(s.second->name()==s.first);
@@ -165,7 +165,7 @@ namespace onika { namespace scg
   {
     return m_profiling;
   }
-  
+
   bool OperatorNode::global_profiling()
   {
     return s_global_profiling;
@@ -261,12 +261,12 @@ namespace onika { namespace scg
     m_out_slot_storage[i].second->rename( after );
     return true;
   }
-  
+
   const std::string& OperatorNode::name() const
   {
     return m_name;
   }
-  
+
   void OperatorNode::set_name(const std::string& n)
   {
     m_name=n;
@@ -338,7 +338,7 @@ namespace onika { namespace scg
       }
     }
   }
-  
+
   void OperatorNode::profile_task_stop( const onika::omp::OpenMPToolTaskTiming & evt_info )
   {
     bool do_profiling = global_profiling() && profiling();
@@ -361,7 +361,7 @@ namespace onika { namespace scg
       op->profile_task_start( evt_info );
     }
   }
-  
+
   void OperatorNode::task_stop_callback( const onika::omp::OpenMPToolTaskTiming & evt_info )
   {
     if(evt_info.ctx != nullptr)
@@ -376,7 +376,7 @@ namespace onika { namespace scg
     if( !m_omp_task_mode && m ) lout << "enable task group for "<<pathname()<<std::endl;
     m_omp_task_mode = m;
   }
-  
+
   bool OperatorNode::task_group_mode() const
   {
     return m_omp_task_mode;
@@ -406,7 +406,7 @@ namespace onika { namespace scg
       if( is_terminal() ) lout<<pathname()<<" ..."<<std::flush;
       else lout<<pathname()<<" BEGIN"<<std::endl;
     }
-    
+
     m_resident_mem = 0;
     if( mem_prof )
     {
@@ -418,14 +418,14 @@ namespace onika { namespace scg
     if( do_profiling )
     {
       if( m_gpu_profile_start_stop ) { ONIKA_CU_PROF_START(); }
-      
+
       m_total_gpu_time = 0.0;
       m_total_async_cpu_time = 0.0;
       m_run_start_time = std::chrono::high_resolution_clock::now();
       const auto normalized_time = m_run_start_time - s_profiling_timestamp_ref;
       onika::omp::OpenMPToolTaskTiming evt_info = { this, m_tag.get(), omp_get_thread_num(), normalized_time, normalized_time };
       profile_task_start( evt_info );
-      
+
       ONIKA_CU_PROF_RANGE_PUSH( m_tag.get() );
     }
 
@@ -461,7 +461,7 @@ namespace onika { namespace scg
 
     // sequential execution of fork-join parallel components
     // except if OperatorNode derived class implements generate_tasks instead of execute, in which case, task parallelism mode is used
-  
+
     if( open_new_task_region )
     {
 #     pragma omp parallel
@@ -473,13 +473,13 @@ namespace onika { namespace scg
           {
             execute();
           } // --- end of task group ---
-          wait_all_parallel_execution_streams();          
+          wait_all_parallel_execution_streams();
           run_epilog();
         } // --- end of single ---
       } // --- end of parallel section ---
-      
+
       // FIXME: synchronize from all stream to default stream, and enqueue finalization to default stream
-      
+
       // here enqueue synchronization to default stream (stream 0)
       // and then enqueue finalization function
     }
@@ -507,7 +507,7 @@ namespace onika { namespace scg
     const bool mem_prof = global_mem_profiling() && is_terminal() && ( !task_group_mode() || open_new_task_region );
 
     if( do_profiling )
-    { 
+    {
       ONIKA_CU_PROF_RANGE_POP();
       m_gpu_times.push_back( m_total_gpu_time ); // account for 0 (no GPU or async) execution times, to avoid asymetry between mpi processes
       m_async_cpu_times.push_back( m_total_async_cpu_time );
@@ -519,7 +519,7 @@ namespace onika { namespace scg
       profile_task_stop( evt_info );
       auto exectime = ( T1 - m_run_start_time ).count() / 1000000.0;
       m_exec_times.push_back( exectime );
-      
+
       if( m_gpu_profile_start_stop ) { ONIKA_CU_PROF_STOP(); }
     }
 
@@ -555,7 +555,7 @@ namespace onika { namespace scg
     for(auto& p : m_slots)
     {
       p->free_resource();
-    }    
+    }
   }
 
   void OperatorNode::set_gpu_enabled(bool b)
@@ -567,7 +567,7 @@ namespace onika { namespace scg
   {
     m_multiple_run = yn;
   }
-  
+
   bool OperatorNode::multiple_run() const
   {
     return m_multiple_run;
@@ -596,7 +596,7 @@ namespace onika { namespace scg
     if( id < 0 || id >= onika::parallel::MAX_EXECUTION_LANES )
     {
       fatal_error() << "Invalid execution stream id ("<<id<<")"<<std::endl;
-    }    
+    }
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
     if( size_t(id) >= m_parallel_execution_streams.size() )
     {
@@ -650,7 +650,7 @@ namespace onika { namespace scg
   onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(const char* sub_tag)
   {
     auto & default_queue = parallel_execution_queue();
-    
+
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
     if( m_free_parallel_execution_contexts.empty() )
     {
@@ -697,7 +697,7 @@ namespace onika { namespace scg
   void OperatorNode::register_out_slot( const std::string& name, OperatorSlotBase* s )
   {
     assert( ! compiled() );
-    assert( out_slot_idx(name) == -1 );      
+    assert( out_slot_idx(name) == -1 );
     assert( out_slot_idx(s) == -1 );
     assert( m_out_slot_count < MAX_SLOT_COUNT );
     m_out_slot_storage[ m_out_slot_count ++ ] = { name , s };
@@ -724,7 +724,7 @@ namespace onika { namespace scg
   {
     static const std::string padding = "................................................................................";
     out<< onika::format_string("%*s",indent,"") << name() ;
-    
+
     if( ppp.m_print_profiling )
     {
       int np = 1, rank = 0;
@@ -754,7 +754,7 @@ namespace onika { namespace scg
 
       //lout<<name()<<" m_exec_times ("<<m_exec_times.size()<<") : "; for(auto d:m_exec_times) lout<<d<<" "; lout<<std::endl;
       //lout<<name()<<" avg_time ("<<avg_time.size() <<") : "; for(auto d:avg_time) lout<<d<<" "; lout<<std::endl;
-      
+
       for(size_t i=0;i<total_exec_count;i++)
       {
         assert( max_time[i] >= avg_time[i] );
@@ -905,7 +905,7 @@ namespace onika { namespace scg
     // compute operator stack hash
 #   pragma omp critical(OperatorNode_get_next_global_index)
     {
-      m_hash = s_global_instance_index++;    
+      m_hash = s_global_instance_index++;
     }
 
     // reserve space for profiling buffers
@@ -936,14 +936,14 @@ namespace onika { namespace scg
   {
     s_global_cuda_ctx = ctx;
   }
-  
+
   onika::cuda::CudaContext* OperatorNode::global_cuda_ctx()
   {
     return s_global_cuda_ctx.get();
   }
 
   void OperatorNode::yaml_initialize(const YAML::Node& node)
-  {  
+  {
     if( node.IsMap() )
     {
       std::set<OperatorSlotBase*> yaml_initialized_slots;
@@ -973,19 +973,19 @@ namespace onika { namespace scg
         }
       }
 
-    }    
+    }
   }
 
-  std::ostream& OperatorNode::print_documentation( std::ostream& out ) const
+  LogStreamWrapper& OperatorNode::print_documentation( LogStreamWrapper& out ) const
   {
-    out << "Operator    : "<< name() << std::endl << std::endl
-        << "Description : "<< documentation() << std::endl
+    out << FormattedText{TEXT_FORMAT_ANSI,"Operator    : \033[1m"+name()+"\033[0m"} << std::endl << std::endl
+        << "Description : "<< formatted_documentation() << std::endl
         << "Slots       : " << std::endl;
     for(auto& p : named_slots() )
     {
       out << "  " << p.first << std::endl
-          << "    flow " << slot_dir_str(p.second->direction()) << std::endl
-          << "    type " << onika::pretty_short_type( p.second->value_type() ) << std::endl
+          << FormattedText{TEXT_FORMAT_ANSI,"    flow \033[32m" + std::string(slot_dir_str(p.second->direction())) + "\033[0m"} << std::endl
+          << FormattedText{TEXT_FORMAT_ANSI,"    type \033[33m" + onika::pretty_short_type( p.second->value_type() ) + "\033[0m"} << std::endl
           << "    desc " << p.second->documentation() << std::endl;
     }
     return out;

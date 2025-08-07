@@ -44,7 +44,7 @@ namespace onika { namespace scg_builtin
   class InitCuda : public OperatorNode
   {
     using DeviceLimitsMap = std::map<std::string,std::string>;
-  
+
     ADD_SLOT( MPI_Comm , mpi         , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( bool     , mpi_even_only  , INPUT , false , DocString{"if set to true, only even MPI will be assigned a GPU device. device id assigned is then (rank/2)%ndev instead of rank%ndev (ndev being number of GPUs per node)"} );
     ADD_SLOT( long     , rotate_gpu  , INPUT , 0 , DocString{"shift gpu index : gpu device index assigned to an MPI process p, when single_gpu is active, is ( p + rotate_gpu ) % Ngpus. Ngpus being the number of GPUs per numa node"});
@@ -82,7 +82,7 @@ namespace onika { namespace scg_builtin
       else
       {
         cuda_ctx = std::make_shared<onika::cuda::CudaContext>();
-      
+
         // multiple GPU per MPI process is not supported by now, because it hasn't been tested for years
         // we replace it with a new feature to allocate GPUs only on even MPI processes, to allow for use of both CPU only and GPU accelerated processes
         int gpu_first_device = ( rank + (*rotate_gpu) ) % n_gpus;
@@ -109,7 +109,7 @@ namespace onika { namespace scg_builtin
 
         ldbg <<"ndev="<<ndev<<std::endl;
         for(int d=0;d<ndev;d++) cuda_ctx->m_devices[d].device_id = gpu_first_device + d;
-        
+
         const int max_threads = omp_get_max_threads();
         if( max_threads < ndev )
         {
@@ -118,16 +118,16 @@ namespace onika { namespace scg_builtin
         ldbg << "support for a maximum of "<<max_threads<<" threads accessing "<<ndev<<" GPUs"<<std::endl;
         //cuda_ctx->m_threadStream.resize( ndev , 0 );
         //assert( ndev > 0 );
-        
+
         if( ndev > 0 )
         {
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_SET_DEVICE( cuda_ctx->m_devices[0].device_id ) );
 
           if( smem_bksize.has_value() )
           {
-	    lerr << "smem_bksize is deprecated and has no effect anymore, please remove this setting" << std::endl;
+      lerr << "smem_bksize is deprecated and has no effect anymore, please remove this setting" << std::endl;
 /*
-	    switch( *smem_bksize )
+      switch( *smem_bksize )
             {
               case 4 : ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeFourByte ) ); break;
               case 8 : ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeEightByte ) ); break;
@@ -139,7 +139,7 @@ namespace onika { namespace scg_builtin
 */
           }
 
-        
+
           if( device_limits.has_value() )
           {
             auto m = *device_limits;
@@ -161,10 +161,10 @@ namespace onika { namespace scg_builtin
                 fatal_error() << "Cuda unknown limit '"<<dl.first<<"'"<<std::endl;
               }
               long in_value = std::stol( dl.second );
-              
+
               if( in_value >= 0 )
               {
-                ONIKA_CU_CHECK_ERRORS( ONIKA_CU_SET_LIMIT( limit , in_value ) ); 
+                ONIKA_CU_CHECK_ERRORS( ONIKA_CU_SET_LIMIT( limit , in_value ) );
               }
               else
               {
@@ -175,7 +175,7 @@ namespace onika { namespace scg_builtin
             }
           }
         } // if has device(s)
-        
+
         int n_support_vmm = 0;
         long long totalGlobalMem = 0;
         int warpSize = 32;
@@ -187,6 +187,7 @@ namespace onika { namespace scg_builtin
 
         for(int i=0;i<ndev;i++)
         {
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_ATTRIBUTE( & clock_rate, onikaDevAttrClockRate, i + gpu_first_device ) );
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_PROPERTIES( & cuda_ctx->m_devices[i].m_deviceProp , i + gpu_first_device ) );
           if( i==0 ) { device_name = cuda_ctx->m_devices[i].m_deviceProp.name; }
           else if( device_name != cuda_ctx->m_devices[i].m_deviceProp.name ) { lerr<<"WARNING: Mixed GPU devices"<<std::endl; }
@@ -197,9 +198,8 @@ namespace onika { namespace scg_builtin
           warpSize = cuda_ctx->m_devices[i].m_deviceProp.warpSize;
           multiProcessorCount = cuda_ctx->m_devices[i].m_deviceProp.multiProcessorCount;
           sharedMemPerBlock = cuda_ctx->m_devices[i].m_deviceProp.sharedMemPerBlock;
-          clock_rate = cuda_ctx->m_devices[i].m_deviceProp.clockRate;
 #         if ( ! defined(ONIKA_HIP_VERSION) ) || ( HIP_VERSION >= 60000000 )
-	  l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
+    l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
 #         endif
         }
 
@@ -213,7 +213,7 @@ namespace onika { namespace scg_builtin
           lerr<<"GPUs don't support unified memory, cannot continue"<<std::endl;
           std::abort();
         }
-        
+
         lout <<"GPUs : "<<ndev<< std::endl;
         lout <<"Type : "<<device_name << std::endl;
         lout <<"SMs  : "<<multiProcessorCount<<"x"<<warpSize<<" threads @ "<< std::defaultfloat<< clock_rate/1000000.0<<" Ghz" << std::endl;
@@ -228,17 +228,17 @@ namespace onika { namespace scg_builtin
           cuda_ctx = nullptr;
         }
       }
-      
+
       set_global_cuda_ctx( cuda_ctx );
-            
+
 #     else
       lout <<ONIKA_CU_NAME_STR << " disabled"<<std::endl;
 #     endif
       lout << "================================="<<std::endl<<std::endl;
     }
   };
-  
-  // === register factories ===  
+
+  // === register factories ===
   ONIKA_AUTORUN_INIT(init_cuda)
   {
    OperatorNodeFactory::instance()->register_factory( "init_cuda", make_compatible_operator< InitCuda > );
