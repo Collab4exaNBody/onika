@@ -49,6 +49,8 @@ int main(int argc,char*argv[])
   using onika::parallel::ParallelExecutionContextAllocator;
   using onika::cuda::CudaContext;
 
+  // application initialization
+
   onika::app::ApplicationConfiguration config = {};
   onika::app::intialize_openmp( config );
   onika::app::initialize_gpu( config );
@@ -58,7 +60,7 @@ int main(int argc,char*argv[])
     CudaContext::default_cuda_ctx()->to_stream(std::cout);
   }
 
-  START_OMP_TASK_MODE
+  // convinience function to allocate parallel task contexts
 
   auto & pq = ParallelExecutionQueue::default_queue();
   ParallelExecutionContextAllocator peca;
@@ -72,6 +74,11 @@ int main(int argc,char*argv[])
 #   endif
     return peca.create(tag,sub_tag,pq_ptr,cu_ctx,omp_num_tasks);
   };
+
+
+  // start of parallel application
+
+  START_OMP_TASK_MODE
 
   Array2D array1;
   Array2D array2;
