@@ -58,7 +58,8 @@ namespace onika
       printf("exec.omp %s/%s : stream=%d, tasks=%d, sched=%s, master=%08lX, team=%d\n",
              pec->m_tag,pec->m_sub_tag,int(pec->m_stream->m_stream_id),
              int(pec->m_omp_num_tasks),omp_scheduling_as_string(pec->m_omp_sched),
-             std::hash<std::thread::id>{}(std::this_thread::get_id()),omp_get_num_threads());
+             std::hash<std::thread::id>{}(std::this_thread::get_id()),
+             pec->m_omp_num_tasks==0 ? omp_get_max_threads() : omp_get_num_threads() );
     }
 
     void dmesg_sched_omp(ParallelExecutionContext * pec)
@@ -66,7 +67,8 @@ namespace onika
 #     pragma omp critical(dbg_mesg)
       printf("sched.omp %s/%s : stream=%d, tasks=%d, master=%08lX, team=%d\n",
              pec->m_tag,pec->m_sub_tag,int(pec->m_stream->m_stream_id),int(pec->m_omp_num_tasks),
-             std::hash<std::thread::id>{}(std::this_thread::get_id()),omp_get_num_threads());
+             std::hash<std::thread::id>{}(std::this_thread::get_id()),
+             pec->m_omp_num_tasks==0 ? omp_get_max_threads() : omp_get_num_threads() );
     }
 
     void dmesg_end_omp(ParallelExecutionContext * pec)

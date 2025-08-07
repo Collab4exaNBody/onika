@@ -29,56 +29,12 @@ under the License.
 
 #include <omp.h>
 
-#define USE_OMP_TASK_MODE 1
-
-#ifdef USE_OMP_TASK_MODE
-#define START_OMP_TASK_MODE _Pragma("omp parallel") { _Pragma("omp master") { _Pragma("omp taskgroup") {
-#define END_OMP_TASK_MODE } } }
-#else
-#define START_OMP_TASK_MODE /**/
-#define END_OMP_TASK_MODE /**/
-#endif
-
-int main(int argc,char*argv[])
+// parallel test core
+void run_test(auto & pq, const auto & parallel_execution_context, std::string_view test_mode )
 {
   using namespace onika::extras;
   using onika::parallel::block_parallel_for;
   using onika::parallel::ParallelExecutionQueueBase;
-  using onika::parallel::ParallelExecutionQueue;
-  using onika::parallel::ParallelExecutionContext;
-  using onika::parallel::ParallelExecutionContextAllocator;
-  using onika::cuda::CudaContext;
-
-  // application initialization
-
-  onika::app::ApplicationConfiguration config = {};
-  onika::app::intialize_openmp( config );
-  onika::app::initialize_gpu( config );
-
-  if( CudaContext::default_cuda_ctx() != nullptr )
-  {
-    CudaContext::default_cuda_ctx()->to_stream(std::cout);
-  }
-
-  // convinience function to allocate parallel task contexts
-
-  auto & pq = ParallelExecutionQueue::default_queue();
-  ParallelExecutionContextAllocator peca;
-  auto parallel_execution_context = [pq_ptr=&pq,cu_ctx=CudaContext::default_cuda_ctx(),&peca](auto tag, auto sub_tag)
-  -> ParallelExecutionContext *
-  {
-#   ifdef USE_OMP_TASK_MODE
-    const int omp_num_tasks = omp_get_max_threads();
-#   else
-    const int omp_num_tasks = 0;
-#   endif
-    return peca.create(tag,sub_tag,pq_ptr,cu_ctx,omp_num_tasks);
-  };
-
-
-  // start of parallel application
-
-  START_OMP_TASK_MODE
 
   Array2D array1;
   Array2D array2;
@@ -104,18 +60,35 @@ int main(int argc,char*argv[])
   // we finally create a third parallel operation we want to execute concurrently with the two others
   auto array2_par_op2 = block_parallel_for( array2.rows(), array2_kernel2, parallel_execution_context("Array2","Kernel2") );
 
-  std::cout << "Delay parallel operations ..." << std::endl;
-  ParallelExecutionQueueBase delay_queue_a;
-  ParallelExecutionQueueBase delay_queue_b;
-  delay_queue_a << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1);
-  delay_queue_b << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);
+  if( test_mode == "hybrid-delayed-lane" )
+  {
+    std::cout << "Delay parallel operations ..." << std::endl;
+    ParallelExecutionQueueBase delay_queue_a;
+    ParallelExecutionQueueBase delay_queue_b;
+    delay_queue_a << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1);
+    delay_queue_b << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);
 
-  std::cout << "Enqueue operations ..." << std::endl;
-  pq << std::move(delay_queue_a) << std::move(delay_queue_b) ;
-
-  // would be the same as following
-  // pq << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1)
-  //    << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);
+    std::cout << "Enqueue operations ..." << std::endl;
+    pq << std::move(delay_queue_a) << std::move(delay_queue_b) ;
+  }
+  else if( test_mode == "hybrid-lane" )
+  {
+    // would be the same as following
+    std::cout << "Enqueue operations ..." << std::endl;
+    pq << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1)
+       << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);
+  }
+  else if( test_mode == "hybrid-sequence" )
+  {
+    // simple hybrid execution test
+    pq << std::move(array1_par_op1) << std::move(array1_par_op2) << std::move(array2_par_op1) << std::move(array2_par_op2);
+  }
+  else
+  {
+    std::cerr<<"unknown test mode "<<test_mode<<std::endl;
+    std::cerr<<"valid test modes are : hybrid-delayed-lane , hybrid-lane and hybrid-sequence"<<std::endl;
+    std::abort();
+  }
 
   std::cout << "Schedule parallel operations ..." << std::endl;
   pq << onika::parallel::flush;
@@ -123,8 +96,67 @@ int main(int argc,char*argv[])
   std::cout << "Synchronize parallel operations ..." << std::endl;
   pq <<  onika::parallel::synchronize ;
   std::cout << "done" << std::endl;
+}
 
-  END_OMP_TASK_MODE
+
+int main(int argc,char*argv[])
+{
+  using onika::parallel::ParallelExecutionQueue;
+  using onika::parallel::ParallelExecutionContext;
+  using onika::parallel::ParallelExecutionContextAllocator;
+  using onika::cuda::CudaContext;
+
+  std::string test_mode = "hybrid-lane";
+  std::string omp_mode = "task";
+  if( argc > 1 ) test_mode = argv[1];
+  if( argc > 2 ) omp_mode = argv[2];
+
+  // application initialization
+  onika::app::ApplicationConfiguration config = {};
+  onika::app::intialize_openmp( config );
+  onika::app::initialize_gpu( config );
+
+  if( CudaContext::default_cuda_ctx() != nullptr )
+  {
+    CudaContext::default_cuda_ctx()->to_stream(std::cout);
+  }
+
+  int omp_num_tasks = -1;
+  if( omp_mode == "task" ) omp_num_tasks = omp_get_max_threads();
+  else if( omp_mode == "pfor" ) omp_num_tasks = 0;
+  else
+  {
+    std::cout<<"unkown OpenMP mode "<<omp_mode<<". valid options are task and pfor"<<std::endl;
+    std::abort();
+  }
+
+  // convinience function to allocate parallel task contexts
+  auto & pq = ParallelExecutionQueue::default_queue();
+  ParallelExecutionContextAllocator peca;
+  auto parallel_execution_context = [pq_ptr=&pq,cu_ctx=CudaContext::default_cuda_ctx(),&peca,omp_num_tasks](auto tag, auto sub_tag)
+  -> ParallelExecutionContext *
+  {
+    return peca.create(tag,sub_tag,pq_ptr,cu_ctx,omp_num_tasks);
+  };
+
+
+  if( omp_mode == "task" )
+  {
+#   pragma omp parallel
+    {
+#     pragma omp master
+      {
+#       pragma omp taskgroup
+        {
+          run_test(pq,parallel_execution_context,test_mode);
+        }
+      }
+    }
+  }
+  else
+  {
+    run_test(pq,parallel_execution_context,test_mode);
+  }
 
   return 0;
 }
