@@ -48,6 +48,7 @@ namespace onika
         s_default_cuda_ctx->m_devices.resize(1);
         s_default_cuda_ctx->m_devices[0].device_id = 0;
         ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_PROPERTIES( & s_default_cuda_ctx->m_devices[0].m_deviceProp , s_default_cuda_ctx->m_devices[0].device_id ) );
+        ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_ATTRIBUTE( & s_default_cuda_ctx->m_devices[0].m_clock_rate , onikaDevAttrClockRate, s_default_cuda_ctx->m_devices[0].device_id ) );
       }
       return s_default_cuda_ctx.get();
     }

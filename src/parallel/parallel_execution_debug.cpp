@@ -17,8 +17,9 @@ specific language governing permissions and limitations
 under the License.
 */
 
+#include <onika/parallel/parallel_execution_debug.h>
 #include <onika/parallel/parallel_execution_context.h>
-#include <onika/parallel/block_parallel_for_adapter.h>
+#include <onika/parallel/parallel_execution_stream.h>
 
 namespace onika
 {
@@ -37,30 +38,41 @@ namespace onika
       return "<unkown>";
     }
 
-    void dmesg_gpu_start_kernel(void* userData)
+    void dmesg_exec_gpu(void* userData)
     {
       ParallelExecutionContext * pec = (ParallelExecutionContext*) userData;
 #     pragma omp critical(dbg_mesg)
-      printf("Cuda start %s/%s : stream=%d\n",pec->m_tag,pec->m_sub_tag,int(pec->m_stream->m_stream_id));
-    }
-    
-    void dmesg_gpu_end_kernel(void* userData)
-    {
-      ParallelExecutionContext * pec = (ParallelExecutionContext*) userData;
-#     pragma omp critical(dbg_mesg)
-      printf("Cuda end %s/%s\n",pec->m_tag,pec->m_sub_tag);
+      printf("exec.%s %s/%s : stream=%d\n",ONIKA_CU_NAME_STR,pec->m_tag,pec->m_sub_tag,int(pec->m_stream->m_stream_id));
     }
 
-    void dmesg_omp_start_kernel(ParallelExecutionContext * pec)
+    void dmesg_end_gpu(void* userData)
     {
+      ParallelExecutionContext * pec = (ParallelExecutionContext*) userData;
 #     pragma omp critical(dbg_mesg)
-      printf("OpenMP start %s/%s : stream=%d, tasks=%d, sched=%s\n",pec->m_tag,pec->m_sub_tag,int(pec->m_stream->m_stream_id),int(pec->m_omp_num_tasks),omp_scheduling_as_string(pec->m_omp_sched));
+      printf("end.%s %s/%s\n",ONIKA_CU_NAME_STR,pec->m_tag,pec->m_sub_tag);
     }
-    
-    void dmesg_omp_end_kernel(ParallelExecutionContext * pec)
+
+    void dmesg_exec_omp(ParallelExecutionContext * pec)
     {
 #     pragma omp critical(dbg_mesg)
-      printf("OpenMP end %s/%s\n",pec->m_tag,pec->m_sub_tag);
+      printf("exec.omp %s/%s : stream=%d, tasks=%d, sched=%s, master=%08lX, team=%d\n",
+             pec->m_tag,pec->m_sub_tag,int(pec->m_stream->m_stream_id),
+             int(pec->m_omp_num_tasks),omp_scheduling_as_string(pec->m_omp_sched),
+             std::hash<std::thread::id>{}(std::this_thread::get_id()),omp_get_num_threads());
+    }
+
+    void dmesg_sched_omp(ParallelExecutionContext * pec)
+    {
+#     pragma omp critical(dbg_mesg)
+      printf("sched.omp %s/%s : stream=%d, tasks=%d, master=%08lX, team=%d\n",
+             pec->m_tag,pec->m_sub_tag,int(pec->m_stream->m_stream_id),int(pec->m_omp_num_tasks),
+             std::hash<std::thread::id>{}(std::this_thread::get_id()),omp_get_num_threads());
+    }
+
+    void dmesg_end_omp(ParallelExecutionContext * pec)
+    {
+#     pragma omp critical(dbg_mesg)
+      printf("end.omp %s/%s\n",pec->m_tag,pec->m_sub_tag);
     }
 
   }

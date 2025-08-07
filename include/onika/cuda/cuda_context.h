@@ -67,7 +67,7 @@ template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyAr
 #define ONIKA_CU_GET_DEVICE_ATTRIBUTE(valPtr,attr,id)  hipDeviceGetAttribute(valPtr,attr,id)
 #define ONIKA_CU_DEVICE_SYNCHRONIZE()                  hipDeviceSynchronize()
 #define ONIKA_CU_GET_ERROR_STRING(c)                   hipGetErrorString(code)
-#define ONIKA_CU_NAME_STR                              "HIP "
+#define ONIKA_CU_NAME_STR                              "hip"
 using onikaDeviceProp_t = hipDeviceProp_t;
 using onikaStream_t     = hipStream_t;
 using onikaEvent_t      = hipEvent_t;
@@ -123,7 +123,7 @@ static inline constexpr auto onikaDevAttrClockRate           = hipDevAttrClockRa
 #define ONIKA_CU_GET_DEVICE_ATTRIBUTE(valPtr,attr,id)  cudaDeviceGetAttribute(valPtr,attr,id)
 #define ONIKA_CU_DEVICE_SYNCHRONIZE()                  cudaDeviceSynchronize()
 #define ONIKA_CU_GET_ERROR_STRING(c)                   cudaGetErrorString(code)
-#define ONIKA_CU_NAME_STR                              "Cuda"
+#define ONIKA_CU_NAME_STR                              "cuda"
 using onikaDeviceProp_t = cudaDeviceProp;
 using onikaStream_t     = cudaStream_t;
 using onikaEvent_t      = cudaEvent_t;
@@ -197,12 +197,13 @@ static inline constexpr int onikaErrorNotReady = 0;
 #define ONIKA_CU_MALLOC(devPtrPtr,N)         _fake_cuda_api_noop(*(void**)devPtrPtr=malloc(N))
 #define ONIKA_CU_MALLOC_MANAGED(devPtrPtr,N) _fake_cuda_api_noop(*(void**)devPtrPtr=malloc(N))
 #define ONIKA_CU_FREE(devPtr)                _fake_cuda_api_noop( (free(devPtr),0) )
-#define ONIKA_CU_NAME_STR "GPU "
+#define ONIKA_CU_NAME_STR                    "vgpu"
 #endif // ONIKA_CUDA_VERSION
 
 
 #include <onika/memory/memory_usage.h>
 #include <onika/cuda/cuda_error.h>
+#include <onika/string_utils.h>
 #include <functional>
 #include <list>
 
@@ -240,6 +241,7 @@ namespace onika
       onikaDeviceProp_t m_deviceProp;
       std::list< std::function<void()> > m_finalize_destructors;
       int device_id = 0;
+      int m_clock_rate = 0;
     };
 
     struct CudaContext
@@ -253,6 +255,29 @@ namespace onika
       bool has_devices() const;
       unsigned int device_count() const;
       onikaStream_t getThreadStream(unsigned int tid);
+
+      template<class StreamT>
+      inline StreamT& to_stream(StreamT& out)
+      {
+        out << "=========== "<<ONIKA_CU_NAME_STR<<" ================"<<std::endl;
+        if( ! m_devices.empty() )
+        {
+          const auto & dev = m_devices.front();
+          out <<"GPUs : "<<m_devices.size()<< std::endl
+              <<"Type : "<<dev.m_deviceProp.name << std::endl
+              <<"SMs  : "<<dev.m_deviceProp.multiProcessorCount<<"x"<<dev.m_deviceProp.warpSize<<" threads @ "
+                         << std::defaultfloat<< dev.m_clock_rate/1000000.0<<" Ghz" << std::endl
+              <<"Mem  : "<< onika::memory_bytes_string(dev.m_deviceProp.totalGlobalMem)
+                         <<" (shared "<<onika::memory_bytes_string(dev.m_deviceProp.sharedMemPerBlock,"%g %s")
+                         <<" , L2 "<<onika::memory_bytes_string(dev.m_deviceProp.persistingL2CacheMaxSize,"%.2g %s")<<")" <<std::endl
+              << "================================="<<std::endl<<std::endl;
+       }
+        else
+        {
+          out <<"No GPU found"<<std::endl;
+        }
+        return out;
+      }
 
       static void set_global_gpu_enable(bool yn);
       static bool global_gpu_enable();

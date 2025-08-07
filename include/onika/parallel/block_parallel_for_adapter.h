@@ -2,6 +2,7 @@
 
 #include <onika/parallel/block_parallel_for_functor.h>
 #include <onika/parallel/parallel_execution_stream.h>
+#include <onika/parallel/parallel_execution_debug.h>
 #include <omp.h>
 
 namespace onika
@@ -16,12 +17,6 @@ namespace onika
     };
 
     // ========================== GPU execution kernels ==========================
-
-    // debug messages to spot start/end of kernel executions
-    void dmesg_gpu_start_kernel(void* userData);
-    void dmesg_gpu_end_kernel(void* userData);
-    void dmesg_omp_start_kernel(ParallelExecutionContext * pec);
-    void dmesg_omp_end_kernel(ParallelExecutionContext * pec);
 
     // GPU execution kernel for fixed size grid, using workstealing element assignment to blocks
     template<class ElementCoordRangeT, class FuncT>
@@ -115,7 +110,7 @@ namespace onika
         if constexpr ( GPUSupport )
         {
 #         ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-          ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , dmesg_gpu_start_kernel , pec );
+          ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , dmesg_exec_gpu , pec );
 #         endif
           if constexpr ( functor_has_gpu_prolog ) { m_func( block_parallel_for_gpu_prolog_t{} , pes ); }
           else if constexpr ( functor_has_prolog ) { m_func( block_parallel_for_prolog_t{} ); }
@@ -175,7 +170,7 @@ namespace onika
           if constexpr ( functor_has_gpu_epilog ) { m_func( block_parallel_for_gpu_epilog_t{} , pes ); }
           else if constexpr ( functor_has_epilog ) { m_func( block_parallel_for_epilog_t{} ); }
 #         ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-          ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , dmesg_gpu_end_kernel , pec );
+          ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , dmesg_end_gpu , pec );
 #         endif
         }
         else { fatal_error() << "called stream_gpu_finalize with no GPU support" << std::endl; }
@@ -186,7 +181,7 @@ namespace onika
       inline void execute_prolog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
       {
 #       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-        dmesg_omp_start_kernel(pec);
+        dmesg_exec_omp(pec);
 #       endif
         if constexpr (functor_has_cpu_prolog) { m_func( block_parallel_for_cpu_prolog_t{} ); }
         else if constexpr (functor_has_prolog) { m_func( block_parallel_for_prolog_t{} ); }
@@ -215,11 +210,6 @@ namespace onika
         {
 #         pragma omp parallel
           {
-#           pragma omp master
-            {
-#             pragma omp critical(dbg_mesg)
-              std::cout<<"exec (omp.pfor) "<<std::hex<<std::this_thread::get_id()<<'/'<<std::dec<<omp_get_num_threads()<<std::endl;
-            }
             switch( pec->m_omp_sched )
             {
               case OMP_SCHED_DYNAMIC :
@@ -324,9 +314,6 @@ namespace onika
 
       static inline void execute_omp_inner_taskloop( const BlockParallelForHostAdapter* self, ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks )
       {
-#       pragma omp critical(dbg_mesg)
-        std::cout<<"exec (omp.task) "<<std::hex<<std::this_thread::get_id()<<'/'<<std::dec<<omp_get_num_threads()<<std::endl;
-
         const auto & ps = self->m_parallel_space;
         const auto & func = self->m_func;
 
@@ -405,6 +392,10 @@ namespace onika
 
         const auto * self = this;
 
+#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+        dmesg_sched_omp(pec);
+#       endif
+
         // if a Cuda stream is available, we'll use it to serialize OpenMP tasks based parallel operations,
         // such that they will be also serialized with Cuda kernel executions throughout the stream
         if( pes->m_cuda_ctx != nullptr )
@@ -413,7 +404,6 @@ namespace onika
           {
             fatal_error() << "Internal error: not enaough functor scratch space left to chain OpenMP task to CU stream" << std::endl;
           }
-
           // we schedule an empty task wich uses depend(inout:pes[0]) like all other parallel tasks,
           // and we also add a detach clause to be able to trigger its completion event from an other thread.
           // finally, we enqueue a host function (execute_omp_inner_taskloop_cb) in cuda stream
@@ -429,9 +419,6 @@ namespace onika
           cb_info->cu_stream_sync_event = sync_event;
           ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , execute_omp_inner_taskloop_cb , cb_info );
         }
-
-#       pragma omp critical(dbg_mesg)
-        std::cout<<"sched (omp.task) "<<std::hex<<std::this_thread::get_id()<<'/'<<std::dec<<omp_get_num_threads()<<std::endl;
 
         // if OpenMP only, parallel operation serialization feature is emulated
         // via an encapsulating task which declares an in/out dependency on the Onika stream object
@@ -450,7 +437,7 @@ namespace onika
         if constexpr (functor_has_cpu_epilog) { m_func( block_parallel_for_cpu_epilog_t{} ); }
         else if constexpr (functor_has_epilog) { m_func( block_parallel_for_epilog_t{} ); }
 #       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-        dmesg_omp_end_kernel(pec);
+        dmesg_end_omp(pec);
 #       endif
       }
 

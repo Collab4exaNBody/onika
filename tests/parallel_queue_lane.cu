@@ -53,6 +53,11 @@ int main(int argc,char*argv[])
   onika::app::intialize_openmp( config );
   onika::app::initialize_gpu( config );
 
+  if( CudaContext::default_cuda_ctx() != nullptr )
+  {
+    CudaContext::default_cuda_ctx()->to_stream(std::cout);
+  }
+
   START_OMP_TASK_MODE
 
   auto & pq = ParallelExecutionQueue::default_queue();

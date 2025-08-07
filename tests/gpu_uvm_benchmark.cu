@@ -107,7 +107,7 @@ int main()
   if( ! uvm )
   {
     ONIKA_CU_MALLOC( & d_data, N * sizeof(double));
-    ONIKA_CU_MEMCPY( d_data, h_data, N * sizeof(double), cudaMemcpyHostToDevice );
+    ONIKA_CU_MEMCPY( d_data, h_data, N * sizeof(double) /*, onikaMemcpyHostToDevice */ );
   }
 
   const auto T0 = std::chrono::high_resolution_clock::now();
@@ -119,7 +119,7 @@ int main()
   ONIKA_CU_LAUNCH_KERNEL(N/256,256,0,0,gpu_compute,d_data);
   const auto T2 = std::chrono::high_resolution_clock::now();
 
-  if( ! uvm ) ONIKA_CU_MEMCPY( h_data, d_data, N * sizeof(double), cudaMemcpyDeviceToHost );
+  if( ! uvm ) ONIKA_CU_MEMCPY( h_data, d_data, N * sizeof(double) /*, onikaMemcpyDeviceToHost */ );
   ONIKA_CU_DEVICE_SYNCHRONIZE();
   const double vcuda = h_data[idx];
   const auto T3 = std::chrono::high_resolution_clock::now();

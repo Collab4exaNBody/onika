@@ -96,7 +96,7 @@ int main()
   if( ! uvm )
   {
     ONIKA_CU_MALLOC( & d_data, N * sizeof(double));
-    ONIKA_CU_MEMCPY( d_data, h_data, N * sizeof(double), onikaMemcpyHostToDevice );
+    ONIKA_CU_MEMCPY( d_data, h_data, N * sizeof(double) /*, onikaMemcpyHostToDevice */ );
   }
 
   const auto T0 = std::chrono::high_resolution_clock::now();
@@ -110,7 +110,7 @@ int main()
   std::cout << "GPU reduction not implemented yet" << std::endl;
   const auto T2 = std::chrono::high_resolution_clock::now();
 
-  if( ! uvm ) ONIKA_CU_MEMCPY( h_data, d_data, sizeof(double), onikaMemcpyDeviceToHost );
+  if( ! uvm ) ONIKA_CU_MEMCPY( h_data, d_data, sizeof(double) /*, onikaMemcpyDeviceToHost */ );
   ONIKA_CU_DEVICE_SYNCHRONIZE();
   const double vcuda = h_data[0];
   const auto T3 = std::chrono::high_resolution_clock::now();
