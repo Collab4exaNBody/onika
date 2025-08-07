@@ -18,8 +18,8 @@
 #include <chrono>
 #include <omp.h>
 
-#include <cuda_runtime.h>
-#include <cuda_runtime_api.h>
+//#include <cuda_runtime.h>
+//#include <cuda_runtime_api.h>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_context.h>
 #include <onika/memory/allocator.h>
@@ -73,7 +73,7 @@ int main()
   onika::parallel::ParallelExecutionContext::s_gpu_sm_mult    = 2;
   onika::parallel::ParallelExecutionContext::s_gpu_sm_add     = 0;
   onika::parallel::ParallelExecutionContext::s_gpu_block_size = 256;
-      
+
   double *h_data = nullptr;
   double *d_data = nullptr;
 
@@ -83,7 +83,7 @@ int main()
 
   if( uvm )
   {
-    cudaMallocManaged( & h_data , N * sizeof(double) );
+    ONIKA_CU_MALLOC_MANAGED( & h_data , N * sizeof(double) );
     d_data = h_data;
   }
   else
@@ -95,8 +95,8 @@ int main()
 
   if( ! uvm )
   {
-    cudaMalloc( & d_data, N * sizeof(double));
-    cudaMemcpy( d_data, h_data, N * sizeof(double), cudaMemcpyHostToDevice );
+    ONIKA_CU_MALLOC( & d_data, N * sizeof(double));
+    ONIKA_CU_MEMCPY( d_data, h_data, N * sizeof(double) /*, onikaMemcpyHostToDevice */ );
   }
 
   const auto T0 = std::chrono::high_resolution_clock::now();
@@ -110,8 +110,8 @@ int main()
   std::cout << "GPU reduction not implemented yet" << std::endl;
   const auto T2 = std::chrono::high_resolution_clock::now();
 
-  if( ! uvm ) cudaMemcpy( h_data, d_data, sizeof(double), cudaMemcpyDeviceToHost );
-  cudaDeviceSynchronize();
+  if( ! uvm ) ONIKA_CU_MEMCPY( h_data, d_data, sizeof(double) /*, onikaMemcpyDeviceToHost */ );
+  ONIKA_CU_DEVICE_SYNCHRONIZE();
   const double vcuda = h_data[0];
   const auto T3 = std::chrono::high_resolution_clock::now();
 
@@ -120,8 +120,8 @@ int main()
   std::cout << "cuda time = "<< (T2-T1).count() / 1000000.0 << " + "<< (T3-T2).count() / 1000000.0 << " = "<< (T3-T1).count() / 1000000.0 <<std::endl;
   if(run_host) std::cout << "ratio = "<< (T1-T0).count() * 1.0 / (T3-T1).count()  << std::endl;
 
-  if( ! uvm ) cudaFree(d_data); 
-  
+  if( ! uvm ) ONIKA_CU_FREE(d_data);
+
   return 0;
 }
 
