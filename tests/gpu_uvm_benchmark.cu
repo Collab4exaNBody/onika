@@ -18,8 +18,8 @@
 #include <chrono>
 #include <omp.h>
 
-#include <cuda_runtime.h>
-#include <cuda_runtime_api.h>
+//#include <cuda_runtime.h>
+//#include <cuda_runtime_api.h>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_context.h>
 #include <onika/memory/allocator.h>
@@ -45,7 +45,7 @@ void cpu_init( double * __restrict__ data )
 }
 
 void cpu_compute( double * __restrict__ data )
-{   
+{
 # pragma omp parallel for schedule(static)
   for(int i = 0; i < N; i++)
   {
@@ -56,9 +56,9 @@ void cpu_compute( double * __restrict__ data )
   }
 }
 
-__global__ void gpu_compute( double * __restrict__ data )
+ONIKA_DEVICE_KERNEL_FUNC void gpu_compute( double * __restrict__ data )
 {
-  const int i = threadIdx.x + blockIdx.x * blockDim.x;
+  const int i = ONIKA_CU_THREAD_IDX + ONIKA_CU_BLOCK_IDX * ONIKA_CU_BLOCK_SIZE;
   for(int j = 0; j < M; j++)
   {
     data[i] = data[i] * data[i] - 0.25;
@@ -84,17 +84,17 @@ int main()
   onika::parallel::ParallelExecutionContext::s_gpu_sm_mult    = 2;
   onika::parallel::ParallelExecutionContext::s_gpu_sm_add     = 0;
   onika::parallel::ParallelExecutionContext::s_gpu_block_size = 256;
-      
+
   double *h_data = nullptr;
   double *d_data = nullptr;
 
   int run_host=0, uvm=0, idx=0;
-  std::cin >> run_host >> uvm >> idx; 
+  std::cin >> run_host >> uvm >> idx;
   std::cout << "run_host="<<run_host<<", uvm="<<uvm<<" , idx="<<idx<<std::endl;
 
   if( uvm )
   {
-    cudaMallocManaged( & h_data , N * sizeof(double) );
+    ONIKA_CU_MALLOC_MANAGED( & h_data , N * sizeof(double) );
     d_data = h_data;
   }
   else
@@ -106,8 +106,8 @@ int main()
 
   if( ! uvm )
   {
-    cudaMalloc( & d_data, N * sizeof(double));
-    cudaMemcpy( d_data, h_data, N * sizeof(double), cudaMemcpyHostToDevice );
+    ONIKA_CU_MALLOC( & d_data, N * sizeof(double));
+    ONIKA_CU_MEMCPY( d_data, h_data, N * sizeof(double) /*, onikaMemcpyHostToDevice */ );
   }
 
   const auto T0 = std::chrono::high_resolution_clock::now();
@@ -116,12 +116,11 @@ int main()
   const double vhost = h_data[idx];
 
   const auto T1 = std::chrono::high_resolution_clock::now();
-
-  gpu_compute<<<N/256, 256>>>(d_data);   
+  ONIKA_CU_LAUNCH_KERNEL(N/256,256,0,0,gpu_compute,d_data);
   const auto T2 = std::chrono::high_resolution_clock::now();
 
-  if( ! uvm ) cudaMemcpy( h_data, d_data, N * sizeof(double), cudaMemcpyDeviceToHost );
-  cudaDeviceSynchronize();
+  if( ! uvm ) ONIKA_CU_MEMCPY( h_data, d_data, N * sizeof(double) /*, onikaMemcpyDeviceToHost */ );
+  ONIKA_CU_DEVICE_SYNCHRONIZE();
   const double vcuda = h_data[idx];
   const auto T3 = std::chrono::high_resolution_clock::now();
 
@@ -130,8 +129,8 @@ int main()
   std::cout << "cuda time = "<< (T2-T1).count() / 1000000.0 << " + "<< (T3-T2).count() / 1000000.0 << " = "<< (T3-T1).count() / 1000000.0 <<std::endl;
   if(run_host) std::cout << "ratio = "<< (T1-T0).count() * 1.0 / (T3-T1).count()  << std::endl;
 
-  if( ! uvm ) cudaFree(d_data); 
-  
+  if( ! uvm ) ONIKA_CU_FREE(d_data);
+
   return 0;
 }
 
