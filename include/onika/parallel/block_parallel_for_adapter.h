@@ -5,6 +5,14 @@
 #include <onika/parallel/parallel_execution_debug.h>
 #include <omp.h>
 
+// clang requires detach clause to use a variable that is explicitly listed in a data sharing clause,
+// while GCC and NVCC don't want it to be declared prior to detach clause
+#ifdef __clang__
+#define OMP_DETACH_CLAUSE(var) firstprivate(var) detach(var)
+#else
+#define OMP_DETACH_CLAUSE(var) detach(var)
+#endif
+
 namespace onika
 {
   namespace parallel
@@ -417,7 +425,7 @@ namespace onika
           cb_info = new(pec->m_host_scratch.alloc_functor_data(sizeof(ExecOpenMPTaskCallbackInfo))) ExecOpenMPTaskCallbackInfo{};
           omp_event_handle_t sync_event;
           std::memset( & sync_event , 0 , sizeof(omp_event_handle_t) );
-#         pragma omp task default(none) firstprivate(self,pec,pes,ntasks,sync_event) depend(inout:pes[0]) detach(sync_event)
+#         pragma omp task default(none) firstprivate(self,pec,pes,ntasks) depend(inout:pes[0]) OMP_DETACH_CLAUSE(sync_event)
           {
             if(int(ntasks)<0) { printf("ERROR: ntasks=%d\n",int(ntasks)); }
           }

@@ -30,7 +30,7 @@ namespace onika
           my_array->resize( 1024 , 1024 );
         }
       
-        BlockParallelValueAddFunctor value_add_func = { *my_array // refernce our data array through its pointer and size
+        BlockParallelValueAddFunctor<> value_add_func = { *my_array // refernce our data array through its pointer and size
                                                       , *my_value // value to add to the elements of the array
                                                       };
                                

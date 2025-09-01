@@ -154,6 +154,7 @@ struct onikaDeviceProp_t
   int warpSize = 0;
   int multiProcessorCount = 0;
   int sharedMemPerBlock = 0;
+  int persistingL2CacheMaxSize = 0;
 };
 struct onikaDim3_t
 {

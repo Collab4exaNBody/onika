@@ -175,6 +175,7 @@ namespace onika { namespace scg_builtin
 
         for(int i=0;i<ndev;i++)
         {
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_ATTRIBUTE( & clock_rate, onikaDevAttrClockRate, i + gpu_first_device ) );
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_PROPERTIES( & cuda_ctx->m_devices[i].m_deviceProp , i + gpu_first_device ) );
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_ATTRIBUTE( & cuda_ctx->m_devices[i].m_clock_rate , onikaDevAttrClockRate, i + gpu_first_device ) );
           if( i==0 )
