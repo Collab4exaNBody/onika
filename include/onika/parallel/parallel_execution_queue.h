@@ -44,12 +44,12 @@ namespace onika
       ParallelDataAccessVector m_data_access;
       std::mutex m_mutex;                                // for thread safe manipulation of queue
 
-      ParallelExecutionQueueBase() = default;
-      ParallelExecutionQueueBase(const ParallelExecutionQueueBase&) = delete;
-      ParallelExecutionQueueBase(ParallelExecutionQueueBase&&) = default;
+      //ParallelExecutionQueueBase() = default;
+      //ParallelExecutionQueueBase(const ParallelExecutionQueueBase&) = delete;
+      //ParallelExecutionQueueBase(ParallelExecutionQueueBase&&) = default;
 
-      ParallelExecutionQueueBase& operator = (const ParallelExecutionQueueBase&) = delete;
-      ParallelExecutionQueueBase& operator = (ParallelExecutionQueueBase&&) = default;
+      //ParallelExecutionQueueBase& operator = (const ParallelExecutionQueueBase&) = delete;
+      //ParallelExecutionQueueBase& operator = (ParallelExecutionQueueBase&&) = default;
 
       ~ParallelExecutionQueueBase();
 
@@ -73,12 +73,12 @@ namespace onika
 
       static ParallelExecutionQueue& default_queue();
 
-      ParallelExecutionQueue() = default;
-      ParallelExecutionQueue(const ParallelExecutionQueue&) = delete;
-      ParallelExecutionQueue(ParallelExecutionQueue&&) = default;
+      //ParallelExecutionQueue() = default;
+      //ParallelExecutionQueue(const ParallelExecutionQueue&) = delete;
+      //ParallelExecutionQueue(ParallelExecutionQueue&&) = default;
 
-      ParallelExecutionQueue& operator = (const ParallelExecutionQueue&) = delete;
-      ParallelExecutionQueue& operator = (ParallelExecutionQueue&&) = default;
+      //ParallelExecutionQueue& operator = (const ParallelExecutionQueue&) = delete;
+      //ParallelExecutionQueue& operator = (ParallelExecutionQueue&&) = default;
 
       ~ParallelExecutionQueue();
 

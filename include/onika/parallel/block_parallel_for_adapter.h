@@ -417,7 +417,7 @@ namespace onika
           cb_info = new(pec->m_host_scratch.alloc_functor_data(sizeof(ExecOpenMPTaskCallbackInfo))) ExecOpenMPTaskCallbackInfo{};
           omp_event_handle_t sync_event;
           std::memset( & sync_event , 0 , sizeof(omp_event_handle_t) );
-#         pragma omp task default(none) firstprivate(self,pec,pes,ntasks) depend(inout:pes[0]) detach(sync_event)
+#         pragma omp task default(none) firstprivate(self,pec,pes,ntasks,sync_event) depend(inout:pes[0]) detach(sync_event)
           {
             if(int(ntasks)<0) { printf("ERROR: ntasks=%d\n",int(ntasks)); }
           }

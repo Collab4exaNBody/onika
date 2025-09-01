@@ -53,10 +53,10 @@ namespace onika
         BlockParallelValueAddFunctor<true>          array2_kernel2 = { *array2, *value };
 
         // describes an access to array1, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
-        const auto array1_rw_access = local_access(array1->m_data.data(),2,AccessStencilElement::RW,"a1");
+        const auto array1_rw_access = local_access(array1->m_data.data(),2,AccessStencilElement::RW,"a1_rw");
         
         // describes an access to array2, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
-        const auto array2_rw_access = local_access(array2->m_data.data(),2,AccessStencilElement::RW,"a2");
+        const auto array2_rw_access = local_access(array2->m_data.data(),2,AccessStencilElement::RW,"a2_rw");
                                
         // Launching the parallel operation, which can execute on GPU if the execution context allows
         // result of parallel operation construct is captured into variable 'my_addition',

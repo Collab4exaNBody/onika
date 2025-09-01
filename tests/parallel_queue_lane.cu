@@ -35,6 +35,8 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
   using namespace onika::extras;
   using onika::parallel::block_parallel_for;
   using onika::parallel::ParallelExecutionQueueBase;
+  using onika::parallel::AccessStencilElement;
+  using onika::parallel::local_access;
 
   Array2D array1;
   Array2D array2;
@@ -45,6 +47,12 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
   BlockParallelValueAddFunctor<false>         array1_kernel2 = { array1, 1.2 };
   BlockParallelIterativeValueAddFunctor<true> array2_kernel1 = { array2, 1.3, 50 };
   BlockParallelValueAddFunctor<false>         array2_kernel2 = { array2, 1.4 };
+
+  // describes an access to array1, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
+  const auto array1_rw_access = local_access(array1.m_data.data(),2,AccessStencilElement::RW,"a1_rw");
+  
+  // describes an access to array2, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
+  const auto array2_rw_access = local_access(array2.m_data.data(),2,AccessStencilElement::RW,"a2_rw");
 
   // Launching the parallel operation, which can execute on GPU if the execution context allows
   // result of parallel operation construct is captured into variable 'my_addition',

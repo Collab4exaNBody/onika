@@ -7,7 +7,7 @@ namespace onika
 {
   namespace parallel
   {
-    class ParallelExecutionContext;
+    struct ParallelExecutionContext;
 
     const char* omp_scheduling_as_string(OMPScheduling sched);
 

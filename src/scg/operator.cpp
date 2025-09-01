@@ -381,7 +381,7 @@ namespace onika { namespace scg
   void OperatorNode::run_prolog()
   {
     //if( is_terminal() ) lout << "--> " << pathname() << "\n";
-    onika_ompt_declare_task_context(tsk_ctx);
+//    onika_ompt_declare_task_context(tsk_ctx);
 
     const bool do_profiling = global_profiling() && profiling();
     const bool open_new_task_region = (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode() ;

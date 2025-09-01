@@ -69,8 +69,14 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debu
 # OpenMP with task and ompt support is appreciated
 # packages and tools
 find_package(OpenMP REQUIRED)
+
+if(OpenMP_CXX_FLAGS MATCHES "-fopenmp=.*")
+  set(OpenMP_CXX_FLAGS -fopenmp)
+endif()
 list(APPEND ONIKA_LIBRARIES ${OpenMP_CXX_LIBRARIES})
 list(APPEND ONIKA_COMPILE_OPTIONS ${OpenMP_CXX_FLAGS})
+message(STATUS "OpenMP_CXX_LIBRARIES=${OpenMP_CXX_LIBRARIES} , OpenMP_CXX_FLAGS=${OpenMP_CXX_FLAGS}")
+#list(APPEND ONIKA_LIBRARIES OpenMP::OpenMP_CXX)
 
 # for export to onika-config file
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "find_package(OpenMP REQUIRED)\n")

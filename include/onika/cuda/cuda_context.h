@@ -236,6 +236,9 @@ namespace onika
   namespace cuda
   {
 
+    inline constexpr long onika_dim3_size(const onikaDim3_t& d) { return d.x*d.y*d.z; }
+    inline constexpr long onika_dim3_size(long d) { return d; }
+
     struct CudaDevice
     {
       onikaDeviceProp_t m_deviceProp;
