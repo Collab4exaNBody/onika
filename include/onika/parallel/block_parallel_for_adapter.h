@@ -5,13 +5,7 @@
 #include <onika/parallel/parallel_execution_debug.h>
 #include <omp.h>
 
-// clang requires detach clause to use a variable that is explicitly listed in a data sharing clause,
-// while GCC and NVCC don't want it to be declared prior to detach clause
-#ifdef __clang__
-#define OMP_DETACH_CLAUSE(var) firstprivate(var) detach(var)
-#else
-#define OMP_DETACH_CLAUSE(var) detach(var)
-#endif
+#include <condition_variable>
 
 namespace onika
 {
@@ -20,8 +14,10 @@ namespace onika
 
     struct ExecOpenMPTaskCallbackInfo
     {
-      omp_event_handle_t cu_stream_sync_event;
-      std::mutex next_operation_sync;
+      std::condition_variable m_cv;
+      std::mutex m_mutex;
+      bool m_task_start = false;
+      bool m_task_done = false;
     };
 
     // ========================== GPU execution kernels ==========================
@@ -390,12 +386,28 @@ namespace onika
 
       static inline void execute_omp_inner_taskloop_cb( void* userData )
       {
-        // first we trigger execution of OpenMP task
         ExecOpenMPTaskCallbackInfo * cb_info = reinterpret_cast<ExecOpenMPTaskCallbackInfo*>(userData);
-        omp_fulfill_event( cb_info->cu_stream_sync_event );
 
+        // first we trigger execution of OpenMP task
+        if( cb_info != nullptr )
+        {
+          std::unique_lock<std::mutex> lk(cb_info->m_mutex);
+          cb_info->m_task_start = true;
+          lk.unlock();
+          cb_info->m_cv.notify_one();
+        }
+        
+        //printf("OMP task unlocked, waiting for it to finish ...\n");
+        
         // then we wait until it finishes and unlock this
-        cb_info->next_operation_sync.lock();
+        if( cb_info != nullptr )
+        {
+          std::unique_lock<std::mutex> lk(cb_info->m_mutex);
+          cb_info->m_cv.wait( lk , [cb_info]{ return cb_info->m_task_done; } );
+          cb_info->~ExecOpenMPTaskCallbackInfo();
+        }
+
+        //printf("OMP terminated ...\n");
       }
 
       inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks ) const override final
@@ -415,22 +427,16 @@ namespace onika
         {
           if( pec->m_host_scratch.available_data_bytes() < sizeof(ExecOpenMPTaskCallbackInfo) )
           {
-            fatal_error() << "Internal error: not enaough functor scratch space left to chain OpenMP task to CU stream" << std::endl;
+            fatal_error() << "Internal error: not enough functor scratch space left to chain OpenMP task to CU stream" << std::endl;
           }
-          // we schedule an empty task wich uses depend(inout:pes[0]) like all other parallel tasks,
-          // and we also add a detach clause to be able to trigger its completion event from an other thread.
-          // finally, we enqueue a host function (execute_omp_inner_taskloop_cb) in cuda stream
-          // which execution calls omp_fulfill_event so that it triggers completion of previously scheduled empty task,
+          
+          // enqueue a host function (execute_omp_inner_taskloop_cb) in cuda stream
+          // which execution calls unleash OpenMP task execution so that it triggers completion of previously scheduled empty task,
           // which in turn unlock real parallel OpenMP taskloop through depend clause
           cb_info = new(pec->m_host_scratch.alloc_functor_data(sizeof(ExecOpenMPTaskCallbackInfo))) ExecOpenMPTaskCallbackInfo{};
-          omp_event_handle_t sync_event;
-          std::memset( & sync_event , 0 , sizeof(omp_event_handle_t) );
-#         pragma omp task default(none) firstprivate(self,pec,pes,ntasks) depend(inout:pes[0]) OMP_DETACH_CLAUSE(sync_event)
-          {
-            if(int(ntasks)<0) { printf("ERROR: ntasks=%d\n",int(ntasks)); }
-          }
-          cb_info->cu_stream_sync_event = sync_event;
-          cb_info->next_operation_sync.lock();
+          assert( cb_info->m_task_start == false );    
+          assert( cb_info->m_task_done == false );    
+          cb_info->m_task_start = ( ONIKA_CU_STREAM_QUERY( pes->m_cu_stream ) == onikaSuccess );
           ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , execute_omp_inner_taskloop_cb , cb_info );
         }
 
@@ -441,8 +447,30 @@ namespace onika
         // referenced variables must be privately copied, because the task may run after this function ends
 #       pragma omp task default(none) firstprivate(self,pec,pes,ntasks,cb_info) depend(inout:pes[0])
         {
+          if( cb_info != nullptr )
+          {
+            std::unique_lock<std::mutex> lk(cb_info->m_mutex);
+            while( ! cb_info->m_task_start )
+            {
+              lk.unlock();
+#             pragma omp taskyield // try to be OpenMP scheduler friendly
+              lk.lock();
+              cb_info->m_cv.wait( lk );
+            }
+          }
+          
+          //printf("OpenMP task start\n");
+          
           execute_omp_inner_taskloop(self,pec,pes,ntasks);
-          if( cb_info != nullptr ) cb_info->next_operation_sync.unlock();
+          
+          //printf("OpenMP task done\n");
+          if( cb_info != nullptr )
+          {
+            std::unique_lock<std::mutex> lk(cb_info->m_mutex);
+            cb_info->m_task_done = true;
+            lk.unlock();
+            cb_info->m_cv.notify_one();
+          }
         }
 
       }
