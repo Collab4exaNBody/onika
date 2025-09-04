@@ -134,7 +134,6 @@ namespace onika
       onikaDim3_t m_block_size = { m_block_threads , 1 , 1 };
       onikaDim3_t m_grid_size = { 0, 0, 0 }; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
       OMPScheduling m_omp_sched = OMP_SCHED_DYNAMIC;
-      //ParallelExecutionSpace m_parallel_space = {};
       bool m_reset_counters = false;
 
       // executuion profiling

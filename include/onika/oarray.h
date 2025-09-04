@@ -87,4 +87,10 @@ namespace onika
     ONIKA_HOST_DEVICE_FUNC inline T* end() { return m_data+m_size; }
   };
 
+  template<class T> struct IsOArray : public std::false_type {};
+  template<class T, size_t N> struct IsOArray< oarray_t<T,N> > : public std::true_type {};
+  template<class T> static inline constexpr bool is_orray_v = IsOArray<T>::value;
+  template<class T> static inline constexpr bool is_integral_orray_v = IsOArray<T>::value;
+  template<class T> concept some_orray_t = is_orray_v<T>;
+  template<class T> concept some_integral_orray_t = requires(T a) { { std::integral_constant< bool , is_orray_v<T> && std::is_integral_v<typename T::value_type> >{} } -> std::same_as<std::true_type>; };
 }

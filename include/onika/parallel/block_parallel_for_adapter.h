@@ -105,7 +105,6 @@ namespace onika
     public:
       inline BlockParallelForHostAdapter( const FuncT& f , const ParExecSpaceT& ps ) : m_func(f) , m_parallel_space(ps) {}
 
-
       // ================ GPU execution interface ======================
 
       // GPU execution prolog
