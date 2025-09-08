@@ -66,7 +66,7 @@ namespace onika
       // is the functor compatible with element dimensionality ? i.e., if space is 1D func( ssize_t(0) ) must be valid, if it is 3D func( oarray_t<ssize_t,3>{0,0,0} ) must be valid
       static constexpr unsigned int FuncParamDim = ( ElemND==0 ) ? ND : ElemND ;
       using FuncParamType = std::conditional_t< FuncParamDim==1 , ssize_t , onikaInt3_t >;
-      static_assert( lambda_is_compatible_with_v<FuncT,void,FuncParamType> , "User defined functor is not compatible with execution space");
+      static_assert( lambda_is_compatible_with_v<FuncT,void,FuncParamType> || lambda_is_compatible_with_v<FuncT,void,block_parallel_for_single_task_t> , "User defined functor is not compatible with execution space");
 
       //static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
       

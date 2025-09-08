@@ -77,7 +77,7 @@ namespace onika
 
         // any_lane()  allows for parallel operation overlapping, auto lane selection and/or kernel split into several kernels
         // data access pattern is reset each time an operation is issued, so we must re-activate it for the next parallel operation, even though it has the same access pattern
-        parallel_execution_queue() << any_lane()
+        parallel_execution_queue() << any_lane
                                    << array1_rw_access << std::move(array1_par_op1)
                                    << array1_rw_access << std::move(array1_par_op2)
                                    << array2_rw_access << std::move(array2_par_op1) 

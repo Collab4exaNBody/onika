@@ -29,6 +29,8 @@ under the License.
 
 #include <omp.h>
 
+
+
 // parallel test core
 void run_test(auto & pq, const auto & parallel_execution_context, std::string_view test_mode )
 {
@@ -36,7 +38,9 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
   using onika::parallel::block_parallel_for;
   using onika::parallel::ParallelExecutionQueueBase;
   using onika::parallel::AccessStencilElement;
+  using onika::parallel::ParallelExecutionSpace;
   using onika::parallel::local_access;
+  using onika::parallel::make_single_task_block_parallel_functor;
 
   Array2D array1;
   Array2D array2;
@@ -47,12 +51,6 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
   BlockParallelValueAddFunctor<false>         array1_kernel2 = { array1, 1.2 };
   BlockParallelIterativeValueAddFunctor<true> array2_kernel1 = { array2, 1.3, 50 };
   BlockParallelValueAddFunctor<false>         array2_kernel2 = { array2, 1.4 };
-
-  // describes an access to array1, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
-  const auto array1_rw_access = local_access(array1.m_data.data(),2,AccessStencilElement::RW,"a1_rw");
-  
-  // describes an access to array2, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
-  const auto array2_rw_access = local_access(array2.m_data.data(),2,AccessStencilElement::RW,"a2_rw");
 
   // Launching the parallel operation, which can execute on GPU if the execution context allows
   // result of parallel operation construct is captured into variable 'my_addition',
@@ -67,6 +65,8 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
 
   // we finally create a third parallel operation we want to execute concurrently with the two others
   auto array2_par_op2 = block_parallel_for( array2.rows(), array2_kernel2, parallel_execution_context("Array2","Kernel2") );
+
+  std::shared_ptr<std::mutex> user_task_start_sync;
 
   if( test_mode == "hybrid-delayed-lane" )
   {
@@ -91,6 +91,29 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
     // simple hybrid execution test
     pq << std::move(array1_par_op1) << std::move(array1_par_op2) << std::move(array2_par_op1) << std::move(array2_par_op2);
   }
+  else if( test_mode == "singletask-dependency" )
+  {
+    // describes an access to array1, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
+    const auto array1_rw_access = local_access(array1.m_data.data(),2,AccessStencilElement::RW,"a1_rw");
+    const ParallelExecutionSpace<2> single_task_data_space = { {64,64} , {980,980} };
+
+    user_task_start_sync = std::make_shared<std::mutex> ();
+    user_task_start_sync->lock();
+
+    auto single_task = make_single_task_block_parallel_functor( [user_task_start_sync]()
+      {
+        user_task_start_sync->lock();
+        std::cout<<"User single task code execution"<<std::endl;
+      }
+    );
+    
+    pq << onika::parallel::any_lane
+       << array1_rw_access 
+       << block_parallel_for( single_task_data_space, single_task, parallel_execution_context("Array1","UnlockTask1") );
+    
+    // describes an access to array2, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
+    //const auto array2_rw_access = local_access(array2.m_data.data(),2,AccessStencilElement::RW,"a2_rw");
+  }
   else
   {
     std::cerr<<"unknown test mode "<<test_mode<<std::endl;
@@ -100,6 +123,12 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
 
   std::cout << "Schedule parallel operations ..." << std::endl;
   pq << onika::parallel::flush;
+
+  if( user_task_start_sync != nullptr )
+  {
+    std::cout << "User unlock of parallel task" << std::endl;
+    user_task_start_sync->unlock();
+  }
 
   std::cout << "Synchronize parallel operations ..." << std::endl;
   pq <<  onika::parallel::synchronize ;
@@ -123,6 +152,8 @@ int main(int argc,char*argv[])
   onika::app::ApplicationConfiguration config = {};
   onika::app::intialize_openmp( config );
   onika::app::initialize_gpu( config );
+
+  std::cout << "ParallelExecutionContext = "<< sizeof(ParallelExecutionContext)<<" bytes"<<std::endl;
 
   if( CudaContext::default_cuda_ctx() != nullptr )
   {

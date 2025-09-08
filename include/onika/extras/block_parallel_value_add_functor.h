@@ -3,6 +3,7 @@
 #include <onika/parallel/block_parallel_for.h>
 #include <onika/cuda/cuda.h>
 #include <onika/extras/array2d.h>
+#include <mutex>
 
 // a specific namespace for our application space
 namespace onika

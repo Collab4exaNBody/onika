@@ -3,6 +3,7 @@
 #include <onika/cuda/cuda.h>
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/lambda_tools.h>
+#include <concepts>
 
 namespace onika
 {
@@ -55,26 +56,6 @@ namespace onika
       virtual inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int num_tasks ) const {}
       virtual inline void execute_epilog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
 
-      // Host individual task execution interface
-      virtual inline void operator () (uint64_t i) const {}
-      virtual inline void operator () (uint64_t i, uint64_t end) const { for(;i<end;i++) this->operator () (i); }
-      virtual inline void operator () (const uint64_t * __restrict__ idx, uint64_t N) const { for(uint64_t i=0;i<N;i++) this->operator () (idx[i]); }
-
-      virtual inline void operator () (const onikaInt3_t& c) const {}
-      virtual inline void operator () (const onikaInt3_t& s, const onikaInt3_t& e) const
-      {
-        for(ssize_t k=s.z;k<e.z;k++) 
-        for(ssize_t j=s.y;j<e.y;j++) 
-        for(ssize_t i=s.x;i<e.x;i++)
-        {
-          this->operator () ( onikaInt3_t{i,j,k} );
-        }
-      }
-      virtual inline void operator () (const onikaInt3_t * __restrict__ idx, uint64_t N) const
-      {
-        for(uint64_t i=0;i<N;i++) this->operator () ( idx[i] );
-      }
-
       // GPU Kernel launch interface
       virtual inline void stream_gpu_initialize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
       virtual inline void stream_gpu_kernel(ParallelExecutionContext*,ParallelExecutionStream*) const {}
@@ -83,6 +64,27 @@ namespace onika
       // destructor
       virtual inline ~BlockParallelForHostFunctor() {}
     };
+
+
+    // utility template to implement host controlled single task parallel operation
+    template<class FuncT>
+    requires std::invocable<FuncT&>
+    struct BlockParallelSingleTaskFunctor
+    {
+      FuncT m_func;
+      inline void operator () ( parallel::block_parallel_for_single_task_t ) const // single task parallel operation
+      {
+        //printf("Executing single task\n");
+        m_func();
+      }
+    };
+    
+    template<class FuncT>
+    requires std::invocable<FuncT&>
+    inline auto make_single_task_block_parallel_functor( const FuncT& f )
+    {
+      return BlockParallelSingleTaskFunctor<FuncT>{ f };
+    }
 
   }
 }

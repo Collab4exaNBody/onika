@@ -85,8 +85,6 @@ namespace onika
       static inline constexpr unsigned int FuncParamDim = ( ElemND==0 ) ? ND : ElemND ;
       static_assert( FuncParamDim>=1 && FuncParamDim<=3 );
       using FuncParamType = std::conditional_t< FuncParamDim==1 , ssize_t , onikaInt3_t >;
-      static_assert( lambda_is_compatible_with_v<FuncT,void,FuncParamType> , "User defined functor is not compatible with execution space");
-
       using ParExecSpaceT = ParallelExecutionSpace<ND,ElemND,ElementListT>;
 
       static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
@@ -97,6 +95,7 @@ namespace onika
       static inline constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_epilog_t,ParallelExecutionStream*>;
       static inline constexpr bool functor_is_single_task = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_single_task_t>;
 
+      static_assert( lambda_is_compatible_with_v<FuncT,void,FuncParamType> || functor_is_single_task , "User defined functor is not compatible with execution space");
       static_assert( !GPUSupport || !functor_is_single_task );
 
       const FuncT m_func;
@@ -379,8 +378,6 @@ namespace onika
           (* pec->m_execution_end_callback.m_func) ( pec->m_execution_end_callback.m_data );
         }
 
-        // finally, notify that one less OpenMP task is executing
-        pes->m_omp_execution_count.fetch_sub(1);
       }
 
       static inline void execute_omp_inner_taskloop_cb( void* userData )
@@ -433,9 +430,8 @@ namespace onika
           // which execution calls unleash OpenMP task execution so that it triggers completion of previously scheduled empty task,
           // which in turn unlock real parallel OpenMP taskloop through depend clause
           cb_info = new(pec->m_host_scratch.alloc_functor_data(sizeof(ExecOpenMPTaskCallbackInfo))) ExecOpenMPTaskCallbackInfo{};
-          assert( cb_info->m_task_start == false );    
-          assert( cb_info->m_task_done == false );    
           cb_info->m_task_start = ( ONIKA_CU_STREAM_QUERY( pes->m_cu_stream ) == onikaSuccess );
+          cb_info->m_task_done = false;
           ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , execute_omp_inner_taskloop_cb , cb_info );
         }
 
@@ -448,14 +444,17 @@ namespace onika
         {
           if( cb_info != nullptr )
           {
+            //printf("OpenMP task wait task start signal\n");
             std::unique_lock<std::mutex> lk(cb_info->m_mutex);
-            while( ! cb_info->m_task_start )
-            {
-              lk.unlock();
-#             pragma omp taskyield // try to be OpenMP scheduler friendly
-              lk.lock();
-              cb_info->m_cv.wait( lk );
-            }
+            cb_info->m_cv.wait( lk , [cb_info]() -> bool
+              {
+                if( ! cb_info->m_task_start )
+                {
+#                 pragma omp taskyield // OpenMP scheduler friendly
+                }
+                return cb_info->m_task_start;
+              }
+            );
           }
           
           //printf("OpenMP task start\n");
@@ -470,7 +469,10 @@ namespace onika
             lk.unlock();
             cb_info->m_cv.notify_one();
           }
-        }
+ 
+          // finally, notify that one less OpenMP task is executing
+          pes->m_omp_execution_count.fetch_sub(1);
+        } // end of encapsulating task
 
       }
 
@@ -481,37 +483,6 @@ namespace onika
 #       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
         dmesg_end_omp(pec);
 #       endif
-      }
-
-      // ================ CPU individual task execution interface ======================
-      inline void operator () (uint64_t i) const override final
-      {
-        if constexpr (FuncParamDim==1) { m_func(i); }
-      }
-      inline void operator () (const onikaInt3_t& c) const override final
-      {
-        if constexpr (FuncParamDim>1) { m_func(c); }
-      }
-      inline void operator () (uint64_t i, uint64_t end) const override final
-      {
-        for(;i<end;i++) this->operator () (i);
-      }
-      inline void operator () (const uint64_t * __restrict__ idx, uint64_t N) const override final
-      {
-        for(uint64_t i=0;i<N;i++) this->operator () (idx[i]);
-      }
-      inline void operator () (const onikaInt3_t& s, const onikaInt3_t& e) const override final
-      {
-        for(ssize_t k=s.z;k<e.z;k++)
-        for(ssize_t j=s.y;j<e.y;j++)
-        for(ssize_t i=s.x;i<e.x;i++)
-        {
-          this->operator () ( onikaInt3_t{i,j,k} );
-        }
-      }
-      inline void operator () (const onikaInt3_t * __restrict__ idx, uint64_t N) const override final
-      {
-        for(uint64_t i=0;i<N;i++) this->operator () ( idx[i] );
       }
 
       inline ~BlockParallelForHostAdapter() override {}

@@ -48,8 +48,8 @@ namespace onika
         , int omp_num_tasks = -1 // -1 means autodetectect, 0 => means fork-join parallelism (parallel/for construct)
         , ParallelExecutionFinalize && on_terminate_func = {nullptr,nullptr} );
         
-      void destroy(ParallelExecutionContext* pec);
-      static void destroy_cb(ParallelExecutionContext* pec, void * v_self);
+      void free(ParallelExecutionContext* pec);
+      static void free_cb(ParallelExecutionContext* pec, void * v_self);
     };
   }
 

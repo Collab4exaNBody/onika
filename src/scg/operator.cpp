@@ -558,7 +558,7 @@ namespace onika { namespace scg
     const std::lock_guard<std::mutex> lock(self->m_parallel_execution_access);
     self->m_total_gpu_time += pec->m_total_gpu_execution_time;
     self->m_total_async_cpu_time += pec->m_total_cpu_execution_time;
-    self->m_parallel_execution_context_allocator.destroy(pec);
+    self->m_parallel_execution_context_allocator.free(pec);
   }
 
   OperatorNode * OperatorNode::task_group_ancestor()

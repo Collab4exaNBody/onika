@@ -42,7 +42,7 @@ namespace onika
 
     struct set_lane_t { int m_lane = UNDEFINED_EXECUTION_LANE; };
     static inline constexpr set_lane_t set_lane(int l) { return { l }; }
-    static inline constexpr set_lane_t any_lane() { return {}; }
+    static inline constexpr set_lane_t any_lane = set_lane(0); // () { return {}; }
 
     // real implementation of how a parallel operation is pushed onto a stream queue
     template< std::derived_from<ParallelExecutionQueueBase> PEQ >

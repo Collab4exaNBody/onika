@@ -95,12 +95,12 @@ namespace onika
         pec->m_default_queue = default_queue_ptr;
         pec->m_omp_num_tasks = omp_num_tasks;
         pec->initialize_stream_events();
-        if( on_terminate_func.m_func == nullptr ) pec->m_finalize = ParallelExecutionFinalize {destroy_cb,this};
+        if( on_terminate_func.m_func == nullptr ) pec->m_finalize = ParallelExecutionFinalize {free_cb,this};
         else pec->m_finalize = std::move(on_terminate_func);
         return pec;
       }
 
-      void ParallelExecutionContextAllocator::destroy(ParallelExecutionContext* pec)
+      void ParallelExecutionContextAllocator::free(ParallelExecutionContext* pec)
       {
         assert( pec != nullptr );
         pec->reset();
@@ -112,11 +112,11 @@ namespace onika
         m_allocated_parallel_execution_contexts.erase( it );
       }
 
-      void ParallelExecutionContextAllocator::destroy_cb(ParallelExecutionContext* pec, void * v_self)
+      void ParallelExecutionContextAllocator::free_cb(ParallelExecutionContext* pec, void * v_self)
       {
         ParallelExecutionContextAllocator* self = reinterpret_cast<ParallelExecutionContextAllocator*>( v_self );
         assert( self != nullptr );
-        self->destroy(pec);
+        self->free(pec);
       }
 
   }
