@@ -102,14 +102,26 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
 
     auto single_task = make_single_task_block_parallel_functor( [user_task_start_sync]()
       {
+        std::cout<<"User single task waiting for start ready mutex"<<std::endl<< std::flush;
         user_task_start_sync->lock();
-        std::cout<<"User single task code execution"<<std::endl;
+        std::cout<<"User single task code execution"<<std::endl<< std::flush;
       }
     );
     
-    pq << onika::parallel::any_lane
-       << array1_rw_access 
-       << block_parallel_for( single_task_data_space, single_task, parallel_execution_context("Array1","UnlockTask1") );
+    //std::cout << "Enqueue single task ..." << std::endl << std::flush;
+    pq  << onika::parallel::any_lane
+        << array1_rw_access 
+        << block_parallel_for( single_task_data_space, single_task, parallel_execution_context("Array1","UnlockTask1") )
+
+    //std::cout << "Enqueue 1st parallel task ..." << std::endl << std::flush;
+        << onika::parallel::any_lane
+        << array1_rw_access 
+        << std::move(array1_par_op1)
+
+    //std::cout << "Enqueue 2nd parallel task ..." << std::endl << std::flush;
+        << onika::parallel::any_lane
+        << array1_rw_access 
+        << std::move(array1_par_op2);
     
     // describes an access to array2, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
     //const auto array2_rw_access = local_access(array2.m_data.data(),2,AccessStencilElement::RW,"a2_rw");
@@ -121,18 +133,18 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
     std::abort();
   }
 
-  std::cout << "Schedule parallel operations ..." << std::endl;
-  pq << onika::parallel::flush;
-
   if( user_task_start_sync != nullptr )
   {
-    std::cout << "User unlock of parallel task" << std::endl;
+    std::cout << "User unlock of parallel task" << std::endl << std::flush;
     user_task_start_sync->unlock();
   }
 
-  std::cout << "Synchronize parallel operations ..." << std::endl;
+  std::cout << "Schedule parallel operations ..." << std::endl << std::flush;
+  pq << onika::parallel::flush;
+
+  std::cout << "Synchronize parallel operations ..." << std::endl << std::flush;
   pq <<  onika::parallel::synchronize ;
-  std::cout << "done" << std::endl;
+  std::cout << "done" << std::endl << std::flush;
 }
 
 

@@ -384,6 +384,8 @@ namespace onika
       {
         ExecOpenMPTaskCallbackInfo * cb_info = reinterpret_cast<ExecOpenMPTaskCallbackInfo*>(userData);
 
+        //printf("Stream sync task waiting for task ready signal ...\n");
+
         // first we trigger execution of OpenMP task
         if( cb_info != nullptr )
         {
@@ -393,7 +395,7 @@ namespace onika
           cb_info->m_cv.notify_one();
         }
         
-        //printf("OMP task unlocked, waiting for it to finish ...\n");
+        //printf("Stream sync task unlocked, waiting for it to finish ...\n");
         
         // then we wait until it finishes and unlock this
         if( cb_info != nullptr )
@@ -403,7 +405,7 @@ namespace onika
           cb_info->~ExecOpenMPTaskCallbackInfo();
         }
 
-        //printf("OMP terminated ...\n");
+        //printf("Stream sync task terminated\n");
       }
 
       inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks ) const override final

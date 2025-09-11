@@ -100,15 +100,6 @@ namespace onika
       // this is set only after current operations has been scheduled
       ParallelExecutionStream* m_stream = nullptr;
 
-      // lane, i.e. index of execution stream this operation is executing on
-      int m_lane = UNDEFINED_EXECUTION_LANE;
-
-      // desired number of OpenMP tasks.
-      // m_omp_num_tasks == 0 means no task (opens and then close its own parallel region).
-      // if m_omp_num_tasks > 0, assume we're in a parallel region running on a single thread (parallel->single/master->taskgroup),
-      // thus uses taskloop construcut underneath
-      unsigned int m_omp_num_tasks = 0;
-
       // allows chaining, for stream queues
       ParallelExecutionContext* m_next = nullptr;
 
@@ -127,20 +118,42 @@ namespace onika
       ParallelExecutionCallback m_execution_end_callback = {};
       ParallelExecutionFinalize m_finalize = {};
       const void * m_return_data_input = nullptr;
-      void * m_return_data_output = nullptr;
-      unsigned int m_return_data_size = 0;
+      void * m_return_data_output = nullptr; // where to copy back kernel results (number of bytes retrurned is m_return_data_size)
+
+      // OpenMP preferred scheduling method
+      OMPScheduling m_omp_sched = OMP_SCHED_DYNAMIC;
+      
+      // execution target : OpenMP or Cuda
       ExecutionTarget m_execution_target = EXECUTION_TARGET_OPENMP;
-      unsigned int m_block_threads = ONIKA_CU_MAX_THREADS_PER_BLOCK;
+
+     // number of bytes returned, and copied-back from GPU kernel
+      uint16_t m_return_data_size = 0;
+      
+      // preferred number of threads per block for GPU kernels
+      uint16_t m_block_threads = ONIKA_CU_MAX_THREADS_PER_BLOCK;
+
+      // lane, i.e. index of execution stream this operation is executing on
+      int16_t m_lane = UNDEFINED_EXECUTION_LANE;
+
+      // desired number of OpenMP tasks.
+      // m_omp_num_tasks == 0 means no task (opens and then close its own parallel region).
+      // if m_omp_num_tasks > 0, assume we're in a parallel region running on a single thread (parallel->single/master->taskgroup),
+      // thus uses taskloop construcut underneath
+      uint16_t m_omp_num_tasks = 0;
+
+      // GPU kernel preferred block size and grid dimension
       onikaDim3_t m_block_size = { m_block_threads , 1 , 1 };
       onikaDim3_t m_grid_size = { 0, 0, 0 }; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
-      OMPScheduling m_omp_sched = OMP_SCHED_DYNAMIC;
-      bool m_reset_counters = false;
 
       // executuion profiling
       onikaEvent_t m_start_evt = nullptr;
       onikaEvent_t m_stop_evt = nullptr;
       double m_total_cpu_execution_time = 0.0;
       double m_total_gpu_execution_time = 0.0;
+
+      // Tells if device side scratch space, mainly used for internal counters,
+      // should be reset to 0 prior to execution
+      bool m_reset_counters = false;
 
       void initialize_stream_events();
       void reset();

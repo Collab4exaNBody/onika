@@ -184,6 +184,7 @@ static inline constexpr int onikaErrorNotReady = 0;
 #define ONIKA_CU_MEM_PREFETCH                _fake_cuda_api_noop
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING  _fake_cuda_api_noop
 #define ONIKA_CU_STREAM_ADD_CALLBACK         _fake_cuda_api_noop
+#define ONIKA_CU_STREAM_QUERY                _fake_cuda_api_noop
 #define ONIKA_CU_CREATE_EVENT(EVT)           _fake_cuda_api_noop(EVT=nullptr)
 #define ONIKA_CU_DESTROY_EVENT(EVT)          _fake_cuda_api_noop(EVT=nullptr)
 #define ONIKA_CU_STREAM_EVENT(EVT,STREAM)    _fake_cuda_api_noop(EVT,STREAM)
