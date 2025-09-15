@@ -32,7 +32,7 @@ under the License.
 
 
 // parallel test core
-void run_test(auto & pq, const auto & parallel_execution_context, std::string_view test_mode )
+void run_test(auto & pq, const auto & parallel_execution_context, std::string_view test_mode, bool kernel_1d = true )
 {
   using namespace onika::extras;
   using onika::parallel::block_parallel_for;
@@ -42,10 +42,17 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
   using onika::parallel::local_access;
   using onika::parallel::make_single_task_block_parallel_functor;
 
+  static constexpr ssize_t array_rows = 1024;
+  static constexpr ssize_t array_cols = 1024;
+  const ParallelExecutionSpace<2> array_range_2d = { { 0 , 0 } , { array_rows , array_cols } };
+
+  if( kernel_1d ) std::cout<<"1D kernel parallelization space"<<std::endl;
+  else std::cout<<"2D kernel parallelization space"<<std::endl;
+
   Array2D array1;
   Array2D array2;
-  array1.resize( 1024 , 1024 );
-  array2.resize( 1024 , 1024 );
+  array1.resize( array_rows , array_cols );
+  array2.resize( array_rows , array_cols );
 
   BlockParallelIterativeValueAddFunctor<true> array1_kernel1 = { array1, 1.1, 50 };
   BlockParallelValueAddFunctor<false>         array1_kernel2 = { array1, 1.2 };
@@ -55,16 +62,24 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
   // Launching the parallel operation, which can execute on GPU if the execution context allows
   // result of parallel operation construct is captured into variable 'my_addition',
   // thus it can be scheduled in a stream queue for asynchronous execution rather than being executed right away
-  auto array1_par_op1 = block_parallel_for( array1.rows(), array1_kernel1, parallel_execution_context("Array1","Kernel1") );
+  auto array1_par_op1 = kernel_1d ?
+                        block_parallel_for( array1.rows() , array1_kernel1, parallel_execution_context("Array1","Kernel1") )
+                      : block_parallel_for( array_range_2d, array1_kernel1, parallel_execution_context("Array1","Kernel1") );
 
   // we create a second parallel operation we want to execute sequentially after the first addition
-  auto array1_par_op2 = block_parallel_for( array1.rows(), array1_kernel2, parallel_execution_context("Array1","Kernel2") );
+  auto array1_par_op2 = kernel_1d ?
+                        block_parallel_for( array1.rows() , array1_kernel2, parallel_execution_context("Array1","Kernel2") )
+                      : block_parallel_for( array_range_2d, array1_kernel2, parallel_execution_context("Array1","Kernel2") );
 
   // we finally create a third parallel operation we want to execute concurrently with the two others
-  auto array2_par_op1 = block_parallel_for( array2.rows(), array2_kernel1, parallel_execution_context("Array2","Kernel1") );
+  auto array2_par_op1 = kernel_1d ?
+                        block_parallel_for( array2.rows() , array2_kernel1, parallel_execution_context("Array2","Kernel1") )
+                      : block_parallel_for( array_range_2d, array2_kernel1, parallel_execution_context("Array2","Kernel1") );
 
   // we finally create a third parallel operation we want to execute concurrently with the two others
-  auto array2_par_op2 = block_parallel_for( array2.rows(), array2_kernel2, parallel_execution_context("Array2","Kernel2") );
+  auto array2_par_op2 = kernel_1d ?
+                        block_parallel_for( array2.rows() , array2_kernel2, parallel_execution_context("Array2","Kernel2") )
+                      : block_parallel_for( array_range_2d, array2_kernel2, parallel_execution_context("Array2","Kernel2") );
 
   std::shared_ptr<std::mutex> user_task_start_sync;
 
@@ -157,8 +172,10 @@ int main(int argc,char*argv[])
 
   std::string test_mode = "hybrid-lane";
   std::string omp_mode = "task";
+  std::string parallel_dims = "1d";
   if( argc > 1 ) test_mode = argv[1];
   if( argc > 2 ) omp_mode = argv[2];
+  if( argc > 3 ) parallel_dims = argv[3];
 
   // application initialization
   onika::app::ApplicationConfiguration config = {};
@@ -181,6 +198,8 @@ int main(int argc,char*argv[])
     std::abort();
   }
 
+  const bool kernel_1d = ( parallel_dims=="1d" || parallel_dims=="1D" );
+
   // convinience function to allocate parallel task contexts
   auto & pq = ParallelExecutionQueue::default_queue();
   ParallelExecutionContextAllocator peca;
@@ -199,14 +218,14 @@ int main(int argc,char*argv[])
       {
 #       pragma omp taskgroup
         {
-          run_test(pq,parallel_execution_context,test_mode);
+          run_test(pq,parallel_execution_context,test_mode,kernel_1d);
         }
       }
     }
   }
   else
   {
-    run_test(pq,parallel_execution_context,test_mode);
+    run_test(pq,parallel_execution_context,test_mode,kernel_1d);
   }
 
   return 0;

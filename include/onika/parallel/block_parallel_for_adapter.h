@@ -104,6 +104,15 @@ namespace onika
     public:
       inline BlockParallelForHostAdapter( const FuncT& f , const ParExecSpaceT& ps ) : m_func(f) , m_parallel_space(ps) {}
 
+      // parallel execution space info
+      inline unsigned int execution_space_ndims() const override final { return m_parallel_space.space_nd(); }
+      inline size_t execution_space_nitems() const override final { return m_parallel_space.number_of_items(); }
+      inline bool is_single_task() const override final { return functor_is_single_task; }
+      inline size_t execution_space_range(ssize_t * buf, size_t bufsz) const override final
+      {
+        return coord_range_to_array(buf,bufsz,m_parallel_space.m_start,m_parallel_space.m_end);
+      }
+
       // ================ GPU execution interface ======================
 
       // GPU execution prolog

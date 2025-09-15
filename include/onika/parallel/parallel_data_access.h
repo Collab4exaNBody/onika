@@ -33,19 +33,23 @@ namespace onika
 
     struct AccessStencilElement
     {
+      static inline constexpr uint8_t NA = 0x00; // No access, should'nt be used at all
       static inline constexpr uint8_t RO = 0x01;
       static inline constexpr uint8_t WO = 0x02;
       static inline constexpr uint8_t RW = 0x03;
+      static inline constexpr const char * ACC_STR[4] = { "NA","RO","WO","RW" };
       uint8_t m_relative_access = 0;
       inline constexpr AccessStencilElement( unsigned int mode = RO , int ri=0 , int rj=0 , int rk=0 )
       {
         assert( mode<=3 && ri>=-1 && ri<=1 && rj>=-1 && rj<=1 && rk>=-1 && rk<=1 );
         m_relative_access = mode | uint8_t(ri+1)<<2 | uint8_t(rj+1)<<4 | uint8_t(rk+1)<<6 ;
       }
-      inline constexpr unsigned int mode() const { return m_relative_access & 0x3; }
+      inline constexpr unsigned int mode() const { return m_relative_access & 0x03; }
+      inline constexpr const char* mode_str() const { return ACC_STR[mode()]; }
       inline constexpr int ri() const { return int( ( m_relative_access>>2 ) & 0x3 ) - 1; }
       inline constexpr int rj() const { return int( ( m_relative_access>>4 ) & 0x3 ) - 1; }
       inline constexpr int rk() const { return int( ( m_relative_access>>6 ) & 0x3 ) - 1; }
+      
     };
 
     struct ParallelDataAccess
@@ -74,6 +78,7 @@ namespace onika
         m_name[ std::min( sv.size() , MAX_NAME_LENGTH-1 ) ] = '\0';
       }
       inline void set_address(const void * p) { assert( p != nullptr ); m_data_ptr = p; }
+      inline const void* address() const { return m_data_ptr; }
       inline const char* name() const { return m_name; }
     };
 

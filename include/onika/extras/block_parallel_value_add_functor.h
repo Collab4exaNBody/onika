@@ -42,6 +42,15 @@ namespace onika
           m_array[i][j] += m_value_to_add; // each thread executes 0, 1, or multiple iterations of j
         }
       }
+
+      ONIKA_HOST_DEVICE_FUNC                   // works on CPU and GPU
+      inline void operator () (const onikaInt3_t& c) const // call operator with i in [0;n[
+      {
+        const auto i = c.x;
+        const auto j = c.y;
+        m_array[i][j] += m_value_to_add; // each thread executes 0, 1, or multiple iterations of j
+      }
+
     };
 
     template<bool AllowGpuExec = true>
@@ -67,6 +76,22 @@ namespace onika
           m_array[i][j] = x * y;
         }
       }
+
+      ONIKA_HOST_DEVICE_FUNC            // works on CPU and GPU
+      inline void operator () (const onikaInt3_t& c) const // call operator with i in [0;n[
+      {                                 // a whole block (all its threads) execute iteration i
+        const auto i = c.x;
+        const auto j = c.y;
+        double x = m_array[i][j];
+        double y = pow(x,sin(x));
+        for(long k=0;k<m_iterations;k++)
+        {
+          x = x + y + m_value_to_add;
+          y = pow(x, sin(x) );
+        }
+        m_array[i][j] = x * y;
+      }
+
     };
     
   }

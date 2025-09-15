@@ -110,20 +110,48 @@ namespace onika
 
     void ParallelExecutionQueueBase::pre_process_queue( ParallelExecutionContext* head )
     {
-      bool all_undefined_lane = true;
-      bool all_have_explicit_data_access = true;
+      int task_cnt = 0;
+      int undefined_lane_cnt = 0;
+      int explicit_data_access_cnt = 0;
       ParallelExecutionContext* pec = head;
       while( pec != nullptr )
       {
-        all_undefined_lane = all_undefined_lane && ( pec->m_lane == UNDEFINED_EXECUTION_LANE );
-        all_have_explicit_data_access = all_have_explicit_data_access && ( ! pec->m_data_access.empty() );
+        if( pec->m_lane == UNDEFINED_EXECUTION_LANE ) ++ undefined_lane_cnt;
+        if( ! pec->m_data_access.empty() ) ++ explicit_data_access_cnt;
+        ++ task_cnt;
         pec = pec->m_next;
       }
-      if( ! ( all_undefined_lane && all_have_explicit_data_access ) ) return;  
-      else
+      printf("pre_process_queue : task_cnt=%d, undefined_lane=%d, data_access=%d\n",task_cnt,undefined_lane_cnt,explicit_data_access_cnt);
+
+      if( undefined_lane_cnt==task_cnt && explicit_data_access_cnt==task_cnt && task_cnt>0 )
       {
         // do some lane assignment here
+        printf("optimizable sequence detected head=%p\n",head);
+        pec = head;
+        while( pec != nullptr )
+        {
+          const auto & pfor_adapter = get_block_parallel_functor( pec );
+          const int ndims = pfor_adapter.execution_space_ndims();
+          ssize_t crange[6];
+          size_t n = pfor_adapter.execution_space_range(crange,6);
+          printf(" %s/%s,%dD",pec->m_tag,pec->m_sub_tag,ndims);
+          for(size_t i=0;i<n;i++) printf("%c%d", i==0 ? '[' : ( i==n/2 ? '-' : ',' ) , int(crange[i]));
+          printf("]=%d",int(pfor_adapter.execution_space_nitems()));
+          for(const auto & pda : pec->m_data_access)
+          {
+            printf(",%s@%p",pda.name(),pda.address());
+            for(const auto & st : pda.m_stencil)
+            {
+              if(ndims>=3) printf(",%s@%d,%d,%d",st.mode_str(),st.ri(),st.rj(),st.rk());
+              else if(ndims==2) printf(",%s@%d,%d",st.mode_str(),st.ri(),st.rj());
+              else printf(",%s@%d",st.mode_str(),st.ri());
+            }
+          }
+          printf("\n");
+          pec = pec->m_next;
+        }
       }
+      
     }
 
   
@@ -181,7 +209,7 @@ namespace onika
     void ParallelExecutionQueue::schedule_all(int lane)
     {
       const std::lock_guard lk_self( m_mutex );
-      // queue preprocessing here ...
+      pre_process_queue( m_queue_list );
       auto [nql,nsl] = schedule_filter_list( m_queue_list , lane );
       m_queue_list = nql;
       m_exec_list = pec_list_append( m_exec_list , nsl );
@@ -211,7 +239,7 @@ namespace onika
       std::lock_guard lk_stream( exec_stream->m_mutex );      
 
       pec->m_stream = exec_stream;
-      const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( pec->m_host_scratch.functor_data );
+      const auto & func = get_block_parallel_functor( pec );
       
       switch( pec->m_execution_target )
       {

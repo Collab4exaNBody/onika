@@ -104,6 +104,23 @@ namespace onika
       return elements;
     }
 
+    template<some_space_coord CoordRangeT>
+    inline size_t coord_range_to_array( ssize_t * array, size_t arraysize, const CoordRangeT& range_start , const CoordRangeT& range_end )
+    {
+      if( element_coord_nd_v<CoordRangeT>*2 > arraysize ) return 0;
+      if constexpr (std::is_integral_v<CoordRangeT> )
+      {
+        array[0] = range_start;
+        array[1] = range_start;
+      }
+      else
+      {
+        for(auto x:range_start) *(array++) = x;
+        for(auto x:range_end) *(array++) = x;
+      }
+      return element_coord_nd_v<CoordRangeT> * 2;
+    }
+
     template<unsigned int _NDim=1, unsigned int _ElementListNDim=0, class _ElementListT = std::span< const element_coord_t<_ElementListNDim> > >
     struct ParallelExecutionSpace
     {

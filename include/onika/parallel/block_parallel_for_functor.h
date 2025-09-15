@@ -61,6 +61,12 @@ namespace onika
       virtual inline void stream_gpu_kernel(ParallelExecutionContext*,ParallelExecutionStream*) const {}
       virtual inline void stream_gpu_finalize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
 
+      // parallel execution space info
+      virtual inline unsigned int execution_space_ndims() const { return 0; }
+      virtual inline size_t execution_space_nitems() const { return 0; }
+      virtual inline bool is_single_task() const { return false; }
+      virtual inline size_t execution_space_range(ssize_t * buf, size_t bufsz) const { return 0; }
+
       // destructor
       virtual inline ~BlockParallelForHostFunctor() {}
     };
@@ -84,6 +90,11 @@ namespace onika
     inline auto make_single_task_block_parallel_functor( const FuncT& f )
     {
       return BlockParallelSingleTaskFunctor<FuncT>{ f };
+    }
+
+    inline const BlockParallelForHostFunctor & get_block_parallel_functor( ParallelExecutionContext* pec )
+    {
+      return * reinterpret_cast<BlockParallelForHostFunctor*>( pec->m_host_scratch.functor_data );
     }
 
   }
