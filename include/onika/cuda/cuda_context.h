@@ -210,7 +210,7 @@ static inline constexpr int onikaErrorNotReady = 0;
 #include <onika/string_utils.h>
 #include <functional>
 #include <list>
-
+#include <memory>
 
 struct onikaInt3_t
 {
