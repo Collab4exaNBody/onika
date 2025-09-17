@@ -43,6 +43,7 @@ namespace onika
       ParallelExecutionContext* m_queue_list = nullptr;  // head of "ready to be scheduled" parallel operations list
       ParallelDataAccessVector m_data_access;
       std::mutex m_mutex;                                // for thread safe manipulation of queue
+      size_t m_max_lanes_hint = 16;                      // preferred maximum number of lanes to use for auto lane assignment
 
       //ParallelExecutionQueueBase() = default;
       //ParallelExecutionQueueBase(const ParallelExecutionQueueBase&) = delete;
