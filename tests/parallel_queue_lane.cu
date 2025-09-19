@@ -124,17 +124,17 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
     );
     
     //std::cout << "Enqueue single task ..." << std::endl << std::flush;
-    pq  << onika::parallel::any_lane
+    pq  << onika::parallel::any_lane()
         << array1_rw_access 
         << block_parallel_for( single_task_data_space, single_task, parallel_execution_context("Array1","UnlockTask1") )
 
     //std::cout << "Enqueue 1st parallel task ..." << std::endl << std::flush;
-        << onika::parallel::any_lane
+        << onika::parallel::any_lane()
         << array1_rw_access 
         << std::move(array1_par_op1)
 
     //std::cout << "Enqueue 2nd parallel task ..." << std::endl << std::flush;
-        << onika::parallel::any_lane
+        << onika::parallel::any_lane()
         << array1_rw_access 
         << std::move(array1_par_op2);
     

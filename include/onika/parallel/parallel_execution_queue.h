@@ -8,12 +8,19 @@
 #include <onika/parallel/block_parallel_for_functor.h>
 #include <mutex>
 
+#ifndef ONIKA_AUTO_LANE_CYCLE_HINT
+#define ONIKA_AUTO_LANE_CYCLE_HINT 16
+#endif
+
+#ifndef ONIKA_PARALLEL_QUEUE_MAX_LANES
+#define ONIKA_PARALLEL_QUEUE_MAX_LANES 32
+#endif
+
 namespace onika
 {
 
   namespace parallel
   {
-
     // encapsulates a callback function whose purpose is to return
     // an execution stream associated with given execution lane number
     struct ParallelExecutionStreamPool
@@ -39,22 +46,20 @@ namespace onika
     // which content is later pushed to a schedulable execution queue
     struct ParallelExecutionQueueBase
     {
+      // where to place next enqueued parallel operation
       int m_lane = DEFAULT_EXECUTION_LANE;
-      ParallelExecutionContext* m_queue_list = nullptr;  // head of "ready to be scheduled" parallel operations list
+      // preferred maximum number of lanes to use for auto lane assignment
+      int m_auto_lane_cycle = ONIKA_AUTO_LANE_CYCLE_HINT;
+      // head of "ready to be scheduled" parallel operations list
+      ParallelExecutionContext* m_queue_list = nullptr;
+      // data access(es) patterns
       ParallelDataAccessVector m_data_access;
-      std::mutex m_mutex;                                // for thread safe manipulation of queue
-      size_t m_max_lanes_hint = 16;                      // preferred maximum number of lanes to use for auto lane assignment
-
-      //ParallelExecutionQueueBase() = default;
-      //ParallelExecutionQueueBase(const ParallelExecutionQueueBase&) = delete;
-      //ParallelExecutionQueueBase(ParallelExecutionQueueBase&&) = default;
-
-      //ParallelExecutionQueueBase& operator = (const ParallelExecutionQueueBase&) = delete;
-      //ParallelExecutionQueueBase& operator = (ParallelExecutionQueueBase&&) = default;
+      // for thread safe manipulation of queue
+      std::mutex m_mutex;
 
       ~ParallelExecutionQueueBase();
 
-      void set_lane(int l);
+      void set_lane(int l , int lane_cycle = ONIKA_AUTO_LANE_CYCLE_HINT);
       void reset_data_access();
       void add_data_access(const ParallelDataAccess& pda);
       void add_data_access(ParallelDataAccess && pda);
@@ -73,13 +78,6 @@ namespace onika
       static std::shared_ptr<ParallelExecutionStreamAutoAllocator> s_default_stream_allocator;
 
       static ParallelExecutionQueue& default_queue();
-
-      //ParallelExecutionQueue() = default;
-      //ParallelExecutionQueue(const ParallelExecutionQueue&) = delete;
-      //ParallelExecutionQueue(ParallelExecutionQueue&&) = default;
-
-      //ParallelExecutionQueue& operator = (const ParallelExecutionQueue&) = delete;
-      //ParallelExecutionQueue& operator = (ParallelExecutionQueue&&) = default;
 
       ~ParallelExecutionQueue();
 

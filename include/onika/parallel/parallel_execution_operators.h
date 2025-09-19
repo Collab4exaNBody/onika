@@ -40,9 +40,9 @@ namespace onika
     struct synchronize_t {};
     static inline constexpr synchronize_t synchronize = {};
 
-    struct set_lane_t { int m_lane = UNDEFINED_EXECUTION_LANE; };
-    static inline constexpr set_lane_t set_lane(int l) { return { l }; }
-    static inline constexpr set_lane_t any_lane = {};
+    struct set_lane_t { int m_lane = UNDEFINED_EXECUTION_LANE; int m_auto_lane_cycle = ONIKA_AUTO_LANE_CYCLE_HINT; };
+    static inline constexpr set_lane_t set_lane(int l, int lane_cycle = ONIKA_AUTO_LANE_CYCLE_HINT ) { return { l , lane_cycle }; }
+    static inline constexpr set_lane_t any_lane(int lane_cycle = ONIKA_AUTO_LANE_CYCLE_HINT ) { return { UNDEFINED_EXECUTION_LANE , lane_cycle }; }
 
     // real implementation of how a parallel operation is pushed onto a stream queue
     template< std::derived_from<ParallelExecutionQueueBase> PEQ >
@@ -70,9 +70,9 @@ namespace onika
     }
 
     template< std::derived_from<ParallelExecutionQueueBase> PEQ >
-    inline PEQ & operator << ( PEQ & pesq , set_lane_t sl )
+    inline PEQ & operator << ( PEQ & pesq , const set_lane_t& sl )
     {
-      pesq.set_lane( sl.m_lane );
+      pesq.set_lane( sl.m_lane , sl.m_auto_lane_cycle );
       return pesq;
     }
 

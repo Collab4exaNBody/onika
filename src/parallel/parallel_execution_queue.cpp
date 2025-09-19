@@ -69,9 +69,10 @@ namespace onika
       assert( m_queue_list == nullptr );
     }
 
-    void ParallelExecutionQueueBase::set_lane(int l)
+    void ParallelExecutionQueueBase::set_lane(int l, int lane_cycle)
     {
       m_lane = l;
+      m_auto_lane_cycle = std::min( int(ONIKA_PARALLEL_QUEUE_MAX_LANES) , lane_cycle );
     }
 
     void ParallelExecutionQueueBase::reset_data_access()
@@ -116,17 +117,18 @@ namespace onika
       ParallelExecutionContext* pec = head;
       while( pec != nullptr )
       {
-        if( pec->m_lane == UNDEFINED_EXECUTION_LANE ) ++ undefined_lane_cnt;
-        if( ! pec->m_data_access.empty() ) ++ explicit_data_access_cnt;
+        const bool undef_lane = ( pec->m_lane == UNDEFINED_EXECUTION_LANE );
+        const bool has_data_access = ! pec->m_data_access.empty();
+        if( undef_lane ) ++ undefined_lane_cnt;
+        if( has_data_access ) ++ explicit_data_access_cnt;
         ++ task_cnt;
         pec = pec->m_next;
       }
       printf("pre_process_queue : task_cnt=%d, undefined_lane=%d, data_access=%d\n",task_cnt,undefined_lane_cnt,explicit_data_access_cnt);
 
-      if( undefined_lane_cnt==task_cnt && explicit_data_access_cnt==task_cnt && task_cnt>0 )
-      {
-        // do some lane assignment here
-        printf("optimizable sequence detected head=%p\n",head);
+      if( undefined_lane_cnt>0 || explicit_data_access_cnt>0 )
+      {        
+        // debug print
         pec = head;
         while( pec != nullptr )
         {
@@ -150,8 +152,45 @@ namespace onika
           printf("\n");
           pec = pec->m_next;
         }
+
+        // phase 1 : place non decomposable tasks
+        pec = head;
+        int lane_cycle = 0;
+        while( pec != nullptr )
+        {
+          const auto & pfor_adapter = get_block_parallel_functor( pec );
+          if( pec->m_lane == DEFAULT_EXECUTION_LANE ) pec->m_lane = 0;
+          if( pec->m_lane == UNDEFINED_EXECUTION_LANE )
+          {
+            if( pfor_adapter.is_single_task() || pec->m_data_access.empty() )
+            {
+              printf("%s/%s : assign lane %d\n",pec->m_tag,pec->m_sub_tag,lane_cycle);
+              pec->m_lane = lane_cycle;
+              lane_cycle = ( lane_cycle + 1 ) % m_auto_lane_cycle;
+            }
+          }
+          pec = pec->m_next;
+        }
+        
+        // phase 2 : split and place non decomposable tasks
+        pec = head;
+        while( pec != nullptr )
+        {
+          [[maybe_unused]] const auto & pfor_adapter = get_block_parallel_functor( pec );
+          if( pec->m_lane == DEFAULT_EXECUTION_LANE ) pec->m_lane = 0;
+          if( pec->m_lane == UNDEFINED_EXECUTION_LANE )
+          {
+            assert( ! pfor_adapter.is_single_task() && ! pec->m_data_access.empty() );
+            printf("%s/%s : split/assign lane %d\n",pec->m_tag,pec->m_sub_tag,lane_cycle);
+            //pec->m_lane = lane_cycle;
+            int do_something_here;
+            lane_cycle = ( lane_cycle + 1 ) % m_auto_lane_cycle;
+          }
+          pec = pec->m_next;
+        }
+       
       }
-      
+
     }
 
   
