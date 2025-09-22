@@ -149,6 +149,14 @@ namespace onika
     template<typename T> concept SortOfParallelExecutionSpace = is_parallel_execution_space_v<T>;
     template<typename T, typename PrevT> concept CompatibleParallelExecutionSpace = is_parallel_execution_space_v<T> && is_parallel_execution_space_v<PrevT> && T::SpaceNDim == PrevT::SpaceNDim;
 
+    template<SortOfParallelExecutionSpace PES1, CompatibleParallelExecutionSpace<PES1> PES2 >
+    inline void concurrent_execution_space_elements( const PES1& pes1, const PES2& pes2
+                                                   , std::span< element_coord_t<PES1::SpaceNDim> > conflict_stencil
+                                                   , std::vector< element_coord_t<PES1::SpaceNDim> > & pes2_dependent_elements
+                                                   , std::vector< element_coord_t<PES1::SpaceNDim> > & pes2_remaining_elements )
+    {
+      
+    }
   }
 }
 

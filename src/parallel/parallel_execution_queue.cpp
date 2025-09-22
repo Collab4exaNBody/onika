@@ -19,6 +19,7 @@ under the License.
 
 #include <onika/parallel/parallel_execution_queue.h>
 #include <onika/log.h>
+#include <algorithm>
 
 namespace onika
 {
@@ -169,6 +170,7 @@ namespace onika
               lane_cycle = ( lane_cycle + 1 ) % m_auto_lane_cycle;
             }
           }
+          std::sort( pec->m_data_access.begin() , pec->m_data_access.end() , [](const ParallelDataAccess & a, const ParallelDataAccess & b) ->bool { return a.m_data_ptr < b.m_data_ptr; } );
           pec = pec->m_next;
         }
         
@@ -181,9 +183,23 @@ namespace onika
           if( pec->m_lane == UNDEFINED_EXECUTION_LANE )
           {
             assert( ! pfor_adapter.is_single_task() && ! pec->m_data_access.empty() );
-            printf("%s/%s : split/assign lane %d\n",pec->m_tag,pec->m_sub_tag,lane_cycle);
+            for(auto * ql = head;ql!=nullptr && ql!=pec;ql=ql->m_next)
+            {
+              if( concurrent_data_access( ql->m_data_access , pec->m_data_access ) )
+              {
+                printf("%s/%s : data access is potentially concurrent with %s/%s\n",pec->m_tag,pec->m_sub_tag,ql->m_tag,ql->m_sub_tag);                
+                AccessConflictMap conflict_map;
+                concurrent_data_access_conflict_map( ql->m_data_access , pec->m_data_access , conflict_map );
+                if( ! conflict_map.empty() )
+                {
+                  printf("conflict map size=%d\n", int(conflict_map.size()) );
+                  for(const auto & r : conflict_map) printf("  @ %d , %d , %d\n" , r[0] , r[1] , r[2] );
+                }
+              }
+            }
+            //printf("%s/%s : split/assign lane %d\n",pec->m_tag,pec->m_sub_tag,lane_cycle);
             //pec->m_lane = lane_cycle;
-            int do_something_here;
+            //int do_something_here;
             lane_cycle = ( lane_cycle + 1 ) % m_auto_lane_cycle;
           }
           pec = pec->m_next;
@@ -193,8 +209,7 @@ namespace onika
 
     }
 
-  
-  
+
     // ================= ParallelExecutionQueue implementation ====================
   
     std::shared_ptr<ParallelExecutionQueue> ParallelExecutionQueue::s_default_queue = nullptr;

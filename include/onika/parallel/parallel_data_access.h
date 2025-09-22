@@ -24,6 +24,7 @@ under the License.
 #include <type_traits>
 #include <cmath>
 #include <cstdint>
+#include <cassert>
 
 namespace onika
 {
@@ -49,7 +50,6 @@ namespace onika
       inline constexpr int ri() const { return int( ( m_relative_access>>2 ) & 0x3 ) - 1; }
       inline constexpr int rj() const { return int( ( m_relative_access>>4 ) & 0x3 ) - 1; }
       inline constexpr int rk() const { return int( ( m_relative_access>>6 ) & 0x3 ) - 1; }
-      
     };
 
     struct ParallelDataAccess
@@ -86,6 +86,14 @@ namespace onika
 
     static inline constexpr size_t MAX_PARALLEL_DATA_ACCESSES = 2;
     using ParallelDataAccessVector = onika::inplace_vector<ParallelDataAccess,MAX_PARALLEL_DATA_ACCESSES>;
+
+    // return true if two access data sets may involve concurrent data access conflicts (read/write or write/write conflict on the same data pointer)
+    bool concurrent_data_access(const ParallelDataAccessVector& dav1 , const ParallelDataAccessVector& dav2 );
+
+    static inline constexpr size_t MAX_CONFLICT_MAP_SIZE = 128;
+    using AccessConflictMap = onika::inplace_vector< oarray_t<int,3> , MAX_CONFLICT_MAP_SIZE >;
+    void concurrent_data_access_conflict_map(const ParallelDataAccessVector& dav1 , const ParallelDataAccessVector& dav2 , AccessConflictMap & conflict_map );
+
 
     // exemple usage. note that stencil mus tbe static and const, it's lifespan must be longer than it's usage for any parallel kernel.
     inline ParallelDataAccess access_cross_2d(const void * p , uint8_t center_mode = AccessStencilElement::RW, uint8_t side_mode = AccessStencilElement::RO , std::convertible_to<std::string_view> auto && name_tag = std::string_view() )
