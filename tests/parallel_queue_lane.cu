@@ -40,6 +40,7 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
   using onika::parallel::AccessStencilElement;
   using onika::parallel::ParallelExecutionSpace;
   using onika::parallel::local_access;
+  using onika::parallel::access_cross_2d;
   using onika::parallel::make_single_task_block_parallel_functor;
 
   static constexpr ssize_t array_rows = 1024;
@@ -109,7 +110,9 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
   else if( test_mode == "singletask-dependency" )
   {
     // describes an access to array1, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
-    const auto array1_rw_access = local_access(array1.m_data.data(),2,AccessStencilElement::RW,"a1_rw");
+    const auto array1_rw_local = local_access(array1.m_data.data(),2,AccessStencilElement::RW,"a1_loc");
+    const auto array1_rw_nbh = access_cross_2d(array1.m_data.data(),AccessStencilElement::RW,AccessStencilElement::RO, "a1_nbh");
+    
     const ParallelExecutionSpace<2> single_task_data_space = { {64,64} , {980,980} };
 
     user_task_start_sync = std::make_shared<std::mutex> ();
@@ -125,17 +128,17 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
     
     //std::cout << "Enqueue single task ..." << std::endl << std::flush;
     pq  << onika::parallel::any_lane()
-        << array1_rw_access 
+        << array1_rw_local 
         << block_parallel_for( single_task_data_space, single_task, parallel_execution_context("Array1","UnlockTask1") )
 
     //std::cout << "Enqueue 1st parallel task ..." << std::endl << std::flush;
         << onika::parallel::any_lane()
-        << array1_rw_access 
+        << array1_rw_nbh 
         << std::move(array1_par_op1)
 
     //std::cout << "Enqueue 2nd parallel task ..." << std::endl << std::flush;
         << onika::parallel::any_lane()
-        << array1_rw_access 
+        << array1_rw_nbh 
         << std::move(array1_par_op2);
     
     // describes an access to array2, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
