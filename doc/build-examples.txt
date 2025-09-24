@@ -95,7 +95,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 
 
 #
-# Rhel_8__x86_64 X gcc-12.3.0 X Cuda 12.4
+# Rhel_8__x86_64 X gcc-13.3.0 X Cuda 12.4
 #
 ONIKA_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/onika
 ONIKA_SRC_DIR=${HOME}/dev/onika
@@ -118,6 +118,33 @@ cmake -DCMAKE_BUILD_TYPE=Release \
   -DONIKA_ALWAYS_USE_MPIRUN=ON \
   -DONIKA_SETUP_ENV_COMMANDS="${ONIKA_SETUP_ENV_COMMANDS}" \
   ${ONIKA_SRC_DIR}
+
+#
+# Rhel_9__aarch64 X gcc-12.3.0 X Cuda 12.6
+#
+ONIKA_INSTALL_DIR=${HOME}/local/onika
+ONIKA_SRC_DIR=${HOME}/dev/onika
+YAML_CPP_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/tools/yaml-cpp-Rhel_9__aarch64
+ONIKA_SETUP_ENV_COMMANDS="module purge ; module load gcc/13.3.0 cuda/12.8 mpi/openmpi cmake/3.26.4"
+eval ${ONIKA_SETUP_ENV_COMMANDS}
+cmake -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTALL_DIR} \
+  -DYAML_CPP_INCLUDE_DIR=${YAML_CPP_INSTALL_DIR}/include \
+  -DYAML_CPP_LIBRARIES=${YAML_CPP_INSTALL_DIR}/lib64/libyaml-cppd.a \
+  -DONIKA_BUILD_CUDA=ON \
+  -DCMAKE_CUDA_COMPILER=/ccc/products/cuda-12.8/system/default/bin/nvcc \
+  -DCMAKE_CUDA_ARCHITECTURES=90 \
+  -DONIKA_MPIRUN_CMD="/usr/bin/ccc_mprun" \
+  -DMPIEXEC_EXECUTABLE=`which mpiexec` \
+  -DMPIEXEC_MAX_NUMPROCS=32 \
+  -DMPIEXEC_NUMCORE_FLAG="-c" \
+  -DMPIEXEC_NUMPROC_FLAG="-n" \
+  -DMPIEXEC_PREFLAGS="-pgh200-bxi" \
+  -DMPIEXEC_PREFLAGS_DBG="-pgh200-bxi;-Xall;xterm;-e" \
+  -DONIKA_ALWAYS_USE_MPIRUN=ON \
+  -DONIKA_SETUP_ENV_COMMANDS="${ONIKA_SETUP_ENV_COMMANDS}" \
+  ${ONIKA_SRC_DIR}
+
 
 # common build and cleanup
 make -j4 install
