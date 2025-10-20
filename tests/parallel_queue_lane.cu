@@ -147,7 +147,7 @@ void run_test(auto & pq, const auto & parallel_execution_context, std::string_vi
   else
   {
     std::cerr<<"unknown test mode "<<test_mode<<std::endl;
-    std::cerr<<"valid test modes are : hybrid-delayed-lane , hybrid-lane and hybrid-sequence"<<std::endl;
+    std::cerr<<"valid test modes are : hybrid-delayed-lane , hybrid-lane and hybrid-sequence and singletask-dependency"<<std::endl;
     std::abort();
   }
 

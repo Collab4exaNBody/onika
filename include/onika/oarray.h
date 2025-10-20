@@ -33,7 +33,7 @@ namespace onika
     static inline constexpr size_t array_size = N;
     using value_type = T;
     T m_data[N] = {};
-    
+   
     ONIKA_HOST_DEVICE_FUNC inline T& operator [] (size_t i) { return m_data[i]; }
     ONIKA_HOST_DEVICE_FUNC inline const T& operator [] (size_t i) const { return m_data[i]; }
     ONIKA_HOST_DEVICE_FUNC inline T * data() { return m_data; }
