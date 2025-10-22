@@ -28,7 +28,7 @@ under the License.
 #define ONIKA_USE_BUILTIN_STL_ROTL
 #endif
 
-namespace onika { namespace math
+namespace onika
 {
 
   template <typename _T>
@@ -60,5 +60,5 @@ namespace onika { namespace math
 #endif
   }
 
-} }
+}
 

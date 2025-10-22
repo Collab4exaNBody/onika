@@ -194,6 +194,7 @@ namespace onika
                 {
                   printf("conflict map size=%d\n", int(conflict_map.size()) );
                   for(const auto & r : conflict_map) printf("  @ %d , %d , %d\n" , r[0] , r[1] , r[2] );
+                  // ... turn to explicit list first
                 }
               }
             }
