@@ -175,7 +175,7 @@ namespace onika
 
 #   define ONIKA_CU_BLOCK_SYNC()      (void)0
 #   define ONIKA_CU_BLOCK_FENCE()     (void)0
-#   define ONIKA_CU_BLOCK_WARP_SYNC() (void)0
+#   define ONIKA_CU_WARP_SYNC()       (void)0
 
 #   define ONIKA_CU_DEVICE_FENCE() std::atomic_thread_fence(ONIKA_CU_MEM_ORDER_SEQ_CST)
 #   define ONIKA_CU_SYSTEM_FENCE() std::atomic_thread_fence(ONIKA_CU_MEM_ORDER_SEQ_CST)
