@@ -52,6 +52,8 @@ under the License.
 #include <onika/trace/dot_trace_format.h>
 #include <onika/trace/yaml_trace_format.h>
 
+#include <memory>
+
 // dummy function to be used as a breakpoint marker just before simulation is ran
 // usefull for adding breakpoints in loaded plugins
 void simulation_start_breakpoint();
@@ -124,7 +126,7 @@ namespace onika
     std::pair< std::vector<std::string> , YAML::Node >
     parse_command_args( int argc, char const * const argv[] );
 
-    std::tuple<YAML::Node,YAML::Node,onika::app::ApplicationConfiguration>
+    std::tuple< YAML::Node, YAML::Node, std::shared_ptr<onika::app::ApplicationConfiguration> >
     load_yaml_input( const std::vector<std::string>& main_input_files, YAML::Node cmdline = YAML::Node(YAML::NodeType::Map) );
 
     onika::scg::OperatorNode*
