@@ -115,13 +115,16 @@ namespace onika
 #   define ONIKA_CU_MEM_ORDER_ACQUIRE std::memory_order_acquire
 #   define ONIKA_CU_MEM_ORDER_SEQ_CST std::memory_order_seq_cst
 
-#   define ONIKA_CU_ATOMIC_STORE(x,a,...) ( * (volatile std::remove_reference_t<decltype(x)> *) &(x) ) = (a)
-#   define ONIKA_CU_ATOMIC_LOAD(x,...)   ( * (volatile const std::remove_reference_t<decltype(x)> *) &(x) )
-#   define ONIKA_CU_ATOMIC_ADD(x,a,...)  atomicAdd( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-#   define ONIKA_CU_ATOMIC_SUB(x,a,...)  atomicSub( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-#   define ONIKA_CU_ATOMIC_MIN(x,a,...)  atomicMin( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-#   define ONIKA_CU_ATOMIC_MAX(x,a,...)  atomicMax( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-#   define ONIKA_CU_BLOCK_ATOMIC_ADD(x,a) atomicAdd( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_STORE(x,a,...)       ( * (volatile std::remove_reference_t<decltype(x)> *) &(x) ) = (a)
+#   define ONIKA_CU_ATOMIC_LOAD(x,...)          ( * (volatile const std::remove_reference_t<decltype(x)> *) &(x) )
+#   define ONIKA_CU_ATOMIC_ADD(x,a,...)         atomicAdd( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_INPLACE_ATOMIC_ADD(x,a,...) atomicAdd( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_BLOCK_ATOMIC_ADD(x,a,...)   atomicAdd( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_SUB(x,a,...)         atomicSub( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_INPLACE_ATOMIC_SUB(x,a,...) atomicSub( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_BLOCK_ATOMIC_SUB(x,a,...)   atomicSub( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_MIN(x,a,...)         atomicMin( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_MAX(x,a,...)         atomicMax( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
 
 #   define ONIKA_CU_ATOMIC_FLAG_TEST_AND_SET(f) ( ! atomicCAS((uint32_t*)&(f),0,1) )
 #   define ONIKA_CU_ATOMIC_FLAG_CLEAR(f) * (volatile uint32_t *) &(f) = 0
@@ -188,13 +191,16 @@ namespace onika
 #   define ONIKA_CU_MEM_ORDER_ACQUIRE std::memory_order_acquire
 #   define ONIKA_CU_MEM_ORDER_SEQ_CST std::memory_order_seq_cst
 
-#   define ONIKA_CU_ATOMIC_STORE(x,a,...) reinterpret_cast<std::atomic<std::remove_reference_t<decltype(x)> >*>(&(x))->store(a OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#   define ONIKA_CU_ATOMIC_LOAD(x,...) reinterpret_cast< const std::atomic<std::remove_cv_t<std::remove_reference_t<decltype(x)> > > * >(&(x))->load( __VA_ARGS__ )
-#   define ONIKA_CU_ATOMIC_ADD(x,a,...) ::onika::capture_atomic_add( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-#   define ONIKA_CU_ATOMIC_SUB(x,a,...) ::onika::capture_atomic_sub( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-#   define ONIKA_CU_ATOMIC_MIN(x,a,...) ::onika::capture_atomic_min( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-#   define ONIKA_CU_ATOMIC_MAX(x,a,...) ::onika::capture_atomic_max( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-#   define ONIKA_CU_BLOCK_ATOMIC_ADD(x,a) (x) += (a)
+#   define ONIKA_CU_ATOMIC_STORE(x,a,...)       reinterpret_cast<std::atomic<std::remove_reference_t<decltype(x)> >*>(&(x))->store(a OPT_COMMA_VA_ARGS(__VA_ARGS__) )
+#   define ONIKA_CU_ATOMIC_LOAD(x,...)          reinterpret_cast< const std::atomic<std::remove_cv_t<std::remove_reference_t<decltype(x)> > > * >(&(x))->load( __VA_ARGS__ )
+#   define ONIKA_CU_ATOMIC_ADD(x,a,...)         ::onika::capture_atomic_add( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_INPLACE_ATOMIC_ADD(x,a,...) ::onika::inplace_atomic_add( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_BLOCK_ATOMIC_ADD(x,a,...)   (x)+=(a)
+#   define ONIKA_CU_ATOMIC_SUB(x,a,...)         ::onika::capture_atomic_sub( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_INPLACE_ATOMIC_SUB(x,a,...) ::onika::inplace_atomic_SUB( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_BLOCK_ATOMIC_SUB(x,a,...)   (x)-=(a)
+#   define ONIKA_CU_ATOMIC_MIN(x,a,...)         ::onika::capture_atomic_min( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_MAX(x,a,...)         ::onika::capture_atomic_max( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
 
 #   define ONIKA_CU_ATOMIC_FLAG_TEST_AND_SET(f) ( ! (f).m_flag.test_and_set(std::memory_order_acquire) )
 #   define ONIKA_CU_ATOMIC_FLAG_CLEAR(f) (f).m_flag.clear(std::memory_order_release)
