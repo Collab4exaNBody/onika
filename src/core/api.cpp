@@ -78,7 +78,8 @@ namespace onika
 
       onika::app::initialize();
       auto [ main_input_files , cmdline ] = onika::app::parse_command_args( argc , argv );
-      auto [ input_data , simulation_node , configuration ] = onika::app::load_yaml_input( main_input_files , cmdline );
+      auto [ input_data , simulation_node , configuration_ptr ] = onika::app::load_yaml_input( main_input_files , cmdline );
+      auto & configuration = * configuration_ptr;
 
       // ========= optionally override debug mode from env. variable ==========
       const char * env_debug_mode = std::getenv("ONIKA_DEBUG"); // where to look for component plugins to load
@@ -137,7 +138,7 @@ namespace onika
       // prepare operator assembly strategy
       auto simulation_graph = onika::app::build_simulation_graph( configuration , simulation_node );
             
-      ctx->m_configuration = std::make_shared<onika::app::ApplicationConfiguration>(configuration);
+      ctx->m_configuration = configuration_ptr; //std::make_shared<onika::app::ApplicationConfiguration>(configuration);
       ctx->m_input_files = main_input_files;
       ctx->m_cmdline_config = cmdline;
       ctx->m_input_data = input_data;
@@ -256,7 +257,7 @@ namespace onika
 
 
 
-    std::tuple<YAML::Node,YAML::Node,onika::app::ApplicationConfiguration>
+    std::tuple< YAML::Node , YAML::Node , std::shared_ptr<onika::app::ApplicationConfiguration> >
     load_yaml_input( const std::vector<std::string>& main_input_files, YAML::Node cmdline )
     {
       using namespace onika;
@@ -289,7 +290,8 @@ namespace onika
       }
 
       // convert YAML configuration node to data structure
-      onika::app::ApplicationConfiguration configuration { config_node };
+      std::shared_ptr<onika::app::ApplicationConfiguration> configuration_ptr = std::make_shared<onika::app::ApplicationConfiguration>( config_node );
+      auto & configuration = *configuration_ptr;
 
       // allow special block configuration block "set" to overload base input data
       if( configuration.set.IsMap() && configuration.set.size()>0 )
@@ -340,7 +342,7 @@ namespace onika
         lout << std::endl << "==============================" << std::endl << std::endl;
       }
       
-      return { input_data , simulation_node , configuration };
+      return { input_data , simulation_node , configuration_ptr };
     }
     
     

@@ -84,8 +84,10 @@ namespace onika
 
 #   ifdef __HIP_DEVICE_COMPILE__
 #   define ONIKA_CU_GRID_CONSTANT       /**/
+#   define ONIKA_CU_WARP_SIZE           32
 #   else
 #   define ONIKA_CU_GRID_CONSTANT       __grid_constant__
+#   define ONIKA_CU_WARP_SIZE           64
 #   endif
 
 #   define ONIKA_DEVICE_CONSTANT_MEMORY __constant__
@@ -176,7 +178,7 @@ namespace onika
 
 #   define ONIKA_CU_BLOCK_SYNC()      (void)0
 #   define ONIKA_CU_BLOCK_FENCE()     (void)0
-#   define ONIKA_CU_BLOCK_WARP_SYNC() (void)0
+#   define ONIKA_CU_WARP_SYNC()       (void)0
 
 #   define ONIKA_CU_DEVICE_FENCE() std::atomic_thread_fence(ONIKA_CU_MEM_ORDER_SEQ_CST)
 #   define ONIKA_CU_SYSTEM_FENCE() std::atomic_thread_fence(ONIKA_CU_MEM_ORDER_SEQ_CST)
@@ -220,6 +222,7 @@ namespace onika
 #   define ONIKA_CU_BLOCK_DIMS   onikaDim3_t{1,1,1}
 #   define ONIKA_CU_THREAD_IDX   0
 #   define ONIKA_CU_THREAD_COORD onikaDim3_t{0,0,0}
+#   define ONIKA_CU_WARP_SIZE    1
 
 #   define ONIKA_CU_VALUE_IF_CUDA(a,b) (b)
 

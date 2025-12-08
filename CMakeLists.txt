@@ -39,7 +39,7 @@ file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(CMAKE_CXX_EXTENSIONS ${CMAKE_CXX_EXTENSI
 # ==========================
 # === project definition ===
 # ==========================
-project(onika VERSION 1.4 LANGUAGES C CXX)
+project(onika VERSION 1.0.4 LANGUAGES C CXX)
 
 # =======================================
 # === CMake & toolchain configuration ===
@@ -266,8 +266,8 @@ endif()
 # Parallel execution configuration
 option(ONIKA_CU_ENABLE_KERNEL_BOUNDS "Use NVCC directive to restrict kernel launch bounds" OFF)
 set(ONIKA_TASKS_PER_CORE "4" CACHE STRING "Number of OpenMP tasks per thread")
-set(ONIKA_CU_MAX_THREADS_PER_BLOCK "256" CACHE STRING "Maximum number of threads per Cuda block")
-set(ONIKA_CU_MIN_BLOCKS_PER_SM "6" CACHE STRING "Minimum number of blocks per SM")
+set(ONIKA_CU_MAX_THREADS_PER_BLOCK "128" CACHE STRING "Maximum number of threads per Cuda block")
+set(ONIKA_CU_MIN_BLOCKS_PER_SM "4" CACHE STRING "Minimum number of blocks per SM")
 if(ONIKA_CU_ENABLE_KERNEL_BOUNDS)
   list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_CU_ENABLE_KERNEL_BOUNDS=1)
 else()
