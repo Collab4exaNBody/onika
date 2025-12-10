@@ -125,15 +125,25 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 ONIKA_INSTALL_DIR=${HOME}/local/onika
 ONIKA_SRC_DIR=${HOME}/dev/onika
 YAML_CPP_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/tools/yaml-cpp-Rhel_9__aarch64
-ONIKA_SETUP_ENV_COMMANDS="module purge ; module load gcc/13.3.0 cuda/12.8 mpi/openmpi cmake/3.26.4"
+CUDA_FLAGS_OPTS="--generate-line-info"
+ONIKA_SETUP_ENV_COMMANDS="module purge ; module load cuda/12.8 gcc/13.3.0 mpi/openmpi cmake/3.26.4"
 eval ${ONIKA_SETUP_ENV_COMMANDS}
+CUDACC=`which nvcc`
+GNUCC=`which gcc`
+GNUCXX=`which g++`
+echo "CC   : ${GNUCC}"
+echo "CXX  : ${GNUCXX}"
+echo "NVCC : ${CUDACC}"
 cmake -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTALL_DIR} \
   -DYAML_CPP_INCLUDE_DIR=${YAML_CPP_INSTALL_DIR}/include \
   -DYAML_CPP_LIBRARIES=${YAML_CPP_INSTALL_DIR}/lib64/libyaml-cppd.a \
+  -DCMAKE_C_COMPILER=${GNUCC} \
+  -DCMAKE_CXX_COMPILER=${GNUCXX} \
   -DONIKA_BUILD_CUDA=ON \
-  -DCMAKE_CUDA_COMPILER=/ccc/products/cuda-12.8/system/default/bin/nvcc \
+  -DCMAKE_CUDA_COMPILER=${CUDACC} \
   -DCMAKE_CUDA_ARCHITECTURES=90 \
+  -DCMAKE_CUDA_FLAGS=${CUDA_FLAGS_OPTS} \
   -DONIKA_MPIRUN_CMD="/usr/bin/ccc_mprun" \
   -DMPIEXEC_EXECUTABLE=`which mpiexec` \
   -DMPIEXEC_MAX_NUMPROCS=32 \
