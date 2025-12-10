@@ -125,7 +125,7 @@ namespace onika
         ++ task_cnt;
         pec = pec->m_next;
       }
-      printf("pre_process_queue : task_cnt=%d, undefined_lane=%d, data_access=%d\n",task_cnt,undefined_lane_cnt,explicit_data_access_cnt);
+      // printf("pre_process_queue : task_cnt=%d, undefined_lane=%d, data_access=%d\n",task_cnt,undefined_lane_cnt,explicit_data_access_cnt);
 
       if( undefined_lane_cnt>0 || explicit_data_access_cnt>0 )
       {        
