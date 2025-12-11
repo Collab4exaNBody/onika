@@ -37,7 +37,7 @@ namespace onika
         fatal_error() << "Invalid execution stream id ("<<lane<<")"<<std::endl;
       }
       std::lock_guard<std::mutex> lock(m_mutex);
-      
+
       if( size_t(lane) >= m_pes.size() ) m_pes.resize( lane+1 , nullptr );
       if( m_pes[lane] == nullptr )
       {
@@ -51,20 +51,20 @@ namespace onika
       }
       return m_pes[lane].get();
     }
-    
+
     onika::parallel::ParallelExecutionStream* ParallelExecutionStreamAutoAllocator::parallel_execution_stream_cb(void* _self, int lane)
     {
       ParallelExecutionStreamAutoAllocator * self = ( ParallelExecutionStreamAutoAllocator* ) _self;
       return self->parallel_execution_stream(lane);
     }
-    
+
     ParallelExecutionStreamPool ParallelExecutionStreamAutoAllocator::parallel_execution_stream_pool()
     {
       return { parallel_execution_stream_cb , this };
     }
 
     // ======== ParallelExecutionQueueBase implementation ==============
-    
+
     ParallelExecutionQueueBase::~ParallelExecutionQueueBase()
     {
       assert( m_queue_list == nullptr );
@@ -128,7 +128,7 @@ namespace onika
       // printf("pre_process_queue : task_cnt=%d, undefined_lane=%d, data_access=%d\n",task_cnt,undefined_lane_cnt,explicit_data_access_cnt);
 
       if( undefined_lane_cnt>0 || explicit_data_access_cnt>0 )
-      {        
+      {
         // debug print
         pec = head;
         while( pec != nullptr )
@@ -173,7 +173,7 @@ namespace onika
           std::sort( pec->m_data_access.begin() , pec->m_data_access.end() , [](const ParallelDataAccess & a, const ParallelDataAccess & b) ->bool { return a.m_data_ptr < b.m_data_ptr; } );
           pec = pec->m_next;
         }
-        
+
         // phase 2 : split and place non decomposable tasks
         pec = head;
         while( pec != nullptr )
@@ -187,7 +187,7 @@ namespace onika
             {
               if( concurrent_data_access( ql->m_data_access , pec->m_data_access ) )
               {
-                printf("%s/%s : data access is potentially concurrent with %s/%s\n",pec->m_tag,pec->m_sub_tag,ql->m_tag,ql->m_sub_tag);                
+                printf("%s/%s : data access is potentially concurrent with %s/%s\n",pec->m_tag,pec->m_sub_tag,ql->m_tag,ql->m_sub_tag);
                 AccessConflictMap conflict_map;
                 concurrent_data_access_conflict_map( ql->m_data_access , pec->m_data_access , conflict_map );
                 if( ! conflict_map.empty() )
@@ -205,14 +205,14 @@ namespace onika
           }
           pec = pec->m_next;
         }
-       
+
       }
 
     }
 
 
     // ================= ParallelExecutionQueue implementation ====================
-  
+
     std::shared_ptr<ParallelExecutionQueue> ParallelExecutionQueue::s_default_queue = nullptr;
     std::shared_ptr<ParallelExecutionStreamAutoAllocator> ParallelExecutionQueue::s_default_stream_allocator = nullptr;
 
@@ -240,15 +240,15 @@ namespace onika
     }
 
     std::pair<ParallelExecutionContext*,ParallelExecutionContext*> ParallelExecutionQueue::schedule_filter_list( ParallelExecutionContext* ql, int lane )
-    {        
+    {
       if( ql == nullptr ) return { nullptr , nullptr };
 
       auto ql_next = ql->m_next;
       ql->m_next = nullptr;
-      
+
       if( ql->m_lane == lane || lane < 0 )
       {
-        schedule( ql );  
+        schedule( ql );
         auto [nql,nsl] = schedule_filter_list( ql_next , lane );
         ql->m_next = nsl;
         return { nql , ql };
@@ -285,17 +285,17 @@ namespace onika
 
       // arriving here, parallel operation has been assigned a specific lane (i.e. stream id)
       if( lane == DEFAULT_EXECUTION_LANE ) lane = 0;
-      
+
       // we update lane on the parallel operation so that it remember on what lane it's executing
       assert( lane >= 0 );
       pec->m_lane = lane;
-      
+
       auto exec_stream = m_stream_pool( lane );
-      std::lock_guard lk_stream( exec_stream->m_mutex );      
+      std::lock_guard lk_stream( exec_stream->m_mutex );
 
       pec->m_stream = exec_stream;
       const auto & func = get_block_parallel_functor( pec );
-      
+
       switch( pec->m_execution_target )
       {
         case ParallelExecutionContext::EXECUTION_TARGET_OPENMP :
@@ -312,17 +312,17 @@ namespace onika
           }
         }
         break;
-        
+
         case ParallelExecutionContext::EXECUTION_TARGET_CUDA :
         {
           if( exec_stream->m_cuda_ctx == nullptr || exec_stream->m_cuda_ctx != pec->m_cuda_ctx )
           {
             fatal_error() << "Cannot schedule GPU parallel operation onto stream with no GPU context" << std::endl;
           }
-        
+
           // if device side scratch space hasn't be allocated yet, do it now
           pec->init_device_scratch();
-          
+
           // insert start event for profiling
           assert( pec->m_start_evt != nullptr );
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_EVENT( pec->m_start_evt, exec_stream->m_cu_stream ) );
@@ -344,32 +344,32 @@ namespace onika
           func.stream_gpu_initialize( pec , exec_stream );
           func.stream_gpu_kernel( pec , exec_stream );
           func.stream_gpu_finalize( pec , exec_stream );
-          
+
           // copy out return data to host space at given pointer
           if( pec->m_return_data_output != nullptr && pec->m_return_data_size > 0 )
           {
             ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( pec->m_return_data_output , pec->m_cuda_scratch->return_data , pec->m_return_data_size , exec_stream->m_cu_stream ) );
           }
-          
+
           // inserts a callback to stream if user passed one in
           if( pec->m_execution_end_callback.m_func != nullptr )
           {
             ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_ADD_CALLBACK(exec_stream->m_cu_stream, ParallelExecutionContext::execution_end_callback , pec ) );
           }
-          
+
           // inserts stop event to account for total execution time
           assert( pec->m_stop_evt != nullptr );
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_EVENT( pec->m_stop_evt, exec_stream->m_cu_stream ) );
         }
-        break;          
-        
+        break;
+
         default:
         {
           fatal_error() << "Invalid execution target" << std::endl;
         }
         break;
       }
-      
+
     }
 
     ParallelExecutionContext* ParallelExecutionQueue::sync_and_remove(ParallelExecutionContext* pec, int lane)
@@ -382,11 +382,11 @@ namespace onika
       {
         assert( pec->m_stream != nullptr );
         ParallelExecutionContext* next = nullptr;
-        { // ParallelExecutionContext's stream critical section 
+        { // ParallelExecutionContext's stream critical section
           std::lock_guard lk( pec->m_stream->m_mutex );
           next = pec->m_next;
           pec->m_next = nullptr;
-          
+
           // waits for both OpenMP tasks and Cuda kernels in the specified stream to terminate
           pec->m_stream->wait_nolock();
 
@@ -411,16 +411,22 @@ namespace onika
         return pec;
       }
     }
-    
+
+    void ParallelExecutionQueue::wait_nolock(int lane)
+    {
+      m_exec_list = sync_and_remove( m_exec_list , lane );
+    }
+
     void ParallelExecutionQueue::wait(int lane)
     {
       std::lock_guard lk_self( m_mutex );
-      m_exec_list = sync_and_remove( m_exec_list , lane );
+      wait_nolock(lane);
     }
-    
+
     bool ParallelExecutionQueue::query_status(int lane)
     {
       const std::lock_guard lk_self( m_mutex );
+
       if( m_exec_list == nullptr && m_queue_list == nullptr )
       {
         return true;
@@ -429,7 +435,7 @@ namespace onika
       {
         return false;
       }
-        
+
       auto* pec = m_exec_list;
       while(pec!=nullptr)
       {
@@ -449,12 +455,12 @@ namespace onika
           }
         }
         pec = pec->m_next;
-      } 
+      }
 
-      wait( lane );
+      wait_nolock( lane );
       return true;
     }
-    
+
     bool ParallelExecutionQueue::empty()
     {
       const std::lock_guard lk_self( m_mutex );

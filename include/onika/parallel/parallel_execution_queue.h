@@ -36,7 +36,7 @@ namespace onika
       onika::cuda::CudaContext * m_cuda_ctx = nullptr;
       std::vector< std::shared_ptr< onika::parallel::ParallelExecutionStream > > m_pes;
       std::mutex m_mutex;
-      
+
       static inline onika::parallel::ParallelExecutionStream* parallel_execution_stream_cb(void* _self, int lane);
       onika::parallel::ParallelExecutionStream * parallel_execution_stream(int lane = DEFAULT_EXECUTION_LANE);
       ParallelExecutionStreamPool parallel_execution_stream_pool();
@@ -85,6 +85,7 @@ namespace onika
       void schedule_all(int lane = UNDEFINED_EXECUTION_LANE );
       void schedule(ParallelExecutionContext* pec);
       ParallelExecutionContext* sync_and_remove(ParallelExecutionContext* pec, int lane = UNDEFINED_EXECUTION_LANE);
+      void wait_nolock(int lane = UNDEFINED_EXECUTION_LANE);
       void wait(int lane = UNDEFINED_EXECUTION_LANE);
       bool query_status(int lane = UNDEFINED_EXECUTION_LANE);
       bool empty();
