@@ -359,7 +359,6 @@ namespace onika { namespace scg
 
   void OperatorNode::set_task_group_mode( bool m )
   {
-    if( !m_omp_task_mode && m ) lout << "enable task group for "<<pathname()<<std::endl;
     m_omp_task_mode = m;
   }
   
