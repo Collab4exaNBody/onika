@@ -83,7 +83,7 @@ static inline constexpr auto onikaLimitPrintfFifoSize        = hipLimitPrintfFif
 static inline constexpr auto onikaLimitMallocHeapSize        = hipLimitMallocHeapSize;
 static inline constexpr auto onikaMemcpyDeviceToHost         = hipMemcpyDeviceToHost;
 static inline constexpr auto onikaMemcpyHostToDevice         = hipMemcpyHostToDevice;
-static inline constexpr auto onikaDevAttrClockRate           = hipDevAttrClockRate;
+static inline constexpr auto onikaDevAttrClockRate           = hipDeviceAttributeClockRate;
 
 #else
 
