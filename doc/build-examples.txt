@@ -17,8 +17,14 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 	${ONIKA_SRC_DIR}
 
 #
-# Ubuntu 22.04 gcc-13.4.0 X ROCm 7.1
+# Ubuntu 24.04 gcc-13.3.0 X ROCm 7.1
 #
+ONIKA_INSTALL_DIR=${HOME}/local/onika
+ONIKA_SRC_DIR=${HOME}/dev/onika
+# YAML_CPP_INSTALL_DIR=${HOME}/local/yaml-cpp-0.6.3/lib/cmake/yaml-cpp
+# CMAKE_YAML_CPP_OPT="-Dyaml-cpp_DIR=${YAML_CPP_INSTALL_DIR}" # uncomment this line if you have issues with system installed yaml-cpp
+ONIKA_SETUP_ENV_COMMANDS=""
+eval ${ONIKA_SETUP_ENV_COMMANDS}
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=${ONIKA_INSTALL_DIR} \
       -DONIKA_BUILD_CUDA=ON \
@@ -26,7 +32,6 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_HIP_ARCHITECTURES=gfx90a \
       -DONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE=ON \
       -DONIKA_SETUP_ENV_COMMANDS="${ONIKA_SETUP_ENV_COMMANDS}" \
-      -DCMAKE_CXX_COMPILER=hipcc \
       ${ONIKA_SRC_DIR}
 
 #
