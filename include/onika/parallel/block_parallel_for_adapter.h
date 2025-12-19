@@ -457,15 +457,15 @@ namespace onika
           {
             //printf("OpenMP task wait task start signal\n");
             std::unique_lock<std::mutex> lk(cb_info->m_mutex);
-            cb_info->m_cv.wait( lk , [cb_info]() -> bool
+            while( ! cb_info->m_task_start )
+            {
+              lk.unlock();
               {
-                if( ! cb_info->m_task_start )
-                {
-#                 pragma omp taskyield // OpenMP scheduler friendly
-                }
-                return cb_info->m_task_start;
+#               pragma omp taskyield // OpenMP scheduler friendly
               }
-            );
+              lk.lock();
+              if( ! cb_info->m_task_start ) cb_info->m_cv.wait(lk);
+            }
           }
           
           //printf("OpenMP task start\n");
