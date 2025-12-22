@@ -32,6 +32,9 @@ under the License.
 
 #ifdef ONIKA_CUDA_VERSION
 #ifdef ONIKA_HIP_VERSION
+#ifndef __HIP_PLATFORM_AMD__
+#define __HIP_PLATFORM_AMD__ 1
+#endif
 #include <hip/hip_runtime.h>
 #else
 #include <cuda_runtime.h>
@@ -70,6 +73,7 @@ namespace onika
     /************** start of Cuda code definitions ***************/
 #   if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 
+#   define ONIKA_GPU_DEVICE_COMPILE 1
 #   define ONIKA_GPU_DEVICE_EXECUTION_TYPE onika::TrueType
 
     [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort()
