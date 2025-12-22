@@ -341,13 +341,8 @@ namespace onika
         configuration.m_doc.print_value( lout );
         lout << std::endl << "==============================" << std::endl << std::endl;
       }
-<<<<<<< HEAD
-
-      return { input_data , simulation_node , configuration };
-=======
       
       return { input_data , simulation_node , configuration_ptr };
->>>>>>> main
     }
 
 
