@@ -75,6 +75,16 @@ namespace onika
       for(size_t i=0;i<N;i++) if(x[i]!=v[i]) eq=false;
       return eq;
     }
+    ONIKA_HOST_DEVICE_FUNC inline std::strong_ordering operator <=> (const oarray_t<T,N>& v) const
+    {
+      for(size_t i=0;i<N;i++)
+      {
+        if( x[i]<v.x[i] ) return std::strong_ordering::less;
+        else if( x[i]>v.x[i] ) return std::strong_ordering::greater;
+      }
+      return std::strong_ordering::equal;
+    }
+    
     ONIKA_HOST_DEVICE_FUNC inline const T* begin() const { return x; }
     ONIKA_HOST_DEVICE_FUNC inline T* begin() { return x; }
     ONIKA_HOST_DEVICE_FUNC inline const T* end() const { return x+N; }

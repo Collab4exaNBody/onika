@@ -39,7 +39,7 @@ file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(CMAKE_CXX_EXTENSIONS ${CMAKE_CXX_EXTENSI
 # ==========================
 # === project definition ===
 # ==========================
-project(onika VERSION 1.4 LANGUAGES C CXX)
+project(onika VERSION 1.0.4 LANGUAGES C CXX)
 
 # =======================================
 # === CMake & toolchain configuration ===
@@ -266,8 +266,8 @@ endif()
 # Parallel execution configuration
 option(ONIKA_CU_ENABLE_KERNEL_BOUNDS "Use NVCC directive to restrict kernel launch bounds" OFF)
 set(ONIKA_TASKS_PER_CORE "4" CACHE STRING "Number of OpenMP tasks per thread")
-set(ONIKA_CU_MAX_THREADS_PER_BLOCK "256" CACHE STRING "Maximum number of threads per Cuda block")
-set(ONIKA_CU_MIN_BLOCKS_PER_SM "6" CACHE STRING "Minimum number of blocks per SM")
+set(ONIKA_CU_MAX_THREADS_PER_BLOCK "128" CACHE STRING "Maximum number of threads per Cuda block")
+set(ONIKA_CU_MIN_BLOCKS_PER_SM "4" CACHE STRING "Minimum number of blocks per SM")
 if(ONIKA_CU_ENABLE_KERNEL_BOUNDS)
   list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_CU_ENABLE_KERNEL_BOUNDS=1)
 else()
@@ -367,6 +367,7 @@ if(YAML_CPP_INCLUDE_DIR AND YAML_CPP_LIBRARIES AND NOT yaml-cpp_FOUND)
   message(STATUS "\tYAML_CPP_LIBRARIES   = ${YAML_CPP_LIBRARIES}")
   file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(YAML_CPP_INCLUDE_DIR ${YAML_CPP_INCLUDE_DIR})\n")
   file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(YAML_CPP_LIBRARIES ${YAML_CPP_LIBRARIES})\n")
+  list(APPEND ONIKA_INCLUDE_DIRS ${YAML_CPP_INCLUDE_DIR})
   file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_INCLUDE_DIRS \${YAML_CPP_INCLUDE_DIR})\n")
 else()
   find_package(yaml-cpp REQUIRED)  
@@ -382,10 +383,14 @@ file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_LIBRARIES \${YAML_CPP_LIBR
 # CCC supercomputing facility user lib
 option(ONIKA_HAS_CCC_USER "Use CCC job resource interface" OFF)
 if(ONIKA_HAS_CCC_USER)
+  set(CCC_USER_INCLUDE_DIRS "" CACHE STRING "Include directory for ccc_user.h header")
+  set(CCC_USER_LIBRARIES "ccc_user" CACHE STRING "Path to libccc_user")
   list(APPEND ONIKA_COMPILE_DEFINITIONS __use_lib_ccc_user=1)
-  list(APPEND ONIKA_LIBRARIES ccc_user)
+  list(APPEND ONIKA_LIBRARIES ${CCC_USER_LIBRARIES})
+  list(APPEND ONIKA_INCLUDE_DIRS ${CCC_USER_INCLUDE_DIRS})
   file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_COMPILE_DEFINITIONS __use_lib_ccc_user=1)\n")
-  file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_LIBRARIES ccc_user)\n")
+  file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_LIBRARIES ${CCC_USER_LIBRARIES})\n")
+  file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_INCLUDE_DIRS ${CCC_USER_INCLUDE_DIRS})\n")
 endif()
 
 
