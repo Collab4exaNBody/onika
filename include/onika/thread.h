@@ -110,23 +110,15 @@ namespace onika
 
   using spin_mutex = atomic_lock_spin_mutex<>;
 //  using spin_mutex = omp_spin_mutex;
+//  using spin_mutex = stl_spin_mutex;
   
   class spin_mutex_array
   {
   public:
     spin_mutex_array() = default;
     inline spin_mutex_array( size_t n ) { resize(n); }
-    inline spin_mutex_array( const spin_mutex_array & other )
-    {
-      // for tests only, should be a deleted function, as the state of locks cannot be copied
-      resize( other.m_size );
-    }
-    inline spin_mutex_array& operator = ( const spin_mutex_array & other )
-    {
-      // for tests only, should be a deleted function, as the state of locks cannot be copied
-      resize( other.m_size );
-      return *this;
-    }
+    spin_mutex_array( const spin_mutex_array & other ) = delete;
+    spin_mutex_array& operator = ( const spin_mutex_array & other ) = delete;
  
     inline spin_mutex_array( spin_mutex_array && other )
     {
@@ -166,44 +158,6 @@ namespace onika
     spin_mutex* m_array = nullptr;
     size_t m_size = 0;
   };
-  //using spin_mutex = stl_spin_mutex;   
-
-  // =========== light weight shared mutex =====================
-  // only capable of try_lock and try_lock_shared.
-  // uses a single 32-bits atomic
-  // sizeof(LightWeightSharedMutext) = 4
-  // sizeof(std::shared_mutex) = 56
-  struct LightWeightSharedMutex
-  {
-    static constexpr uint32_t EXCLUSIVE_LOCK = std::numeric_limits<uint32_t>::max();
-    static constexpr uint32_t MAX_SHARE_COUNT = EXCLUSIVE_LOCK - 1;
-    std::atomic<uint32_t> m_counter = 0;
-    inline bool try_lock_shared()
-    {
-      uint32_t current = m_counter.load( std::memory_order_relaxed );
-      if( current < MAX_SHARE_COUNT )
-      {
-        return m_counter.compare_exchange_weak( current, current+1, std::memory_order_acquire, std::memory_order_relaxed );
-      }
-      else { return false; }
-    }
-    inline void unlock_shared()
-    {
-      ONIKA_DEBUG_ONLY( uint32_t prev = ) m_counter.fetch_sub(1 , std::memory_order_relaxed );
-      assert( prev!=0 && prev!=EXCLUSIVE_LOCK );
-    }
-    inline bool try_lock()
-    {
-      uint32_t expected = 0;
-      return m_counter.compare_exchange_weak( expected, EXCLUSIVE_LOCK, std::memory_order_acquire, std::memory_order_relaxed );
-    }
-    inline void unlock()
-    {
-      ONIKA_DEBUG_ONLY( uint32_t prev = ) m_counter.exchange( 0 , std::memory_order_release );
-      assert( prev == EXCLUSIVE_LOCK );
-    }
-  };
-
 
   //**************** reliable thread indexing *********************
   size_t get_thread_index();
