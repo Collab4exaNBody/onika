@@ -236,7 +236,6 @@ namespace onika
 /******************** Cuda language support ********************/
 /***************************************************************/
 
-
 /************** begin cuda-c code definitions ***************/
 #   if defined(__CUDACC__) || defined(__HIPCC__)
 
@@ -275,7 +274,7 @@ namespace onika
 #   define ONIKA_BUILTIN_ASSUME_ALIGNED(p,a) __builtin_assume_aligned(p,a)
 #   define ONIKA_CU_LAUNCH_KERNEL(GDIM,BDIM,SHMEM,STREAM,FUNC, ... ) do{ \
 	FAKE_USE_OF_VARIABLES(__VA_ARGS__) \
-	printf("Illegal call to Kernel %s<<<%d,%d,%d,%ld>>>(...) with no GPU support, in %s at %s:%d\n",#FUNC,int(GDIM),int(BDIM),int(SHMEM),long(STREAM),__FUNCTION__,__FILE__,__LINE__); \
+	printf("Illegal call to Kernel %s<<<%d,%d,%d,%ld>>>(...) with no GPU support, in %s at %s:%d\n",#FUNC,int(::onika::cuda::onika_dim3_size(GDIM)),int(::onika::cuda::onika_dim3_size(BDIM)),int(SHMEM),long(STREAM),__FUNCTION__,__FILE__,__LINE__); \
 	std::abort(); \
     }while(false)
 #   endif

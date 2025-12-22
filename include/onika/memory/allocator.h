@@ -150,6 +150,32 @@ namespace memory
   // Host-Device compatible STL vectors
   template<class T> using CudaMMVector = std::vector< T , CudaManagedAllocator<T> >;
 
+  /*
+   * Simple array with managed memory allocation.
+   * WARNING: this is not a std::vector, resize fully deallocates and reallocates memory at each call,
+   * and elements are NOT conserved across resize
+   */
+  template<class T>
+  struct CudaMMArray
+  {
+    T * m_data_pointer = nullptr;
+    size_t m_size = 0;
+    ONIKA_HOST_DEVICE_FUNC inline const T & operator [] (size_t i) const { return m_data_pointer[i]; }
+    ONIKA_HOST_DEVICE_FUNC inline T & operator [] (size_t i) { return m_data_pointer[i]; }
+    ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
+    inline void resize(size_t sz)
+    {
+      if( m_data_pointer != nullptr ) CudaManagedAllocator<T>::deallocate( m_data_pointer , m_size );
+      m_size = sz;
+      if( m_size > 0 ) m_data_pointer = CudaManagedAllocator<T>::allocate( m_size );
+      else m_data_pointer = nullptr;
+    }
+    inline void clear() { resize(0); }
+    inline T * begin() const { return m_data_pointer; }
+    inline T * end() const { return m_data_pointer + m_size; }
+    inline ~CudaMMArray() { clear(); }
+  };
+
   // useful macro to indicate the compiler a pointer is aligned
 # ifndef __CUDACC__
 # define ONIKA_ASSUME_ALIGNED(x) x = ( decltype(x) __restrict__ ) __builtin_assume_aligned( x , ::onika::memory::DEFAULT_ALIGNMENT )

@@ -26,6 +26,7 @@ under the License.
 #include <onika/omp/ompt_task_timing.h>
 #include <onika/memory/memory_usage.h>
 #include <onika/cuda/cuda_context.h>
+#include <onika/parallel/parallel_execution_operators.h>
 
 #include <cassert>
 #include <memory>
@@ -61,21 +62,6 @@ namespace onika { namespace scg
 
   OperatorNode::~OperatorNode()
   {
-    if( ! m_allocated_parallel_execution_contexts.empty() )
-    {
-      std::ostringstream oss;
-      oss << "m_allocated_parallel_execution_contexts is not empty :";
-      for(auto pec : m_allocated_parallel_execution_contexts)
-      {
-        oss << " @"<<(void*)pec<<" from "<<pec->m_tag;
-      }
-      fatal_error() << oss.str() << std::endl;
-    }
-    for(auto pec : m_free_parallel_execution_contexts)
-    {
-      assert( pec != nullptr );
-      delete pec;
-    }
   }
 
   void OperatorNode::finalize()
@@ -373,7 +359,6 @@ namespace onika { namespace scg
 
   void OperatorNode::set_task_group_mode( bool m )
   {
-    if( !m_omp_task_mode && m ) lout << "enable task group for "<<pathname()<<std::endl;
     m_omp_task_mode = m;
   }
   
@@ -395,7 +380,7 @@ namespace onika { namespace scg
   void OperatorNode::run_prolog()
   {
     //if( is_terminal() ) lout << "--> " << pathname() << "\n";
-    onika_ompt_declare_task_context(tsk_ctx);
+//    onika_ompt_declare_task_context(tsk_ctx);
 
     const bool do_profiling = global_profiling() && profiling();
     const bool open_new_task_region = (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode() ;
@@ -432,14 +417,6 @@ namespace onika { namespace scg
     this->initialize_slots_resource();
   }
 
-  void OperatorNode::wait_all_parallel_execution_streams()
-  {
-    for(auto & pes : m_parallel_execution_streams)
-    {
-      if( pes != nullptr ) pes->wait();
-    }
-  }
-
   bool OperatorNode::is_task_region_master() const
   {
      return (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode();
@@ -449,8 +426,7 @@ namespace onika { namespace scg
   {
     const bool open_new_task_region = is_task_region_master();
 
-    wait_all_parallel_execution_streams();
-
+    parallel_execution_queue() << parallel::flush << parallel::synchronize ; 
 
     int old_omp_max_threads = omp_get_max_threads();
     if( m_omp_num_threads > 0 )
@@ -473,7 +449,7 @@ namespace onika { namespace scg
           {
             execute();
           } // --- end of task group ---
-          wait_all_parallel_execution_streams();          
+          parallel_execution_queue() << parallel::flush << parallel::synchronize ; 
           run_epilog();
         } // --- end of single ---
       } // --- end of parallel section ---
@@ -487,8 +463,8 @@ namespace onika { namespace scg
     {
       run_prolog();
       execute();
-      // not correct : we dont' want to force synchronization here, just triggers call to run_epilog when all previously issued tasks are completed
-      wait_all_parallel_execution_streams();
+      // not correct : we don't want to force synchronization here, just triggers call to run_epilog when all previously issued tasks are completed
+      parallel_execution_queue() << parallel::flush << parallel::synchronize ; 
       run_epilog();
     }
 
@@ -573,7 +549,6 @@ namespace onika { namespace scg
     return m_multiple_run;
   }
 
-
   void OperatorNode::finalize_parallel_execution(onika::parallel::ParallelExecutionContext* pec, void * v_self)
   {
     OperatorNode* self = reinterpret_cast<OperatorNode*>( v_self );
@@ -582,43 +557,7 @@ namespace onika { namespace scg
     const std::lock_guard<std::mutex> lock(self->m_parallel_execution_access);
     self->m_total_gpu_time += pec->m_total_gpu_execution_time;
     self->m_total_async_cpu_time += pec->m_total_cpu_execution_time;
-    pec->reset();
-    auto it = self->m_allocated_parallel_execution_contexts.find( pec );
-    assert( it != self->m_allocated_parallel_execution_contexts.end() );
-    self->m_free_parallel_execution_contexts.push_back( *it );
-    self->m_allocated_parallel_execution_contexts.erase( it );
-  }
-
-  onika::parallel::ParallelExecutionStream* OperatorNode::parallel_execution_stream(int id)
-  {
-    assert( task_group_ancestor() == this );
-    if( id == onika::parallel::DEFAULT_EXECUTION_LANE ) id = 0;
-    if( id < 0 || id >= onika::parallel::MAX_EXECUTION_LANES )
-    {
-      fatal_error() << "Invalid execution stream id ("<<id<<")"<<std::endl;
-    }    
-    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
-    if( size_t(id) >= m_parallel_execution_streams.size() )
-    {
-      m_parallel_execution_streams.resize( id+1 , nullptr );
-    }
-    if( m_parallel_execution_streams[id] == nullptr )
-    {
-      m_parallel_execution_streams[id] = std::make_shared<onika::parallel::ParallelExecutionStream>();
-      m_parallel_execution_streams[id]->m_cuda_ctx = global_cuda_ctx();
-      if( m_parallel_execution_streams[id]->m_cuda_ctx != nullptr )
-      {
-        m_parallel_execution_streams[id]->m_cu_stream = m_parallel_execution_streams[id]->m_cuda_ctx->getThreadStream(id);
-      }
-      m_parallel_execution_streams[id]->m_stream_id = id;
-    }
-    return m_parallel_execution_streams[id].get();
-  }
-
-  static inline onika::parallel::ParallelExecutionStream* OperatorNode_parallel_execution_stream_cb(void* _self, int id)
-  {
-    OperatorNode * self = ( OperatorNode* ) _self;
-    return self->parallel_execution_stream(id);
+    self->m_parallel_execution_context_allocator.free(pec);
   }
 
   OperatorNode * OperatorNode::task_group_ancestor()
@@ -637,38 +576,26 @@ namespace onika { namespace scg
     {
       return task_group_ancestor()->parallel_execution_queue();
     }
-
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
     if( m_parallel_execution_queue == nullptr )
     {
       m_parallel_execution_queue = std::make_shared<onika::parallel::ParallelExecutionQueue>();
-      m_parallel_execution_queue->m_stream_pool = { OperatorNode_parallel_execution_stream_cb , task_group_ancestor() };
+      if( m_parallel_execution_stream_allocator.m_cuda_ctx == nullptr ) m_parallel_execution_stream_allocator.m_cuda_ctx = global_cuda_ctx();
+      m_parallel_execution_queue->m_stream_pool = m_parallel_execution_stream_allocator.parallel_execution_stream_pool();
     }
     return * m_parallel_execution_queue;
   }
 
-  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(const char* sub_tag)
+  parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(const char* sub_tag)
   {
     auto & default_queue = parallel_execution_queue();
-    
-    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
-    if( m_free_parallel_execution_contexts.empty() )
-    {
-      m_free_parallel_execution_contexts.push_back( new onika::parallel::ParallelExecutionContext() );
-    }
-    auto pec = m_free_parallel_execution_contexts.back();
-    m_allocated_parallel_execution_contexts.insert( pec );
-    m_free_parallel_execution_contexts.pop_back();
-
-    pec->reset();
-    pec->m_tag = m_tag.get();
-    pec->m_sub_tag = sub_tag;
-    pec->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
-    pec->m_default_queue = & default_queue;
-    pec->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
-    pec->initialize_stream_events();
-    pec->m_finalize = onika::parallel::ParallelExecutionFinalize{ OperatorNode::finalize_parallel_execution , this };
-    return pec;
+    return m_parallel_execution_context_allocator.create(
+        m_tag.get()
+      , sub_tag == nullptr ? "" : sub_tag
+      , & default_queue
+      , m_gpu_execution_allowed ? global_cuda_ctx() : nullptr
+      , m_omp_task_mode ? omp_get_max_threads() : 0
+      , parallel::ParallelExecutionFinalize{ OperatorNode::finalize_parallel_execution , this } );
   }
 
   void OperatorNode::set_parent( OperatorNode* parent )

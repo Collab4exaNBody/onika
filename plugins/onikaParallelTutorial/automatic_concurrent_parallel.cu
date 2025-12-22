@@ -14,7 +14,7 @@ namespace onika
   namespace tutorial
   {
 
-    class ConcurrentBlockParallelTest : public OperatorNode
+    class AutomaticConcurrentParallelTest : public OperatorNode
     {
       ADD_SLOT(Array2D, array1, INPUT_OUTPUT, Array2D{} );
       ADD_SLOT(Array2D, array2, INPUT_OUTPUT, Array2D{} );
@@ -22,7 +22,7 @@ namespace onika
       ADD_SLOT(long, iter_count, INPUT, 1024 );
       ADD_SLOT(long, columns, INPUT, 1024 );
       ADD_SLOT(long, rows, INPUT, 1024 );
-      
+
       public:
       
       inline bool is_sink() const override final { return true; }
@@ -30,6 +30,10 @@ namespace onika
       inline void execute() override final
       {
         using onika::parallel::block_parallel_for;
+        using onika::parallel::any_lane;
+        using onika::parallel::flush;
+        using onika::parallel::AccessStencilElement;
+        using onika::parallel::local_access;
 
         // if array1 is empty, allocate it
         if( array1->rows() == 0 || array1->columns() == 0 )
@@ -47,6 +51,12 @@ namespace onika
         BlockParallelValueAddFunctor<true>          array1_kernel2 = { *array1, *value };
         BlockParallelIterativeValueAddFunctor<true> array2_kernel1 = { *array2, *value, *iter_count };
         BlockParallelValueAddFunctor<true>          array2_kernel2 = { *array2, *value };
+
+        // describes an access to array1, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
+        const auto array1_rw_access = local_access(array1->m_data.data(),2,AccessStencilElement::RW,"a1_rw");
+        
+        // describes an access to array2, which is 2D, for read and write access to elements @ location of block_parallel_for iterator
+        const auto array2_rw_access = local_access(array2->m_data.data(),2,AccessStencilElement::RW,"a2_rw");
                                
         // Launching the parallel operation, which can execute on GPU if the execution context allows
         // result of parallel operation construct is captured into variable 'my_addition',
@@ -64,14 +74,20 @@ namespace onika
 
         // enqueue operations in two distinct custom queues with different default stream ids
         lout << "Enqueue parallel operations ..." << std::endl;
-        parallel_execution_queue() << onika::parallel::set_lane(0) << std::move(array1_par_op1) << std::move(array1_par_op2)
-                                   << onika::parallel::set_lane(1) << std::move(array2_par_op1) << std::move(array2_par_op2);
+
+        // any_lane()  allows for parallel operation overlapping, auto lane selection and/or kernel split into several kernels
+        // data access pattern is reset each time an operation is issued, so we must re-activate it for the next parallel operation, even though it has the same access pattern
+        parallel_execution_queue() << any_lane()
+                                   << array1_rw_access << std::move(array1_par_op1)
+                                   << array1_rw_access << std::move(array1_par_op2)
+                                   << array2_rw_access << std::move(array2_par_op1) 
+                                   << array2_rw_access << std::move(array2_par_op2);
                                            
         lout << "schedule for execution ..." << std::endl;
-        parallel_execution_queue() << onika::parallel::flush;
+        parallel_execution_queue() << flush;
+        // it also retores preselected queue's lane to DEFAULT_EXECUTION_LANE, restoring de default behavior
+        // it's then needed to stream any_lane() again to restart another set of automatic overlapping parallel operations
 
-        //parallel_execution_queue().wait(1); // wait for all operations in stream #1 to complete
-        //parallel_execution_queue().wait(0); // wait for all operations in stream #0 to complete
         // parallel_execution_queue().wait(); // wait for all opeartions in all streams to complete
         parallel_execution_queue() << onika::parallel::synchronize ; // the same as above
         
@@ -80,9 +96,9 @@ namespace onika
     };
 
     // === register factories ===
-    ONIKA_AUTORUN_INIT(concurrent_block_parallel)
+    ONIKA_AUTORUN_INIT(automatic_concurrent_parallel)
     {
-     OperatorNodeFactory::instance()->register_factory( "concurrent_block_parallel", make_simple_operator< ConcurrentBlockParallelTest > );
+     OperatorNodeFactory::instance()->register_factory( "automatic_concurrent_parallel", make_simple_operator< AutomaticConcurrentParallelTest > );
     }
 
   }
