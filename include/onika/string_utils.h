@@ -31,6 +31,19 @@ under the License.
 
 namespace onika
 {
+  enum TextFormat { TEXT_FORMAT_RAW, TEXT_FORMAT_ANSI, TEXT_FORMAT_MARKDOWN };
+
+  // direct access to user console (or graphic system)
+  struct FormattedText
+  {
+    TextFormat m_format = TEXT_FORMAT_RAW;
+    std::string m_text;
+
+    inline TextFormat format() const { return m_format; }
+    inline std::string_view formatted_text() const { return m_text; }
+    std::string to_raw() const;
+    std::string to_ansi() const;
+  };
 
   template<typename FormatArg>
   inline FormatArg convert_format_arg(const FormatArg& a) { return a; }
@@ -61,7 +74,7 @@ namespace onika
     s.resize(len);
     return s;
   }
-  
+
   std::vector<std::string> split_string(const std::string& s, char delim=' ');
 
   void function_name_and_args(const std::string& proto, std::string& name, std::vector<std::string>& args );
@@ -69,11 +82,17 @@ namespace onika
   std::string str_tolower(std::string s);
 
   std::string str_indent(const std::string& s, int width=4, char indent_char=' ', const std::string& indent_suffix="" );
-  
+
   std::string large_integer_to_string(size_t n);
 
   std::string plurial_suffix(double n, const std::string& suffix="s");
 
   std::string memory_bytes_string( ssize_t n , const char* fmt = "%.2f %s" );
+
+  std::string remove_ansi_codes(std::string_view str_in);
+
+  std::string markdown_to_raw(std::string_view str_in);
+
+  std::string markdown_to_ansi(std::string_view str_in);
 
 }

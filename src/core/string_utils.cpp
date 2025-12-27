@@ -68,7 +68,7 @@ namespace onika
   std::string large_integer_to_string(size_t n)
   {
     if(n==0) return "0";
-  
+
     std::string digits;
     {
       std::ostringstream oss;
@@ -125,6 +125,53 @@ namespace onika
     size_t p=0;
     while( N > 1024 && p<(nunits-1) ) { N/=1024; p++; }
     return format_string( fmt , N , S[p] );
+  }
+
+  std::string remove_ansi_codes(std::string_view str_in)
+  {
+    std::string str_out;
+    int s=0;
+    for(char c:str_in)
+    {
+      if(s==0 && c=='\033') ++s;
+      else if(s==1 || c=='[') ++s;
+      else if(s>1 && c>='0' && c<='9') ++s;
+      else if(s>1 && std::isalpha(c)) s=0;
+      else str_out.push_back(c);
+    }
+    return str_out;
+  }
+
+  std::string markdown_to_raw(std::string_view str_in)
+  {
+    return std::string(str_in);
+  }
+
+  std::string markdown_to_ansi(std::string_view str_in)
+  {
+    return std::string(str_in);
+  }
+
+  std::string FormattedText::to_raw() const
+  {
+    switch( format() )
+    {
+      case TEXT_FORMAT_RAW: return std::string(m_text);
+      case TEXT_FORMAT_ANSI: return remove_ansi_codes(m_text);
+      case TEXT_FORMAT_MARKDOWN: return markdown_to_raw(m_text);
+    }
+    return "";
+  }
+
+  std::string FormattedText::to_ansi() const
+  {
+    switch( format() )
+    {
+      case TEXT_FORMAT_RAW: return std::string(m_text);
+      case TEXT_FORMAT_ANSI: return std::string(m_text);
+      case TEXT_FORMAT_MARKDOWN: return markdown_to_ansi(m_text);
+    }
+    return "";
   }
 
 }

@@ -33,7 +33,7 @@ namespace onika { namespace scg_builtin
 
   class ApplicationUnitSystem : public onika::scg::OperatorNode
   {
-    using UnitSystem = onika::physics::UnitSystem;  
+    using UnitSystem = onika::physics::UnitSystem;
     ADD_SLOT( UnitSystem , unit_system , INPUT , OPTIONAL , DocString{"Defines default internal unit system used for quantity conversions whe no unit system specified."} );
     ADD_SLOT( bool       , verbose     , INPUT , false    , DocString{"If true prints a report of defined internal units used by default."} );
 
@@ -48,10 +48,10 @@ namespace onika { namespace scg_builtin
       const auto& ius = onika::physics::internal_unit_system();
       if( *verbose )
       {
-        lout << "Internal unit system for default conversions" << std::endl;
-        lout << "+-------------+-------------------+--------+" << std::endl;
-        lout << "| Type        | Unit              | Symbol |" << std::endl;
-        lout << "+-------------+-------------------+--------+" << std::endl;
+        lout << FormattedText{TEXT_FORMAT_ANSI,"Internal unit system for default conversions"} << std::endl;
+        lout << FormattedText{TEXT_FORMAT_ANSI,"+-------------+-------------------+--------+"} << std::endl;
+        lout << FormattedText{TEXT_FORMAT_ANSI,"| \033[31mType\033[0m        | Unit              | Symbol |"} << std::endl;
+        lout << FormattedText{TEXT_FORMAT_ANSI,"+-------------+-------------------+--------+"} << std::endl;
         for(int i=0;i<=onika::physics::NUMBER_OF_UNIT_CLASSES;i++)
         {
           lout << format_string("| %-12s| %-18s| %-7s|",
@@ -63,9 +63,17 @@ namespace onika { namespace scg_builtin
       }
     }
 
+    FormattedText formatted_documentation() const override final
+    {
+      return {TEXT_FORMAT_ANSI,
+"Initializes the default unit system.\
+These units are used for conversion when user indicates some units in input file and no specific unit system is specified for conversion.\
+Default unit system is \033[1mSI international unit system\033[0m."};
+    }
+
   };
-  
-  // === register factories ===  
+
+  // === register factories ===
   ONIKA_AUTORUN_INIT(application_unit_system)
   {
    onika::scg::OperatorNodeFactory::instance()->register_factory( "unit_system", onika::scg::make_compatible_operator< ApplicationUnitSystem > );

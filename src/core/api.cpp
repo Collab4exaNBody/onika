@@ -35,7 +35,7 @@ namespace onika
     {
       return m_return_code;
     }
-    
+
     onika::scg::OperatorNode* ApplicationContext::node(const std::string& nodepath) const
     {
       return node_from_path( m_simulation_graph , nodepath );
@@ -62,7 +62,7 @@ namespace onika
         free( argv[a] );
       }
       delete [] argv;
-      
+
       return appctx;
     }
 
@@ -71,7 +71,7 @@ namespace onika
     init( int argc, char const * const argv[] )
     {
       std::shared_ptr<ApplicationContext> ctx = std::make_shared<ApplicationContext>();
-  
+
 #     ifndef NDEBUG
       std::cout << "to debug, use 'b simulation_start_breakpoint()' in gdb to stop program when all symbols are loaded"<<std::endl;
 #     endif
@@ -100,11 +100,11 @@ namespace onika
 
       // =========== OpenMP Initialization ============
       // third parameter may be be 'false' if configuration is driven by external application
-      const auto [ cpucount , cpu_hw_threads , cpu_ids ] = onika::app::intialize_openmp( configuration , rank , true ); 
+      const auto [ cpucount , cpu_hw_threads , cpu_ids ] = onika::app::intialize_openmp( configuration , rank , true );
 
       // =========== configure logging system ===========
       onika::configure_logging(configuration.logging.debug, configuration.logging.parallel, configuration.logging.log_file, configuration.logging.err_file, configuration.logging.dbg_file, rank,nb_procs);
-      
+
       // ============= GPU Initialization ===============
       int n_gpus = initialize_gpu( configuration );
 
@@ -114,18 +114,18 @@ namespace onika
       // ============= system info ==============
       onika::app::print_host_system_info( onika::lout, configuration, nb_procs, cpucount, cpu_hw_threads, cpu_ids, n_gpus);
 
-      // ============= plugins initialization ============  
+      // ============= plugins initialization ============
       const auto [ plugin_db , plugin_db_updated ] = onika::app::initialize_plugins( configuration );
       if( plugin_db_updated ) { lout << "* plugin scan complete, continue ..."<<std::endl; }
       //if( ! may_run_simulation ) { ctx->m_return_code=0; return ctx; }
 
-      // ============= unit tests ============  
+      // ============= unit tests ============
       const auto [ n_passed , n_failed ] = onika::app::run_embedded_tests( configuration );
       if( (n_passed+n_failed) > 0 ) { ctx->m_return_code=n_failed; return ctx; }
 
       // ============ profiling configuration ==============
       auto [ otf , configuration_needs_profiling ] = onika::app::initialize_profiling( configuration , rank, nb_procs );
-      
+
       // insert non configuration yaml to graph nodes to populate operators' default definitions
       onika::scg::OperatorNodeFactory::instance()->set_operator_defaults( input_data );
 
@@ -158,7 +158,7 @@ namespace onika
       ctx->m_plugin_db = plugin_db;
       ctx->m_plugin_db_generate_mode = plugin_db_updated;
       ctx->m_simulation_graph = simulation_graph;
-      
+
       return ctx;
     }
 
@@ -180,7 +180,7 @@ namespace onika
     {
       onika::app::finalize( * (ctx->m_configuration.get()) , ctx->m_simulation_graph , ctx->m_prof_trace , ctx->m_mpi_external_init );
     }
-    
+
     void
     initialize()
     {
@@ -202,7 +202,7 @@ namespace onika
                         , bool external_mpi_init )
     {
       using namespace onika::scg;
-    
+
       // produce vite trace output
       if( configuration.profiling.trace.enable )
       {
@@ -213,7 +213,7 @@ namespace onika
       //  print simulation execution summary
       if( configuration.profiling.summary )
       {
-        lout<<std::endl<<"Profiling .........................................  tot. time  ( GPU )   avginb  maxinb     count  percent"<<std::endl;        
+        lout<<std::endl<<"Profiling .........................................  tot. time  ( GPU )   avginb  maxinb     count  percent"<<std::endl;
         auto statsfunc = []( const std::vector<double>& x, int& np, int& r, std::vector<double>& minval, std::vector<double>& maxval, std::vector<double>& avg )
         {
           onika::mpi::mpi_parallel_stats(MPI_COMM_WORLD,x,np,r,minval,maxval,avg);
@@ -300,7 +300,7 @@ namespace onika
         configuration.set = YAML::Node();
         config_node = onika::yaml::remove_map_key( config_node, "set" );
       }
-      
+
       // simulation definition
       YAML::Node simulation_node;
       if( input_data["simulation"] )
@@ -344,9 +344,9 @@ namespace onika
       
       return { input_data , simulation_node , configuration_ptr };
     }
-    
-    
-    
+
+
+
     onika::scg::OperatorNode*
     node_from_path( std::shared_ptr<onika::scg::OperatorNode> simulation_graph , const std::string& nodepath )
     {
@@ -369,21 +369,21 @@ namespace onika
         if( ! num_thread_str.empty() )
         {
           std::cout << "*WARNING* Overriding OpenMP's OMP_NUM_THREADS variable from "<<num_thread_str<<" to "<<configuration.omp_num_threads<<" because user speicified a positive value for configuration.omp_num_threads"<<std::endl;
-        }    
+        }
         std::ostringstream oss;
         oss << configuration.omp_num_threads;
         num_thread_str = oss.str();
         setenv( "OMP_NUM_THREADS" , num_thread_str.c_str() , 1 );
         omp_set_num_threads(configuration.omp_num_threads);
       }
-      
+
       if( configuration.omp_max_nesting > 1 && allow_openmp_conf )
       {
         if(configuration.omp_nested) { omp_set_nested(1); }
         omp_set_max_active_levels( configuration.omp_max_nesting );
       }
       configuration.omp_max_nesting = omp_get_max_active_levels();
-      
+
       int num_threads = 0;
 #     pragma omp parallel
       {
@@ -416,13 +416,13 @@ namespace onika
 
         int ncpus = CPU_COUNT(&cpuaff);
 
-        /* restore initial mask */    
+        /* restore initial mask */
         if( allow_openmp_conf ) pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuaff_backup);
         /************************/
-        
+
         for (int i=0; i<CPU_SETSIZE; ++i)
         {
-          if (CPU_ISSET(i, &cpuaff)) 
+          if (CPU_ISSET(i, &cpuaff))
           {
             cpu_ids.push_back(i);
           }
@@ -454,15 +454,15 @@ namespace onika
         }
       }
       // ===============================================
-      
+
       onika::parallel::ParallelExecutionContext::s_parallel_task_core_mult = configuration.onika.parallel_task_core_mult;
       onika::parallel::ParallelExecutionContext::s_parallel_task_core_add  = configuration.onika.parallel_task_core_add;
 
       return { cpucount , cpu_hw_threads , cpu_ids };
     }
-    
-    
-    
+
+
+
     std::string
     cpu_id_list_to_string(const std::vector<int>& cpu_ids)
     {
@@ -491,7 +491,7 @@ namespace onika
       }
       return core_config;
     }
-    
+
     std::tuple<int,int,int,int>
     initialize_mpi( const onika::app::ApplicationConfiguration & configuration , int argc, char const * const in_argv[], MPI_Comm app_world_comm )
     {
@@ -504,7 +504,7 @@ namespace onika
       int mt_support = 0;
       int external_mpi_init = 0;
       MPI_Initialized( &external_mpi_init );
-      
+
       if( external_mpi_init )
       {
         MPI_Query_thread( &mt_support );
@@ -516,13 +516,13 @@ namespace onika
           MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mt_support);
         }
         else
-        {          
+        {
           MPI_Init(&argc, &argv);
         }
       }
       for(int a=0;a<argc;a++) free( argv[a] );
       delete [] argv;
-      
+
       MPI_Comm_rank(app_world_comm, &rank);
       MPI_Comm_size(app_world_comm, &nb_procs);
 
@@ -534,13 +534,13 @@ namespace onika
       // ===============================================
       return { rank, nb_procs, mt_support, external_mpi_init };
     }
-    
-    
-    
+
+
+
     int
     initialize_gpu( const onika::app::ApplicationConfiguration & configuration )
     {
-      // get number of available GPUs, if any   
+      // get number of available GPUs, if any
       int n_gpus = 0;
 #     ifdef ONIKA_CUDA_VERSION
       onika::cuda::CudaContext::set_global_gpu_enable( ! configuration.nogpu );
@@ -571,9 +571,9 @@ namespace onika
       }
       return n_gpus;
     }
-      
-      
-      
+
+
+
     std::pair< const onika::PluginDBMap* , bool >
     initialize_plugins( onika::app::ApplicationConfiguration & configuration )
     {
@@ -592,7 +592,7 @@ namespace onika
       {
         configuration.plugin_db = "plugins.db";
       }
-            
+
       // configure plugin DB generation if requested (or the data base cannot be found)
       if( std::filesystem::status(configuration.plugin_db).type() == std::filesystem::file_type::not_found )
       {
@@ -603,7 +603,7 @@ namespace onika
         if( ! quiet_plugin_register() ) lout << "* check plugin DB against search path ..." << std::endl;
         onika::read_plugin_db( configuration.plugin_db );
         auto db_time = std::filesystem::last_write_time(configuration.plugin_db);
-        const auto& plugin_files_scanned = get_plugin_db_files();        
+        const auto& plugin_files_scanned = get_plugin_db_files();
         auto available_plugin_files = plugin_files_from_search_directories(plugin_search_dirs());
         for(const auto& pf:available_plugin_files)
         {
@@ -628,8 +628,8 @@ namespace onika
       {
         lout << "* plugin_dir="<<configuration.plugin_dir << " , plugin_db="<<configuration.plugin_db << " , generate_plugins_db="<<configuration.generate_plugins_db <<std::endl;
       }
-      
-      if( ! quiet_plugin_register() ) { lout << "+ <builtin>" << std::endl; }      
+
+      if( ! quiet_plugin_register() ) { lout << "+ <builtin>" << std::endl; }
       OperatorSlotBase::enable_registration();
       OperatorNodeFactory::instance()->enable_registration();
 
@@ -648,11 +648,11 @@ namespace onika
       if( ! quiet_plugin_register() ) lout << "=================================" << std::endl << std::endl;
 
       plugins_loaded_breakpoint();
-      
+
       return { get_plugin_db() , configuration.generate_plugins_db };
     }
-    
-    std::pair<int,int> 
+
+    std::pair<int,int>
     run_embedded_tests( const onika::app::ApplicationConfiguration & configuration )
     {
       if( configuration.run_unit_tests )
@@ -731,7 +731,7 @@ namespace onika
 
 
 
-    bool 
+    bool
     print_help( const onika::app::ApplicationConfiguration & configuration , const std::string& appname, const onika::PluginDBMap* plugin_db )
     {
       using namespace onika::scg;
@@ -773,7 +773,6 @@ namespace onika
         {
           lout<<"Operator data base:"<<std::endl
               <<"================="<<std::endl<<std::endl;
-          std::ostringstream oss;
           for(const auto& cp : *plugin_db )
           {
             for(const auto& op : cp.second )
@@ -782,10 +781,10 @@ namespace onika
               if( op.first == "matrix_4d") continue;
               if( op.first == "particle_region_csg") continue;
               std::shared_ptr<OperatorNode> ope = OperatorNodeFactory::instance()->make_operator( op.first , YAML::Node(YAML::NodeType::Map ) );
-              ope->print_documentation( oss );
+              ope->print_documentation( lout );
             }
           }
-          lout << oss.str() << std::endl;
+          lout << std::endl;
         }
         else if( configuration.help == "plugins" )
         {
@@ -801,12 +800,12 @@ namespace onika
               for(const auto & pf : op.second ) available_plugins.insert( pf );
             }
           }
-          lout<<"Available plugins :"<<std::endl;
+          lout << FormattedText{TEXT_FORMAT_ANSI,"\033[1mAvailable plugins \033[0m:"} << std::endl;
           for(const auto& s : available_plugins) { lout<<"\t"<<s<<std::endl; }
 
           for(const auto& cp : available_items)
           {
-            lout<<std::endl<<"Available "<<cp.first<<"s :"<<std::endl;
+            lout<<std::endl<<FormattedText{TEXT_FORMAT_ANSI,"\033[1mAvailable "+cp.first+"s \033[0m:"}<<std::endl;
             for(const auto& item : cp.second)
             {
               lout<<"\t"<<item<<std::endl;
@@ -817,8 +816,8 @@ namespace onika
         {
           std::shared_ptr<OperatorNode> op = OperatorNodeFactory::instance()->make_operator( configuration.help , YAML::Node(YAML::NodeType::Map) );
           std::ostringstream oss;
-          op->print_documentation( oss );
-          lout << oss.str() << std::endl;
+          op->print_documentation( lout );
+          lout << std::endl;
         }
         return true;
       }
@@ -832,7 +831,7 @@ namespace onika
     {
       using namespace onika::scg;
 
-      std::shared_ptr<OperatorNode> simulation_graph = OperatorNodeFactory::instance()->make_operator( "simulation" , simulation_node );  
+      std::shared_ptr<OperatorNode> simulation_graph = OperatorNodeFactory::instance()->make_operator( "simulation" , simulation_node );
       simulation_graph->apply_graph( [](OperatorNode* o){ o->post_graph_build(); } );
 
       //  print simulation graph
@@ -954,9 +953,9 @@ namespace onika
               {
                 if( hashes.find(o->hash())!=hashes.end() ) { ldbg<<"Limit maximum number of threads to "<<nthreads<<" for operator "<<o->pathname()<<std::endl; o->set_omp_max_threads(nthreads); }
               });
-        }    
+        }
       }
-      
+
       return simulation_graph;
     }
 
@@ -979,7 +978,7 @@ namespace onika
         onika::omp::OpenMPToolInterace::disable();
       }
     }
-   
+
   }
 }
 

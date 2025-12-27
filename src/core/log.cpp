@@ -28,7 +28,7 @@ under the License.
 #include <onika/print_utils.h>
 
 namespace onika
-{  
+{
   LogStreamWrapper lout  { 1 , []() -> std::ostream& {return std::cout;} };
   LogStreamWrapper lerr  { 2 , []() -> std::ostream& {return std::cerr;} };
 
@@ -54,7 +54,7 @@ namespace onika
     { 1
     , _if_ONIKA_DEBUG< std::function<std::ostream&(void)> >( []() -> std::ostream& {return std::cout;} , nullptr )
     , _if_ONIKA_DEBUG< std::function<std::ostream&(std::ostream&)> >( [](std::ostream& os) -> std::ostream& {return os<<"dbg: ";} , nullptr )  };
-  
+
   void LogStreamWrapper::open( const std::string& file_name )
   {
     //std::cout << "LogStreamWrapper::open('"<< file_name << "')" << std::endl;
@@ -139,7 +139,7 @@ namespace onika
     {
       if( ! out_file_name.empty() ) { lout.open(out_file_name); }
       if( ! err_file_name.empty() ) { lerr.open(err_file_name); }
-      if(parallel_log) 
+      if(parallel_log)
       {
         lout.m_begin_line = [rank](std::ostream& out) -> std::ostream& { return out<<onika::format_string("P%03d: ",rank); } ;
         lerr.m_begin_line = [rank](std::ostream& out) -> std::ostream& { return out<<onika::format_string("P%03d: ERR: ",rank); } ;
@@ -176,7 +176,7 @@ namespace onika
       ldbg_raw.m_out = nullptr;
       ldbg_raw.m_begin_line = nullptr;
     }
-    
+
     // default format
     lout << onika::default_stream_format;
     ldbg_raw << onika::default_stream_format;
@@ -202,7 +202,6 @@ namespace onika
       std::abort();
     }
   }
-
 
 }
 

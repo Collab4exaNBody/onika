@@ -29,6 +29,7 @@ under the License.
 #include <sstream>
 
 #include <onika/stream_utils.h>
+#include <onika/string_utils.h>
 
 namespace onika
 {
@@ -45,13 +46,13 @@ namespace onika
     std::unordered_set<size_t> m_filters; // set of label hash for which log is enabled
     bool m_filter_enable = false;
     bool m_line_start = true;
-            
+
     // utility function to open a file and use it as output stream
     void open( const std::string& file_name );
     void set_filters( const std::unordered_set<size_t>& filters );
     bool is_a_tty() const;
     void progress_bar( const std::string mesg, double ratio );
-    
+
     // return a stream with respect to label filtering
     LogStreamWrapper& filter(size_t label);
   };
@@ -94,7 +95,7 @@ namespace onika
     {
 #     pragma omp critical(onika_log_manip)
       {
-        log.m_out() << '\r' << std::flush; 
+        log.m_out() << '\r' << std::flush;
         log.m_line_start = true;
       }
     }
@@ -110,7 +111,7 @@ namespace onika
   inline LogStreamWrapper& operator << ( LogStreamWrapper& log , std::ostream& (*manip)(std::ostream&) )
   {
     static std::ostream& (*endl_value)(std::ostream&) = std::endl<char,std::char_traits<char> >;
-    
+
     if( log.m_out )
     {
 #     pragma omp critical(onika_log_manip)
@@ -129,6 +130,25 @@ namespace onika
     return log;
   }
 
+  inline LogStreamWrapper& operator << ( LogStreamWrapper& log , const FormattedText& fmt_text)
+  {
+    if( log.m_out )
+    {
+#     pragma omp critical(onika_log_manip)
+      {
+        if( fmt_text.format()==TEXT_FORMAT_ANSI && log.is_a_tty() )
+        {
+          log.m_out() << fmt_text.to_ansi();
+        }
+        else
+        {
+          log.m_out() << fmt_text.to_raw();
+        }
+      }
+    }
+    return log;
+  }
+
   void configure_logging(bool debug, bool parallel_log,
                          std::string out_file_name,
                          std::string err_file_name,
@@ -138,7 +158,7 @@ namespace onika
   extern LogStreamWrapper lout;
   extern LogStreamWrapper lerr;
   extern LogStreamWrapper ldbg_raw;
-    
+
   // helper that replaces ldbg with a filtered version of the log stream
   struct LogStreamFilterHelper
   {
@@ -149,7 +169,7 @@ namespace onika
     {
       return m_log.filter(m_filter_hash) << x;
     }
-    
+
     inline LogStreamWrapper& operator << ( std::ostream& (*manip)(std::ostream&) )
     {
       return m_log.filter(m_filter_hash) << manip ;
@@ -167,10 +187,12 @@ namespace onika
   inline auto& lerr_stream() { return lerr; }
   inline auto& ldbg_stream() { return ldbg; }
 
+
+  // fatal error messages (followed by an abort)
   struct FatalErrorLogStream
   {
     std::ostringstream m_oss = std::ostringstream {
-      "*****************************************\n" 
+      "*****************************************\n"
       "************* FATAL ERROR ***************\n"
       "*****************************************\n"
       , std::ios::ate };
@@ -190,7 +212,7 @@ namespace onika
     FatalErrorLogStream& operator << ( std::ostream& (*manip)(std::ostream&) );
     ~FatalErrorLogStream();
   };
-  
+
   inline FatalErrorLogStream fatal_error() { return {}; }
 }
 
@@ -198,12 +220,12 @@ namespace onika
 #ifdef ONIKA_LOG_EXPORT_NAMESPACE
 namespace ONIKA_LOG_EXPORT_NAMESPACE
 {
-	using ::onika::lout;
-	using ::onika::ldbg;
-	using ::onika::ldbg_raw;
-	using ::onika::lerr;
-	using ::onika::fatal_error;
-	using ::onika::LogStreamWrapper;
+  using ::onika::lout;
+  using ::onika::ldbg;
+  using ::onika::ldbg_raw;
+  using ::onika::lerr;
+  using ::onika::fatal_error;
+  using ::onika::LogStreamWrapper;
 }
 #endif
 
