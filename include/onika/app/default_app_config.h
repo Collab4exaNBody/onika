@@ -77,7 +77,7 @@ namespace onika
       ONIKA_APP_CONFIG_Item( bool         , config         , false  , "print configuration block values");
       ONIKA_APP_CONFIG_Item( bool         , yaml           , false  , "print flattened (after include resolution) yaml config");
       ONIKA_APP_CONFIG_Item( bool         , graph          , false  , "print operator graph");
-      ONIKA_APP_CONFIG_Item( bool         , ompt           , false  , "ompt internal debug messages");  
+      ONIKA_APP_CONFIG_Item( bool         , ompt           , false  , "ompt internal debug messages");
       ONIKA_APP_CONFIG_Item( bool         , graph_addr     , false  , "print operators' addresses");
       ONIKA_APP_CONFIG_Item( int          , graph_lod      , 1      , "level of detail for operator graph");
       ONIKA_APP_CONFIG_Item( std::string  , graph_fmt      , "console" , "graph output format");
@@ -106,10 +106,11 @@ namespace onika
     ONIKA_APP_CONFIG_End();
 
     ONIKA_APP_CONFIG_Begin( physics                                                                  , "Physics parameters and constants" );
-      ONIKA_APP_CONFIG_Item( onika::physics::UnitSystem , units , onika::physics::SI                 , "Default unit system for conversions to internal real values");
+      ONIKA_APP_CONFIG_Item( onika::physics::UnitSystem , units   , onika::physics::SI               , "Default unit system for conversions to internal real values");
+      ONIKA_APP_CONFIG_Item( long                       , rngseed , 1812433253                       , "Default random number generator seed for function 'rand()' used in value expressions");
     ONIKA_APP_CONFIG_End();
 
-    ONIKA_APP_CONFIG_Begin( configuration                                , "Application configuration");  
+    ONIKA_APP_CONFIG_Begin( configuration                                , "Application configuration");
       ONIKA_APP_CONFIG_Struct( logging );
       ONIKA_APP_CONFIG_Struct( profiling );
       ONIKA_APP_CONFIG_Struct( debug );
@@ -125,14 +126,14 @@ namespace onika
       ONIKA_APP_CONFIG_Item( bool          , omp_nested          , false , "enables OpenMP nesting");
       ONIKA_APP_CONFIG_Item( StringIntMap  , omp_max_threads_filter      , {}                             , "list of regular expressions matching paths of operators with forbidden access to the GPU" );
 
-      ONIKA_APP_CONFIG_Item( std::string   , plugin_dir          , onika::plugin_path_env() , "plugin search path");  
+      ONIKA_APP_CONFIG_Item( std::string   , plugin_dir          , onika::plugin_path_env() , "plugin search path");
       ONIKA_APP_CONFIG_Item( std::string   , plugin_db           , ""    , "plugin dictionary file");
       ONIKA_APP_CONFIG_Item( StringVector  , plugins             , {}    , "list of plugins forced to load");
       ONIKA_APP_CONFIG_Item( bool          , generate_plugins_db , false , "generate plugin data base and exit");
 
       ONIKA_APP_CONFIG_Item( std::string   , help                , ""    , "print help and exit");
-      ONIKA_APP_CONFIG_Item( bool          , run_unit_tests      , false , "run unit tests and exit");  
-      
+      ONIKA_APP_CONFIG_Item( bool          , run_unit_tests      , false , "run unit tests and exit");
+
       ONIKA_APP_CONFIG_Node( set , "override configuration items with those in this map" );
     ONIKA_APP_CONFIG_End();
 

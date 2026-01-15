@@ -119,6 +119,20 @@ void te_free(te_expr *n) {
 
 static double pi(void) {return 3.14159265358979323846;}
 static double e(void) {return 2.71828182845904523536;}
+
+static unsigned short te_random_xsubi[4] = {0,0,0,0};
+  void te_random_seed(unsigned long s)
+{
+   const unsigned short * sxi = (const unsigned short *) & s;
+   te_random_xsubi[0] = sxi[0];
+   te_random_xsubi[1] = sxi[1];
+   te_random_xsubi[2] = sxi[2];
+}
+static double te_rand(void)
+{
+  return erand48(te_random_xsubi);
+}
+
 static double fac(double a) {/* simplest version of fac */
     if (a < 0.0)
         return NAN;
@@ -174,6 +188,7 @@ static const te_variable functions[] = {
     {"npr", npr,      TE_FUNCTION2 | TE_FLAG_PURE, 0},
     {"pi", pi,        TE_FUNCTION0 | TE_FLAG_PURE, 0},
     {"pow", pow,      TE_FUNCTION2 | TE_FLAG_PURE, 0},
+    {"rand", te_rand, TE_FUNCTION0 | TE_FLAG_PURE, 0},
     {"sin", sin,      TE_FUNCTION1 | TE_FLAG_PURE, 0},
     {"sinh", sinh,    TE_FUNCTION1 | TE_FLAG_PURE, 0},
     {"sqrt", sqrt,    TE_FUNCTION1 | TE_FLAG_PURE, 0},
