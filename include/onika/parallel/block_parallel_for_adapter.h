@@ -417,6 +417,10 @@ namespace onika
         //printf("Stream sync task terminated\n");
       }
 
+      // triggerable task => means an ExecOpenMPTaskCallbackInfo is acciated with its PEC
+      // if cuda&OpemMP are enabled, then tasks are necessarily triggerable
+      // API allow user to create triggerable tasks, and then query if task is triggerable and obtain an interaction object to trigger it
+
       inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks ) const override final
       {
         pes->m_omp_execution_count.fetch_add(1);
@@ -457,15 +461,7 @@ namespace onika
           {
             //printf("OpenMP task wait task start signal\n");
             std::unique_lock<std::mutex> lk(cb_info->m_mutex);
-            while( ! cb_info->m_task_start )
-            {
-              lk.unlock();
-              {
-#               pragma omp taskyield // OpenMP scheduler friendly
-              }
-              lk.lock();
-              if( ! cb_info->m_task_start ) cb_info->m_cv.wait(lk);
-            }
+            cb_info->m_cv.wait( lk , [cb_info]() -> bool { return cb_info->m_task_start; } );
           }
           
           //printf("OpenMP task start\n");
@@ -482,7 +478,11 @@ namespace onika
           }
  
           // finally, notify that one less OpenMP task is executing
-          pes->m_omp_execution_count.fetch_sub(1);
+          auto prev_exec_count = pes->m_omp_execution_count.fetch_sub(1);
+          if( prev_exec_count == 1 )
+          {
+            // take fist task waiting for execution and launch it, even if its condition is not satisfied
+          }
         } // end of encapsulating task
 
       }
