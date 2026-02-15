@@ -44,6 +44,7 @@ template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyAr
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) hipStreamCreateWithFlags( & streamref, hipStreamNonBlocking )
 #define ONIKA_CU_STREAM_ADD_CALLBACK(stream,cb,udata)  hipStreamAddCallback(stream,cb,udata,0u)
 #define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)            hipStreamSynchronize(STREAM)
+#define ONIKA_CU_STREAM_QUERY(STREAM)                  hipStreamQuery(STREAM)
 #define ONIKA_CU_DESTROY_STREAM(streamref)             hipStreamDestroy(streamref)
 #define ONIKA_CU_EVENT_QUERY(evt)                      hipEventQuery(evt)
 #define ONIKA_CU_MALLOC(devPtrPtr,N)                   hipMalloc(devPtrPtr,N)
@@ -100,6 +101,7 @@ static inline constexpr auto onikaDevAttrClockRate           = hipDevAttrClockRa
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) cudaStreamCreateWithFlags( & streamref, cudaStreamNonBlocking )
 #define ONIKA_CU_STREAM_ADD_CALLBACK(stream,cb,udata)  cudaStreamAddCallback(stream,cb,udata,0u)
 #define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)            cudaStreamSynchronize(STREAM)
+#define ONIKA_CU_STREAM_QUERY(STREAM)                  cudaStreamQuery(STREAM)
 #define ONIKA_CU_DESTROY_STREAM(streamref)             cudaStreamDestroy(streamref)
 #define ONIKA_CU_EVENT_QUERY(evt)                      cudaEventQuery(evt)
 #define ONIKA_CU_MALLOC(devPtrPtr,N)                   cudaMalloc(devPtrPtr,N)
@@ -182,6 +184,7 @@ static inline constexpr int onikaErrorNotReady = 0;
 #define ONIKA_CU_MEM_PREFETCH                _fake_cuda_api_noop
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING  _fake_cuda_api_noop
 #define ONIKA_CU_STREAM_ADD_CALLBACK         _fake_cuda_api_noop
+#define ONIKA_CU_STREAM_QUERY                _fake_cuda_api_noop
 #define ONIKA_CU_CREATE_EVENT(EVT)           _fake_cuda_api_noop(EVT=nullptr)
 #define ONIKA_CU_DESTROY_EVENT(EVT)          _fake_cuda_api_noop(EVT=nullptr)
 #define ONIKA_CU_STREAM_EVENT(EVT,STREAM)    _fake_cuda_api_noop(EVT,STREAM)
@@ -208,7 +211,6 @@ static inline constexpr int onikaErrorNotReady = 0;
 #include <functional>
 #include <list>
 #include <memory>
-
 
 struct onikaInt3_t
 {
@@ -237,6 +239,9 @@ namespace onika
 
   namespace cuda
   {
+
+    inline constexpr long onika_dim3_size(const onikaDim3_t& d) { return d.x*d.y*d.z; }
+    inline constexpr long onika_dim3_size(long d) { return d; }
 
     struct CudaDevice
     {

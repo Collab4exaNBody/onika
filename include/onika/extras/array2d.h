@@ -7,11 +7,9 @@
 // a specific namespace for our application space
 namespace onika
 {
-  using namespace scg;
-
-  namespace tutorial
+  namespace extras
   {
-  
+ 
     struct Array2D
     {
       onika::memory::CudaMMVector<double> m_data;
