@@ -47,6 +47,7 @@ namespace onika
       m_tag = nullptr;
       m_sub_tag = nullptr;
       // additional information about what to do before/after kernel execution
+      m_host_scratch.clear();
       m_data_access.clear();
       m_execution_end_callback = ParallelExecutionCallback{};
       m_finalize = ParallelExecutionFinalize{};
