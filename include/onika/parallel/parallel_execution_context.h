@@ -38,17 +38,61 @@ namespace onika
   namespace parallel
   {
 
+    struct ParallelExecutionContext;
+
+    struct KernelExecutionDependOut
+    {
+      ParallelExecutionContext * m_dep_out = nullptr;
+      KernelExecutionDependOut * m_next = nullptr;
+    }
+
     struct HostKernelExecutionScratch
     {
-      static constexpr size_t SCRATCH_BUFFER_SIZE = 1024; // total device side temporary buffer
-      static constexpr size_t MAX_FUNCTOR_SIZE = SCRATCH_BUFFER_SIZE - sizeof( unsigned long long );
+      static constexpr size_t SCRATCH_BUFFER_SIZE = 1024; // total host side temporary buffer
+      static constexpr size_t MAX_FUNCTOR_SIZE = SCRATCH_BUFFER_SIZE - ( sizeof( std::atomic<uint32_t> ) + sizeof(uint32_t) + sizeof(KernelExecutionDependOut *) );
       static constexpr size_t MAX_FUNCTOR_ALIGNMENT = onika::memory::DEFAULT_ALIGNMENT;
-      alignas(MAX_FUNCTOR_ALIGNMENT) char functor_data[MAX_FUNCTOR_SIZE];
-      unsigned long long functor_data_size;
-      inline size_t available_data_bytes() const { return MAX_FUNCTOR_SIZE - functor_data_size; }
-      inline char* available_data_ptr() { return functor_data + functor_data_size; }
-      inline void append_functor_data(const void* ptr, size_t n) { std::memcpy(available_data_ptr(),ptr,n); functor_data_size+=n; }
-      inline char* alloc_functor_data(size_t n) { char* alloc_ptr=available_data_ptr(); functor_data_size+=n; return alloc_ptr; }
+      alignas(MAX_FUNCTOR_ALIGNMENT) char m_functor_data[MAX_FUNCTOR_SIZE];
+
+      std::atomic<int32_t> m_depend_in_count = 0;
+      uint32_t m_functor_data_size = 0;
+      KernelExecutionDependOut * m_depend_out_list = nullptr;
+
+      inline void clear() { m_depend_in_count.store(0); m_functor_data_size=0; m_depend_out_list=nullptr; }
+      inline size_t available_data_bytes() const { return MAX_FUNCTOR_SIZE - m_functor_data_size; }
+      inline char* available_data_ptr() { return m_functor_data + m_functor_data_size; }
+
+      template<class TaskSpawnFuncT>
+      inline void release_out_dependencies( const TaskSpawnFuncT& release_task )
+      {
+        while( m_depend_out_list != nullptr )
+        {
+          auto pec = m_depend_out_list->m_dep_out;
+          auto prev_dep_count = pec->m_host_scratch.m_depend_in_count.fetch_sub(1);
+          assert( prev_dep_count >= 1 );
+          if( prev_dep_count == 1 ) release_task(pec);
+          m_depend_out_list = m_depend_out_list->next;
+        }
+      }
+      
+      inline add_out_dependency(ParallelExecutionContext * pec)
+      {
+        pec->m_host_scratch.m_depend_in_count.fetch_add(1);
+        m_depend_out_list = new(alloc_functor_data(sizeof(KernelExecutionDependOut)) KernelExecutionDependOut { pec, m_depend_out_list };
+      }
+
+      inline char* alloc_functor_data(size_t n)
+      {
+        if( available_data_bytes() < n ) { fatal_error() << "Unable to allocate "<<n<<" bytes of kernel host scratch memory, available="<<available_data_bytes()<<std::endl; }
+        char* alloc_ptr = available_data_ptr();
+        m_functor_data_size += n;
+        return alloc_ptr;
+      }
+
+      inline void append_functor_data(const void* src, size_t n)
+      {
+        char* alloc_ptr = alloc_functor_data(n);
+        std::memcpy(alloc_ptr,src,n);
+      }
     };
 
     static_assert( sizeof(HostKernelExecutionScratch) == HostKernelExecutionScratch::SCRATCH_BUFFER_SIZE );
@@ -64,8 +108,6 @@ namespace onika
     };
 
     static_assert( sizeof(GPUKernelExecutionScratch) == GPUKernelExecutionScratch::SCRATCH_BUFFER_SIZE );
-
-    struct ParallelExecutionContext;
 
     struct ParallelExecutionCallback
     {

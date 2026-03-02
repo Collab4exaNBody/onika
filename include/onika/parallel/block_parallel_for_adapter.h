@@ -213,105 +213,54 @@ namespace onika
         const auto T0 = std::chrono::high_resolution_clock::now();
         execute_prolog( pec , pes );
 
+        // store preferred OpenMP scheduling in a variable to avoid code duplicates
+
         if constexpr ( functor_is_single_task )
         {
           m_func( block_parallel_for_single_task_t{} );
         }
-        else if constexpr ( ND == 1 )
-        {
-#         pragma omp parallel
-          {
-            switch( pec->m_omp_sched )
-            {
-              case OMP_SCHED_DYNAMIC :
-#               pragma omp for schedule(dynamic)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                {
-                  if constexpr ( ElemND==0 ) m_func( i );
-                  if constexpr ( ElemND>=1 ) m_func( idx[i] );
-                }
-                break;
-              case OMP_SCHED_GUIDED :
-#               pragma omp for schedule(guided)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                {
-                  if constexpr ( ElemND==0 ) m_func( i );
-                  if constexpr ( ElemND>=1 ) m_func( idx[i] );
-                }
-                break;
-              case OMP_SCHED_STATIC :
-#               pragma omp for schedule(static)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                {
-                  if constexpr ( ElemND==0 ) m_func( i );
-                  if constexpr ( ElemND>=1 ) m_func( idx[i] );
-                }
-                break;
-            }
-          }
-        }
-        else if constexpr ( ND == 2 )
-        {
-          static_assert( ElemND == 0 , "element indices must be 1D" );
-#         pragma omp parallel
-          {
-            switch( pec->m_omp_sched )
-            {
-              case OMP_SCHED_DYNAMIC :
-#               pragma omp for collapse(2) schedule(dynamic)
-                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                { m_func( onikaInt3_t{i,j,0} ); }
-                break;
-              case OMP_SCHED_GUIDED :
-#               pragma omp for collapse(2) schedule(guided)
-                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                { m_func( onikaInt3_t{i,j,0} ); }
-                break;
-              case OMP_SCHED_STATIC :
-#               pragma omp for collapse(2) schedule(static)
-                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                { m_func( onikaInt3_t{i,j,0} ); }
-                break;
-            }
-          }
-        }
-        else if constexpr ( ND == 3 )
-        {
-          static_assert( ElemND == 0 , "element indices must be 1D" );
-#         pragma omp parallel
-          {
-            switch( pec->m_omp_sched )
-            {
-              case OMP_SCHED_DYNAMIC :
-#               pragma omp for collapse(3) schedule(dynamic)
-                for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++)
-                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                { m_func( onikaInt3_t{i,j,k} ); }
-                break;
-              case OMP_SCHED_GUIDED :
-#               pragma omp for collapse(3) schedule(guided)
-                for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++)
-                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                { m_func( onikaInt3_t{i,j,k} ); }
-                break;
-              case OMP_SCHED_STATIC :
-#               pragma omp for collapse(3) schedule(static)
-                for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++)
-                for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++)
-                for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
-                { m_func( onikaInt3_t{i,j,k} ); }
-                break;
-            }
-          }
-        }
         else
         {
-          fatal_error() << "Unsuported parallel execution space dimensionality "<<FuncParamDim<<std::endl;
+          switch(pec->m_omp_sched)
+          {
+            case OMP_SCHED_DYNAMIC : omp_set_schedule( omp_sched_dynamic, 0 ); break;
+            case OMP_SCHED_GUIDED  : omp_set_schedule( omp_sched_guided , 0 ); break;
+            case OMP_SCHED_STATIC  : omp_set_schedule( omp_sched_static , 0 ); break;
+            default                : omp_set_schedule( omp_sched_auto   , 0 ); break;
+          }
+#         pragma omp parallel
+          {
+            if constexpr ( ND == 1 )
+            {
+#             pragma omp for schedule(runtime)
+              for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+              {
+                if constexpr ( ElemND==0 ) m_func( i );
+                if constexpr ( ElemND>=1 ) m_func( idx[i] );
+              }
+            }
+            else if constexpr ( ND == 2 )
+            {
+              static_assert( ElemND == 0 , "element indices must be 1D" );
+#             pragma omp for collapse(2) schedule(runtime)
+              for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++)
+              for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+              { m_func( onikaInt3_t{i,j,0} ); }
+            }
+            else if constexpr ( ND == 3 )
+            {
+              static_assert( ElemND == 0 , "element indices must be 1D" );
+#             pragma omp for collapse(3) schedule(runtime)
+              for(ssize_t k=m_parallel_space.m_start[2];k<m_parallel_space.m_end[2];k++)
+              for(ssize_t j=m_parallel_space.m_start[1];j<m_parallel_space.m_end[1];j++)
+              for(ssize_t i=m_parallel_space.m_start[0];i<m_parallel_space.m_end[0];i++)
+              { m_func( onikaInt3_t{i,j,k} ); }
+            }
+            else
+            {
+              fatal_error() << "Unsuported parallel execution space dimensionality "<<FuncParamDim<<std::endl;
+            }
+          }
         }
 
         execute_epilog( pec , pes );
@@ -457,15 +406,7 @@ namespace onika
           {
             //printf("OpenMP task wait task start signal\n");
             std::unique_lock<std::mutex> lk(cb_info->m_mutex);
-            while( ! cb_info->m_task_start )
-            {
-              lk.unlock();
-              {
-#               pragma omp taskyield // OpenMP scheduler friendly
-              }
-              lk.lock();
-              if( ! cb_info->m_task_start ) cb_info->m_cv.wait(lk);
-            }
+            cb_info->m_cv.wait( lk , [cb_info]() -> bool { return cb_info->m_task_start; } );
           }
           
           //printf("OpenMP task start\n");
@@ -482,7 +423,11 @@ namespace onika
           }
  
           // finally, notify that one less OpenMP task is executing
-          pes->m_omp_execution_count.fetch_sub(1);
+          auto prev_exec_count = pes->m_omp_execution_count.fetch_sub(1);
+          if( prev_exec_count == 1 )
+          {
+            // take fist task waiting for execution and launch it, even if its condition is not satisfied
+          }
         } // end of encapsulating task
 
       }
