@@ -11,15 +11,7 @@ namespace onika
 {
   namespace parallel
   {
-
-    struct ExecOpenMPTaskCallbackInfo
-    {
-      std::condition_variable m_cv;
-      std::mutex m_mutex;
-      bool m_task_start = false;
-      bool m_task_done = false;
-    };
-
+  
     // ========================== GPU execution kernels ==========================
 
     // GPU execution kernel for fixed size grid, using workstealing element assignment to blocks
@@ -187,6 +179,56 @@ namespace onika
         else { fatal_error() << "called stream_gpu_finalize with no GPU support" << std::endl; }
       }
 
+      inline void execute_gpu(ParallelExecutionContext* pec, ParallelExecutionStream* exec_stream) const override final
+      {
+        if( exec_stream->m_cuda_ctx == nullptr || exec_stream->m_cuda_ctx != pec->m_cuda_ctx )
+        {
+          fatal_error() << "Cannot schedule GPU parallel operation onto stream with no GPU context" << std::endl;
+        }
+
+        // if device side scratch space hasn't be allocated yet, do it now
+        pec->init_device_scratch();
+
+        // insert start event for profiling
+        assert( pec->m_start_evt != nullptr );
+        ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_EVENT( pec->m_start_evt, exec_stream->m_cu_stream ) );
+
+        // copy in return data intial value. mainly useful for reduction where you might want to start reduction with a given initial value
+        if( pec->m_return_data_input != nullptr && pec->m_return_data_size > 0 )
+        {
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( pec->m_cuda_scratch->return_data, pec->m_return_data_input , pec->m_return_data_size , exec_stream->m_cu_stream ) );
+        }
+
+        // sets all scratch counters to 0
+        if( pec->m_reset_counters || pec->m_grid_size.x > 0 )
+        {
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMSET( pec->m_cuda_scratch->counters, 0, GPUKernelExecutionScratch::MAX_COUNTERS * sizeof(unsigned long long int), exec_stream->m_cu_stream ) );
+        }
+
+        // Instantiaite device side functor : calls constructor with a placement new using scratch "functor_data" space
+        // then call functor prolog if available
+        this->stream_gpu_initialize( pec , exec_stream );
+        this->stream_gpu_kernel( pec , exec_stream );
+        this->stream_gpu_finalize( pec , exec_stream );
+
+        // copy out return data to host space at given pointer
+        if( pec->m_return_data_output != nullptr && pec->m_return_data_size > 0 )
+        {
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( pec->m_return_data_output , pec->m_cuda_scratch->return_data , pec->m_return_data_size , exec_stream->m_cu_stream ) );
+        }
+
+        // inserts a callback to stream if user passed one in
+        if( pec->m_execution_end_callback.m_func != nullptr )
+        {
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_ADD_CALLBACK(exec_stream->m_cu_stream, ParallelExecutionContext::execution_end_callback , pec ) );
+        }
+
+        // inserts stop event to account for total execution time
+        assert( pec->m_stop_evt != nullptr );
+        ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_EVENT( pec->m_stop_evt, exec_stream->m_cu_stream ) );        
+      }
+
+
 
       // ================ CPU OpenMP execution interface ======================
       inline void execute_prolog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
@@ -201,8 +243,6 @@ namespace onika
       inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
       {
         static_assert( FuncParamDim>=1 && FuncParamDim<=3 , "OpenMP backend only support 1D, 2D and 3D parallel execution spaces" );
-
-        pes->m_omp_execution_count.fetch_add(1);
 
         const auto * __restrict__ idx = m_parallel_space.m_elements.data();
 
@@ -338,96 +378,30 @@ namespace onika
 
       }
 
-      static inline void execute_omp_inner_taskloop_cb( void* userData )
-      {
-        ExecOpenMPTaskCallbackInfo * cb_info = reinterpret_cast<ExecOpenMPTaskCallbackInfo*>(userData);
-
-        //printf("Stream sync task waiting for task ready signal ...\n");
-
-        // first we trigger execution of OpenMP task
-        if( cb_info != nullptr )
-        {
-          std::unique_lock<std::mutex> lk(cb_info->m_mutex);
-          cb_info->m_task_start = true;
-          lk.unlock();
-          cb_info->m_cv.notify_one();
-        }
-        
-        //printf("Stream sync task unlocked, waiting for it to finish ...\n");
-        
-        // then we wait until it finishes and unlock this
-        if( cb_info != nullptr )
-        {
-          std::unique_lock<std::mutex> lk(cb_info->m_mutex);
-          cb_info->m_cv.wait( lk , [cb_info]{ return cb_info->m_task_done; } );
-          cb_info->~ExecOpenMPTaskCallbackInfo();
-        }
-
-        //printf("Stream sync task terminated\n");
-      }
-
       inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks ) const override final
       {
-        pes->m_omp_execution_count.fetch_add(1);
-
         const auto * self = this;
 
 #       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
         dmesg_sched_omp(pec);
 #       endif
 
-        ExecOpenMPTaskCallbackInfo * cb_info = nullptr;
-        // if a Cuda stream is available, we'll use it to serialize OpenMP tasks based parallel operations,
-        // such that they will be also serialized with Cuda kernel executions throughout the stream
-        if( pes->m_cuda_ctx != nullptr )
-        {
-          if( pec->m_host_scratch.available_data_bytes() < sizeof(ExecOpenMPTaskCallbackInfo) )
-          {
-            fatal_error() << "Internal error: not enough functor scratch space left to chain OpenMP task to CU stream" << std::endl;
-          }
-          
-          // enqueue a host function (execute_omp_inner_taskloop_cb) in cuda stream
-          // which execution calls unleash OpenMP task execution so that it triggers completion of previously scheduled empty task,
-          // which in turn unlock real parallel OpenMP taskloop through depend clause
-          cb_info = new(pec->m_host_scratch.alloc_functor_data(sizeof(ExecOpenMPTaskCallbackInfo))) ExecOpenMPTaskCallbackInfo{};
-          cb_info->m_task_start = ( ONIKA_CU_STREAM_QUERY( pes->m_cu_stream ) == onikaSuccess );
-          cb_info->m_task_done = false;
-          ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , execute_omp_inner_taskloop_cb , cb_info );
-        }
-
         // if OpenMP only, parallel operation serialization feature is emulated
         // via an encapsulating task which declares an in/out dependency on the Onika stream object
 
         // encloses a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
         // referenced variables must be privately copied, because the task may run after this function ends
-#       pragma omp task default(none) firstprivate(self,pec,pes,ntasks,cb_info) depend(inout:pes[0])
+#       pragma omp task default(none) firstprivate(self,pec,pes,ntasks) depend(inout:pes[0])
         {
-          if( cb_info != nullptr )
-          {
-            //printf("OpenMP task wait task start signal\n");
-            std::unique_lock<std::mutex> lk(cb_info->m_mutex);
-            cb_info->m_cv.wait( lk , [cb_info]() -> bool { return cb_info->m_task_start; } );
-          }
-          
-          //printf("OpenMP task start\n");
+
+          // while remaining unsatisfied external in dependencies
+          //   | act as and ending task, i.e. check_if_tasks_ready_to_execute
           
           execute_omp_inner_taskloop(self,pec,pes,ntasks);
+                    
+          // act as and ending task, i.e. check_if_tasks_ready_to_execute
           
-          //printf("OpenMP task done\n");
-          if( cb_info != nullptr )
-          {
-            std::unique_lock<std::mutex> lk(cb_info->m_mutex);
-            cb_info->m_task_done = true;
-            lk.unlock();
-            cb_info->m_cv.notify_one();
-          }
- 
-          // finally, notify that one less OpenMP task is executing
-          auto prev_exec_count = pes->m_omp_execution_count.fetch_sub(1);
-          if( prev_exec_count == 1 )
-          {
-            // take fist task waiting for execution and launch it, even if its condition is not satisfied
-          }
+          pes->m_omp_execution_count.fetch_sub(1);
         } // end of encapsulating task
 
       }
@@ -439,6 +413,22 @@ namespace onika
 #       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
         dmesg_end_omp(pec);
 #       endif
+      }
+
+      inline void execute_omp( ParallelExecutionContext* pec, ParallelExecutionStream* exec_stream ) const override final
+      {
+        pes->m_omp_execution_count.fetch_add(1);
+
+        if( pec->m_omp_num_tasks == 0 )
+        {
+          this->execute_omp_parallel_region( pec , exec_stream );
+        }
+        else
+        {
+          // preferred number of tasks : trade off between overhead (less is better) and load balancing (more is better)
+          const unsigned int num_tasks = pec->m_omp_num_tasks * onika::parallel::ParallelExecutionContext::parallel_task_core_mult() + onika::parallel::ParallelExecutionContext::parallel_task_core_add() ;
+          this->execute_omp_tasks( pec , exec_stream , num_tasks );
+        }        
       }
 
       inline ~BlockParallelForHostAdapter() override {}

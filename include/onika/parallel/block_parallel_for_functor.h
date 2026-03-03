@@ -54,12 +54,14 @@ namespace onika
       virtual inline void execute_prolog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
       virtual inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
       virtual inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int num_tasks ) const {}
+      virtual inline void execute_omp( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
       virtual inline void execute_epilog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
 
       // GPU Kernel launch interface
       virtual inline void stream_gpu_initialize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
       virtual inline void stream_gpu_kernel(ParallelExecutionContext*,ParallelExecutionStream*) const {}
       virtual inline void stream_gpu_finalize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
+      virtual inline void execute_gpu(ParallelExecutionContext* pec, ParallelExecutionStream* exec_stream) const {}
 
       // parallel execution space info
       virtual inline unsigned int execution_space_ndims() const { return 0; }
@@ -94,7 +96,7 @@ namespace onika
 
     inline const BlockParallelForHostFunctor & get_block_parallel_functor( ParallelExecutionContext* pec )
     {
-      return * reinterpret_cast<BlockParallelForHostFunctor*>( pec->m_host_scratch.functor_data );
+      return * reinterpret_cast<BlockParallelForHostFunctor*>( pec->m_host_scratch.m_functor_data );
     }
 
   }

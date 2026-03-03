@@ -21,6 +21,7 @@ under the License.
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 #include <onika/parallel/parallel_execution_context.h>
+#include <onika/log.h>
 
 namespace onika
 {
@@ -154,6 +155,31 @@ namespace onika
         ( * pec->m_execution_end_callback.m_func ) ( pec->m_execution_end_callback.m_data );
       }
     }
+
+
+
+    int HostKernelExecutionScratch::add_out_dependency(ParallelExecutionContext * pec)
+    {
+      int prevcount = pec->m_host_scratch.m_depend_in_count.fetch_add(1);
+      char * alloc_space = alloc_functor_data(sizeof(KernelExecutionDependOut));
+      m_depend_out_list = new(alloc_space) KernelExecutionDependOut { pec, m_depend_out_list };
+      return prevcount+1;
+    }
+
+    char* HostKernelExecutionScratch::alloc_functor_data(size_t n)
+    {
+      if( available_data_bytes() < n ) { fatal_error() << "Unable to allocate "<<n<<" bytes of kernel host scratch memory, available="<<available_data_bytes()<<std::endl; }
+      char* alloc_ptr = available_data_ptr();
+      m_functor_data_size += n;
+      return alloc_ptr;
+    }
+
+    void HostKernelExecutionScratch::append_functor_data(const void* src, size_t n)
+    {
+      char* alloc_ptr = alloc_functor_data(n);
+      std::memcpy(alloc_ptr,src,n);
+    }
+
 
   }
 

@@ -48,7 +48,7 @@ namespace onika
         }
 
         // OpenMP wait
-        if( m_omp_execution_count.load() > 0 )
+        if( m_omp_execution_count.load() > 0 ) // this is legit because increment is done while locking stream's mutex (in 
         {
           auto * pes = this;
 #         pragma omp task default(none) firstprivate(pes) depend(in:pes[0]) if(0)

@@ -44,7 +44,7 @@ namespace onika
     {
       ParallelExecutionContext * m_dep_out = nullptr;
       KernelExecutionDependOut * m_next = nullptr;
-    }
+    };
 
     struct HostKernelExecutionScratch
     {
@@ -61,38 +61,10 @@ namespace onika
       inline size_t available_data_bytes() const { return MAX_FUNCTOR_SIZE - m_functor_data_size; }
       inline char* available_data_ptr() { return m_functor_data + m_functor_data_size; }
 
-      template<class TaskSpawnFuncT>
-      inline void release_out_dependencies( const TaskSpawnFuncT& release_task )
-      {
-        while( m_depend_out_list != nullptr )
-        {
-          auto pec = m_depend_out_list->m_dep_out;
-          auto prev_dep_count = pec->m_host_scratch.m_depend_in_count.fetch_sub(1);
-          assert( prev_dep_count >= 1 );
-          if( prev_dep_count == 1 ) release_task(pec);
-          m_depend_out_list = m_depend_out_list->next;
-        }
-      }
-      
-      inline add_out_dependency(ParallelExecutionContext * pec)
-      {
-        pec->m_host_scratch.m_depend_in_count.fetch_add(1);
-        m_depend_out_list = new(alloc_functor_data(sizeof(KernelExecutionDependOut)) KernelExecutionDependOut { pec, m_depend_out_list };
-      }
-
-      inline char* alloc_functor_data(size_t n)
-      {
-        if( available_data_bytes() < n ) { fatal_error() << "Unable to allocate "<<n<<" bytes of kernel host scratch memory, available="<<available_data_bytes()<<std::endl; }
-        char* alloc_ptr = available_data_ptr();
-        m_functor_data_size += n;
-        return alloc_ptr;
-      }
-
-      inline void append_functor_data(const void* src, size_t n)
-      {
-        char* alloc_ptr = alloc_functor_data(n);
-        std::memcpy(alloc_ptr,src,n);
-      }
+      template<class TaskSpawnFuncT> inline void release_out_dependencies( const TaskSpawnFuncT& release_task );
+      int add_out_dependency(ParallelExecutionContext * pec);
+      char* alloc_functor_data(size_t n);
+      void append_functor_data(const void* src, size_t n);
     };
 
     static_assert( sizeof(HostKernelExecutionScratch) == HostKernelExecutionScratch::SCRATCH_BUFFER_SIZE );
@@ -218,6 +190,20 @@ namespace onika
       const char* tag() const;
       const char* sub_tag() const;
 
+      // create an extra sequential dependency from pec to this one (this waits for pec to terminate before executing)
+      inline void depends_on(ParallelExecutionContext* pec) { pec->m_host_scratch.add_out_dependency(this); }
+
+      template<class ReleaseTaskFuncT>
+      inline void release_out_dependencies( const ReleaseTaskFuncT & _release_task_execution )
+      {
+        auto release_task_execution = [&_release_task_execution](ParallelExecutionContext* pec)
+        {
+          std::cout << "release task "<< pec->tag() << " / " << pec->sub_tag() << std::endl;
+          _release_task_execution( pec );
+        };
+        m_host_scratch.release_out_dependencies(release_task_execution);      
+      }
+
       // convivnience templates
       template<class T> inline void set_return_data_input( const T* init_value )
       {
@@ -258,6 +244,21 @@ namespace onika
       el->m_next = pec;
       return l;
     }
+
+
+	template<class TaskSpawnFuncT>
+	inline void HostKernelExecutionScratch::release_out_dependencies( const TaskSpawnFuncT& release_task )
+	{
+      while( m_depend_out_list != nullptr )
+	  {
+		auto pec = m_depend_out_list->m_dep_out;
+		auto prev_dep_count = pec->m_host_scratch.m_depend_in_count.fetch_sub(1);
+		assert( prev_dep_count >= 1 );
+		if( prev_dep_count == 1 ) release_task(pec);
+		m_depend_out_list = m_depend_out_list->m_next;
+	  }
+	}
+
 
   }
 
