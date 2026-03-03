@@ -32,6 +32,10 @@ template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyAr
 
 #ifdef ONIKA_HIP_VERSION
 
+#ifndef __HIP_PLATFORM_AMD__
+#define __HIP_PLATFORM_AMD__ 1
+#endif
+
 // HIP runtime API
 #include <hip/hip_runtime.h>
 #include <hip/hip_runtime_api.h>
@@ -83,7 +87,7 @@ static inline constexpr auto onikaLimitPrintfFifoSize        = hipLimitPrintfFif
 static inline constexpr auto onikaLimitMallocHeapSize        = hipLimitMallocHeapSize;
 static inline constexpr auto onikaMemcpyDeviceToHost         = hipMemcpyDeviceToHost;
 static inline constexpr auto onikaMemcpyHostToDevice         = hipMemcpyHostToDevice;
-static inline constexpr auto onikaDevAttrClockRate           = hipDevAttrClockRate;
+static inline constexpr auto onikaDevAttrClockRate           = hipDeviceAttributeClockRate;
 
 #else
 

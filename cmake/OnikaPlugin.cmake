@@ -5,9 +5,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -44,7 +44,7 @@ function(onika_add_plugin PluginName dirname)
       file(GLOB ${PluginName}_SCRS_LIB_CU ${dirname}/lib/*.cu)
       set(${PluginName}_SCRS_LIB ${${PluginName}_SCRS_LIB_CXX} ${${PluginName}_SCRS_LIB_CU})
     endif()
-    
+
     foreach(EXT_SRC ${${PluginName}_EXTERNAL_SRCS})
       if(EXT_SRC MATCHES ".*\.cu")
         # message(STATUS "external .cu source ${EXT_SRC}")
@@ -59,8 +59,9 @@ function(onika_add_plugin PluginName dirname)
     elseif(ONIKA_USE_HIP)
       set_source_files_properties(${${PluginName}_SCRS_CU} PROPERTIES LANGUAGE HIP)
       set_source_files_properties(${${PluginName}_SCRS_LIB_CU} PROPERTIES LANGUAGE HIP)
+      list(APPEND ${PluginName}_LINK_OPTIONS ${OpenMP_CXX_FLAGS})
     endif()
-    
+
     include(${dirname}/${PluginName}.cmake OPTIONAL RESULT_VARIABLE ${PluginName}_CUSTOM_CMAKE)
     if(${PluginName}_CUSTOM_CMAKE)
       set(${PluginName}_CUSTOM_CMAKE ${${PluginName}_CUSTOM_CMAKE} PARENT_SCOPE)
@@ -70,7 +71,7 @@ function(onika_add_plugin PluginName dirname)
 
     if(${PluginName}_SCRS_LIB)
       set(${PluginName}_SHARED_LIB ${PluginName})
-      set(${PluginName}_SHARED_LIB ${${PluginName}_SHARED_LIB} PARENT_SCOPE)      
+      set(${PluginName}_SHARED_LIB ${${PluginName}_SHARED_LIB} PARENT_SCOPE)
       #message(STATUS "component create shared lib target ${${PluginName}_SHARED_LIB}")
       add_library(${${PluginName}_SHARED_LIB} SHARED ${${PluginName}_SCRS_LIB})
       target_include_directories(${${PluginName}_SHARED_LIB} PRIVATE ${dirname}/lib PUBLIC ${${PluginName}_INCLUDE_DIRS} ${dirname}/include)
@@ -96,7 +97,7 @@ function(onika_add_plugin PluginName dirname)
       install(DIRECTORY ${dirname}/include DESTINATION ${CMAKE_INSTALL_PREFIX})
       set(${PluginName}_INCLUDE_DIRS ${${PluginName}_INCLUDE_DIRS} PARENT_SCOPE)
     endif()
-        
+
     if(${PluginName}_SCRS)
       set(${PluginName}_PLUGIN_LIB ${PluginName}${PluginSuffix})
       set(${PluginName}_PLUGIN_LIB ${${PluginName}_PLUGIN_LIB} PARENT_SCOPE)
@@ -105,7 +106,7 @@ function(onika_add_plugin PluginName dirname)
       add_library(${${PluginName}_PLUGIN_LIB} SHARED ${${PluginName}_SCRS})
       target_include_directories(${${PluginName}_PLUGIN_LIB} PRIVATE ${dirname} ${${PluginName}_INCLUDE_DIRS} ${dirname}/include)
       target_compile_definitions(${${PluginName}_PLUGIN_LIB} PRIVATE ${${PluginName}_COMPILE_DEFINITIONS})
-    	target_compile_options(${${PluginName}_PLUGIN_LIB} PRIVATE ${${PluginName}_COMPILE_OPTIONS})
+      target_compile_options(${${PluginName}_PLUGIN_LIB} PRIVATE ${${PluginName}_COMPILE_OPTIONS})
       target_compile_features(${${PluginName}_PLUGIN_LIB} PRIVATE ${${PluginName}_COMPILE_FEATURES})
       target_link_directories(${${PluginName}_PLUGIN_LIB} PRIVATE ${${PluginName}_LINK_DIRECTORIES})
       target_link_libraries(${${PluginName}_PLUGIN_LIB} PRIVATE ${ONIKA_LIBRARIES} ${${PluginName}_LINK_LIBRARIES} ${${PluginName}_SHARED_LIB})
@@ -117,7 +118,7 @@ function(onika_add_plugin PluginName dirname)
       unset(${PluginName}_PLUGIN_LIB PARENT_SCOPE)
       unset(${PluginName}_SCRS PARENT_SCOPE)
     endif()
-    
+
     if(EXISTS ${dirname}/regression)
       message(STATUS "Plugin ${PluginName} has regression tests")
       # AddRegressionTestDir(${dirname}/regression)
