@@ -209,7 +209,6 @@ static inline constexpr int onikaErrorNotReady = 0;
 #include <list>
 #include <memory>
 
-
 struct onikaInt3_t
 {
   ssize_t x = 0;

@@ -776,7 +776,6 @@ namespace onika
         {
           lout<<"Operator data base:"<<std::endl
               <<"================="<<std::endl<<std::endl;
-          std::ostringstream oss;
           for(const auto& cp : *plugin_db )
           {
             for(const auto& op : cp.second )
@@ -785,10 +784,10 @@ namespace onika
               if( op.first == "matrix_4d") continue;
               if( op.first == "particle_region_csg") continue;
               std::shared_ptr<OperatorNode> ope = OperatorNodeFactory::instance()->make_operator( op.first , YAML::Node(YAML::NodeType::Map ) );
-              ope->print_documentation( oss );
+              ope->print_documentation( lout );
             }
           }
-          lout << oss.str() << std::endl;
+          lout << std::endl;
         }
         else if( configuration.help == "plugins" )
         {
@@ -804,12 +803,12 @@ namespace onika
               for(const auto & pf : op.second ) available_plugins.insert( pf );
             }
           }
-          lout<<"Available plugins :"<<std::endl;
+          lout << FormattedText{TEXT_FORMAT_ANSI,"\033[1mAvailable plugins \033[0m:"} << std::endl;
           for(const auto& s : available_plugins) { lout<<"\t"<<s<<std::endl; }
 
           for(const auto& cp : available_items)
           {
-            lout<<std::endl<<"Available "<<cp.first<<"s :"<<std::endl;
+            lout<<std::endl<<FormattedText{TEXT_FORMAT_ANSI,"\033[1mAvailable "+cp.first+"s \033[0m:"}<<std::endl;
             for(const auto& item : cp.second)
             {
               lout<<"\t"<<item<<std::endl;
@@ -820,8 +819,8 @@ namespace onika
         {
           std::shared_ptr<OperatorNode> op = OperatorNodeFactory::instance()->make_operator( configuration.help , YAML::Node(YAML::NodeType::Map) );
           std::ostringstream oss;
-          op->print_documentation( oss );
-          lout << oss.str() << std::endl;
+          op->print_documentation( lout );
+          lout << std::endl;
         }
         return true;
       }
