@@ -294,6 +294,7 @@ namespace onika
       std::lock_guard lk_stream( exec_stream->m_mutex );
 
       pec->m_stream = exec_stream;
+      pec->m_stream->m_last_executing = pec;
       const auto & func = get_block_parallel_functor( pec );
 
       switch( pec->m_execution_target )
@@ -323,6 +324,9 @@ namespace onika
         ParallelExecutionContext* next = nullptr;
         { // ParallelExecutionContext's stream critical section
           std::lock_guard lk( pec->m_stream->m_mutex );
+
+          if( pec->m_stream->m_last_executing == pec ) pec->m_stream->m_last_executing = nullptr;
+
           next = pec->m_next;
           pec->m_next = nullptr;
 
@@ -335,6 +339,9 @@ namespace onika
             ONIKA_CU_CHECK_ERRORS( ONIKA_CU_EVENT_ELAPSED(Tgpu,pec->m_start_evt,pec->m_stop_evt) );
             pec->m_total_gpu_execution_time = Tgpu;
           }
+          
+          // Is there any pending out dependencies ?
+          
           if( pec->m_finalize.m_func != nullptr )
           {
             ( * pec->m_finalize.m_func ) ( pec , pec->m_finalize.m_data );
@@ -342,6 +349,7 @@ namespace onika
           pec->m_stream = nullptr;
           reinterpret_cast<BlockParallelForHostFunctor*>(pec->m_host_scratch.m_functor_data) -> ~BlockParallelForHostFunctor();
         }
+        
         return sync_and_remove(next);
       }
       else

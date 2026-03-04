@@ -52,8 +52,6 @@ namespace onika
     public:
       // Host batch execution interface
       virtual inline void execute_prolog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
-      virtual inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
-      virtual inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int num_tasks ) const {}
       virtual inline void execute_omp( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
       virtual inline void execute_epilog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
 

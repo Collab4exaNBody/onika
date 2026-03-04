@@ -21,6 +21,8 @@ namespace onika
   namespace parallel
   {
 
+    struct ParallelExecutionContext;
+
     // allows asynchronous sequential execution of parallel executions queued in the same stream
     // multiple kernel execution concurrency can be handled manually using several streams (same as Cuda stream)
     struct ParallelExecutionStream
@@ -31,6 +33,8 @@ namespace onika
       onikaStream_t m_cu_stream = 0;
       uint32_t m_stream_id = 0;
       std::atomic<uint32_t> m_omp_execution_count = 0;
+      ParallelExecutionContext* m_last_executing = nullptr;
+      
       std::mutex m_mutex;
       
       inline void wait()

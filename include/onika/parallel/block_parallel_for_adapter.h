@@ -240,7 +240,7 @@ namespace onika
         else if constexpr (functor_has_prolog) { m_func( block_parallel_for_prolog_t{} ); }
       }
 
-      inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
+      inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const
       {
         static_assert( FuncParamDim>=1 && FuncParamDim<=3 , "OpenMP backend only support 1D, 2D and 3D parallel execution spaces" );
 
@@ -303,13 +303,6 @@ namespace onika
           }
         }
 
-        execute_epilog( pec , pes );
-        pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
-        if( pec->m_execution_end_callback.m_func != nullptr )
-        {
-          (* pec->m_execution_end_callback.m_func) ( pec->m_execution_end_callback.m_data );
-        }
-        pes->m_omp_execution_count.fetch_sub(1);
       }
 
       static inline void execute_omp_inner_taskloop( const BlockParallelForHostAdapter* self, ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks )
@@ -368,42 +361,6 @@ namespace onika
           }
         }
 
-        // here all tasks of taskloop have completed, since notaskgroup clause is _NOT_ specified
-        self->execute_epilog( pec , pes );
-        pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
-        if( pec->m_execution_end_callback.m_func != nullptr )
-        {
-          (* pec->m_execution_end_callback.m_func) ( pec->m_execution_end_callback.m_data );
-        }
-
-      }
-
-      inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks ) const override final
-      {
-        const auto * self = this;
-
-#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
-        dmesg_sched_omp(pec);
-#       endif
-
-        // if OpenMP only, parallel operation serialization feature is emulated
-        // via an encapsulating task which declares an in/out dependency on the Onika stream object
-
-        // encloses a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
-        // referenced variables must be privately copied, because the task may run after this function ends
-#       pragma omp task default(none) firstprivate(self,pec,pes,ntasks) depend(inout:pes[0])
-        {
-
-          // while remaining unsatisfied external in dependencies
-          //   | act as and ending task, i.e. check_if_tasks_ready_to_execute
-          
-          execute_omp_inner_taskloop(self,pec,pes,ntasks);
-                    
-          // act as and ending task, i.e. check_if_tasks_ready_to_execute
-          
-          pes->m_omp_execution_count.fetch_sub(1);
-        } // end of encapsulating task
-
       }
 
       inline void execute_epilog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
@@ -415,19 +372,75 @@ namespace onika
 #       endif
       }
 
-      inline void execute_omp( ParallelExecutionContext* pec, ParallelExecutionStream* exec_stream ) const override final
+      inline auto execute_omp_start( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const
       {
+        const auto T0 = std::chrono::high_resolution_clock::now();
         pes->m_omp_execution_count.fetch_add(1);
+        this->execute_prolog( pec , pes );
+        return T0; 
+      }
 
+      inline auto execute_omp_end( ParallelExecutionContext* pec, ParallelExecutionStream* pes , auto T0 ) const
+      {
+        execute_epilog( pec , pes );
+        pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
+        if( pec->m_execution_end_callback.m_func != nullptr )
+        {
+          (* pec->m_execution_end_callback.m_func) ( pec->m_execution_end_callback.m_data );
+        }
+        pes->m_omp_execution_count.fetch_sub(1);
+      }
+
+      inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int ntasks, auto T0 ) const
+      {
+        const auto * self = this;
+
+        // do i have in dependencies ? am i the only one to ask ?
+        // if so, wait for dependency condition variable and process unlocked tasks
+        if( /* pec->in_dep_count() > */ 0 )
+        {
+          // ...
+          // scheduler . omp_task_scheduler_worker.compare_and_swap( nullptr , this )
+          // if i am the chosen one (scheduler worker) , loop on condition variable to launch tasks until i am unlocked myself
+        }
+
+#       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
+        dmesg_sched_omp(pec);
+#       endif
+
+        // if OpenMP only, parallel operation serialization feature is emulated
+        // via an encapsulating task which declares an in/out dependency on the Onika stream object
+
+        // encloses a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
+        // referenced variables must be privately copied, because the task may run after this function ends
+#       pragma omp task default(none) firstprivate(self,pec,pes,ntasks,T0) depend(inout:pes[0])
+        {
+
+          // while remaining unsatisfied external in dependencies
+          //   | act as and ending task, i.e. check_if_tasks_ready_to_execute
+          
+          execute_omp_inner_taskloop(self,pec,pes,ntasks);
+                    
+          // act as and ending task, i.e. check_if_tasks_ready_to_execute
+          
+          self->execute_omp_end( pec , pes , T0 );
+        } // end of encapsulating task
+
+      }
+ 
+      inline void execute_omp( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
+      {
+        auto T0 = execute_omp_start( pec , pes );
         if( pec->m_omp_num_tasks == 0 )
         {
-          this->execute_omp_parallel_region( pec , exec_stream );
+          execute_omp_parallel_region( pec , pes );
+          execute_omp_end( pec , pes , T0 );
         }
         else
         {
           // preferred number of tasks : trade off between overhead (less is better) and load balancing (more is better)
           const unsigned int num_tasks = pec->m_omp_num_tasks * onika::parallel::ParallelExecutionContext::parallel_task_core_mult() + onika::parallel::ParallelExecutionContext::parallel_task_core_add() ;
-          this->execute_omp_tasks( pec , exec_stream , num_tasks );
+          execute_omp_tasks( pec , pes , num_tasks , T0 );
         }        
       }
 
