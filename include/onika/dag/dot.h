@@ -60,7 +60,7 @@ namespace onika
     }
 
     template<size_t Nd>
-    static inline auto node_name( const oarray_t<size_t,Nd>& c , int gs = 1, const oarray_t<size_t,Nd>& g = ZeroArray<size_t,Nd>::zero )
+    static inline auto node_name( const oarray_t<size_t,Nd>& c , int gs = 1, const oarray_t<size_t,Nd>& g = {} )
     {
       return make_streamable_functor( [c,gs,g](std::ostream& out) -> std::ostream&
         {
