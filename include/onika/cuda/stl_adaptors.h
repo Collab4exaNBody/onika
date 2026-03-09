@@ -127,6 +127,7 @@ namespace onika
       ONIKA_HOST_DEVICE_FUNC inline T& operator [] (size_t i) { return m_start[i]; }
       ONIKA_HOST_DEVICE_FUNC inline const T& operator [] (size_t i) const { return m_start[i]; }
       ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
+      ONIKA_HOST_DEVICE_FUNC inline bool empty() const { return size() == 0; }
       ONIKA_HOST_DEVICE_FUNC inline auto begin() const { return m_start; }
       ONIKA_HOST_DEVICE_FUNC inline auto end() const { return m_start + m_size; }
     };
