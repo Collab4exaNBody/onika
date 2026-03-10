@@ -29,50 +29,6 @@ under the License.
 namespace onika
 {
 
-  struct LambdaCallInfo
-  {
-    const void * const call_address = nullptr;
-    const void * const data_address = nullptr;
-    const size_t data_size = 0;
-  };
-
-  // sample class serving as a base pattern for all lambda closure types
-  struct AbstractLambda
-  {
-    unsigned long some_data;
-    template<class... Args> inline void operator () (Args ...) const;
-  };
-
-  template<class F> struct FunctionCallArgsHash
-  {
-    static inline size_t value() { return typeid(F).hash_code(); }
-  };
-  template<class R, class... Args>
-  struct FunctionCallArgsHash< std::function<R(Args...)> >
-  {
-    using function_type = std::function<R(Args...)>;
-    static inline size_t value() { return typeid(function_type).hash_code(); }
-  };
-
-  template<class F>
-  static inline auto lambda_to_function( const F& lambda )
-  {
-#   ifdef __CUDACC__
-    return lambda;
-#   else
-    std::function func = lambda; // uses deduction guides
-    return func;
-#   endif
-  }
-
-  template<class F>
-  static inline size_t lambda_call_args_hash(const F&)
-  {
-    return FunctionCallArgsHash< decltype( lambda_to_function( std::declval<F>() ) ) >::value();
-  }
-
-
-
   /********** detect functor call compatibilty ************************/ 
   template <class R, class F , class ArgsTp , class = void >
   struct FunctorSupportsCallSignature : public std::false_type {};  

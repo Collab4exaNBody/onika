@@ -14,7 +14,7 @@ namespace onika
   namespace tutorial
   {
 
-    class ConcurrentBlockParallelTest : public OperatorNode
+    class HybridAsyncBlockParallelTest : public OperatorNode
     {
       ADD_SLOT(Array2D, array1, INPUT_OUTPUT, Array2D{} );
       ADD_SLOT(Array2D, array2, INPUT_OUTPUT, Array2D{} );
@@ -44,9 +44,9 @@ namespace onika
         }
 
         BlockParallelIterativeValueAddFunctor<true> array1_kernel1 = { *array1, *value, *iter_count };
-        BlockParallelValueAddFunctor<true>          array1_kernel2 = { *array1, *value };
+        BlockParallelValueAddFunctor<false>         array1_kernel2 = { *array1, *value };
         BlockParallelIterativeValueAddFunctor<true> array2_kernel1 = { *array2, *value, *iter_count };
-        BlockParallelValueAddFunctor<true>          array2_kernel2 = { *array2, *value };
+        BlockParallelValueAddFunctor<false>         array2_kernel2 = { *array2, *value };
                                
         // Launching the parallel operation, which can execute on GPU if the execution context allows
         // result of parallel operation construct is captured into variable 'my_addition',
@@ -64,11 +64,17 @@ namespace onika
 
         // enqueue operations in two distinct custom queues with different default stream ids
         lout << "Enqueue parallel operations ..." << std::endl;
+/*        
         parallel_execution_queue() << onika::parallel::set_lane(0) << std::move(array1_par_op1) << std::move(array1_par_op2)
                                    << onika::parallel::set_lane(1) << std::move(array2_par_op1) << std::move(array2_par_op2);
-                                           
+*/
+        onika::parallel::ParallelExecutionQueueBase delay_queue_a;
+        onika::parallel::ParallelExecutionQueueBase delay_queue_b;        
+        delay_queue_a << onika::parallel::set_lane(0) << std::move(array1_par_op1) << onika::parallel::set_lane(1) << std::move(array2_par_op1);
+        delay_queue_b << onika::parallel::set_lane(0) << std::move(array1_par_op2) << onika::parallel::set_lane(1) << std::move(array2_par_op2);
+
         lout << "schedule for execution ..." << std::endl;
-        parallel_execution_queue() << onika::parallel::flush;
+        parallel_execution_queue() << std::move(delay_queue_a) << std::move(delay_queue_b) << onika::parallel::flush;
 
         //parallel_execution_queue().wait(1); // wait for all operations in stream #1 to complete
         //parallel_execution_queue().wait(0); // wait for all operations in stream #0 to complete
@@ -80,9 +86,9 @@ namespace onika
     };
 
     // === register factories ===
-    ONIKA_AUTORUN_INIT(concurrent_block_parallel)
+    ONIKA_AUTORUN_INIT(hybrid_async_block_parallel)
     {
-     OperatorNodeFactory::instance()->register_factory( "concurrent_block_parallel", make_simple_operator< ConcurrentBlockParallelTest > );
+     OperatorNodeFactory::instance()->register_factory( "hybrid_async_block_parallel", make_simple_operator< HybridAsyncBlockParallelTest > );
     }
 
   }

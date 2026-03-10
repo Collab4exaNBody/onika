@@ -125,20 +125,8 @@ namespace onika { namespace scg_builtin
 
           if( smem_bksize.has_value() )
           {
-      lerr << "smem_bksize is deprecated and has no effect anymore, please remove this setting" << std::endl;
-/*
-      switch( *smem_bksize )
-            {
-              case 4 : ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeFourByte ) ); break;
-              case 8 : ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeEightByte ) ); break;
-              default:
-                lerr<<"Unsupported shared memory bank size "<<*smem_bksize<<", using default\n";
-                ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeDefault ) );
-                break;
-            }
-*/
+            lerr << "smem_bksize is deprecated and has no effect anymore, please remove this setting" << std::endl;
           }
-
 
           if( device_limits.has_value() )
           {
@@ -189,7 +177,12 @@ namespace onika { namespace scg_builtin
         {
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_ATTRIBUTE( & clock_rate, onikaDevAttrClockRate, i + gpu_first_device ) );
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_PROPERTIES( & cuda_ctx->m_devices[i].m_deviceProp , i + gpu_first_device ) );
-          if( i==0 ) { device_name = cuda_ctx->m_devices[i].m_deviceProp.name; }
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_ATTRIBUTE( & cuda_ctx->m_devices[i].m_clock_rate , onikaDevAttrClockRate, i + gpu_first_device ) );
+          if( i==0 )
+          {
+            device_name = cuda_ctx->m_devices[i].m_deviceProp.name;
+            clock_rate = cuda_ctx->m_devices[i].m_clock_rate;
+          }
           else if( device_name != cuda_ctx->m_devices[i].m_deviceProp.name ) { lerr<<"WARNING: Mixed GPU devices"<<std::endl; }
           bool mm = cuda_ctx->m_devices[i].m_deviceProp.managedMemory;
           bool cma = cuda_ctx->m_devices[i].m_deviceProp.concurrentManagedAccess;
@@ -199,7 +192,7 @@ namespace onika { namespace scg_builtin
           multiProcessorCount = cuda_ctx->m_devices[i].m_deviceProp.multiProcessorCount;
           sharedMemPerBlock = cuda_ctx->m_devices[i].m_deviceProp.sharedMemPerBlock;
 #         if ( ! defined(ONIKA_HIP_VERSION) ) || ( HIP_VERSION >= 60000000 )
-	  l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
+            l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
 #         endif
         }
 
