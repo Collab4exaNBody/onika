@@ -16,10 +16,11 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <vector>
-//#include <ranges>
+#include <ranges>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/ro_shallow_copy.h>
 #include <onika/type_utils.h>
