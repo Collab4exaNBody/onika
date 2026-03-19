@@ -28,25 +28,25 @@ namespace onika
      * for which initialization at declaration is forbidden
      */
     template<class T>
-    struct alignas( alignof(T) ) UnitializedPlaceHolder
+    struct UnitializedPlaceHolder
     {
       static_assert( sizeof(unsigned char) == 1 , "expected char to be 1 byte" );
 
       using value_type = T;
-      unsigned char m_bytes[ sizeof(value_type) ];
+      alignas( alignof(value_type) ) unsigned char m_bytes[ sizeof(value_type) ];
             
       ONIKA_HOST_DEVICE_FUNC inline       value_type& get_ref()       { return * reinterpret_cast<value_type*>(m_bytes); }
       ONIKA_HOST_DEVICE_FUNC inline const value_type& get_ref() const { return * reinterpret_cast<value_type*>(m_bytes); }      
     };
 
     template<class T, size_t N>
-    struct alignas( alignof(T) ) UnitializedArrayPlaceHolder
+    struct UnitializedArrayPlaceHolder
     {
       static_assert( sizeof(unsigned char) == 1 , "expected char to be 1 byte" );
 
       using value_type = T;
       static inline constexpr size_t ArraySize = N;
-      unsigned char m_bytes[ sizeof(value_type) * ArraySize ];
+      alignas( alignof(value_type) ) unsigned char m_bytes[ sizeof(value_type) * ArraySize ];
       
       ONIKA_HOST_DEVICE_FUNC inline       value_type* get_array()       { return reinterpret_cast<value_type*>(m_bytes); }
       ONIKA_HOST_DEVICE_FUNC inline const value_type* get_array() const { return reinterpret_cast<const value_type*>(m_bytes); }
