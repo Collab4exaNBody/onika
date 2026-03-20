@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <onika/cuda/cuda.h>
-#include <onika/cuda/unitialized_place_holder.h>
+#include <onika/cuda/uninitialized_place_holder.h>
 #include <ranges>
 #include <type_traits>
 
