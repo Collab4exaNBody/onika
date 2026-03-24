@@ -86,6 +86,10 @@ namespace onika
     
     // shortcuts to particular values
     static inline constexpr auto elementaryChargeCoulomb = elementaryCharge;
+    static inline constexpr auto atomicMassDalton = atomicMass;
+    static inline constexpr auto avogadroNumber = avogadro;
+    static inline constexpr auto calorieJoules = calorie_joules;
+    static inline constexpr auto piValue = pi;
     static inline constexpr auto undefined_value = std::numeric_limits<double>::quiet_NaN();
     
     /*
@@ -118,7 +122,7 @@ namespace onika
     // mass
     static inline constexpr UnitDefinition kilogram           = { MASS       , 1.0                     , "kg"       , "kilogram" };
     static inline constexpr UnitDefinition gram               = { MASS       , 1.0e-3                  , "g"        , "gram" };
-    static inline constexpr UnitDefinition atomic_mass_unit   = { MASS       , 1.660539040e-27         , "Da"       , "Dalton" };
+    static inline constexpr UnitDefinition atomic_mass_unit   = { MASS       , atomicMassDalton        , "Da"       , "Dalton" };
     
     // time
     static inline constexpr UnitDefinition hour               = { TIME       , 3600                    , "h"        , "hour" };
@@ -138,20 +142,20 @@ namespace onika
 
     // amount of substance
     static inline constexpr UnitDefinition mol                = { AMOUNT     , 1.0                     , "mol"      , "mol" };
-    static inline constexpr UnitDefinition particle           = { AMOUNT     , 1.0e-23 / 6.02214076    , "particle" , "particle" }; 
+    static inline constexpr UnitDefinition particle           = { AMOUNT     , 1.0/avogadroNumber      , "particle" , "particle" }; 
 
     // luminosity
     static inline constexpr UnitDefinition candela            = { LUMINOSITY , 1.0                     , "cd"       , "candela" };
 
     // angle
     static inline constexpr UnitDefinition radian             = { ANGLE      , 1.0                     , "rad"      , "radian" };
-    static inline constexpr UnitDefinition degree             = { ANGLE      , M_PI/180.0              , "degree"   , "degree" };
+    static inline constexpr UnitDefinition degree             = { ANGLE      , piValue/180.0           , "degree"   , "degree" };
 
     // energy
     static inline constexpr UnitDefinition joule              = { ENERGY     , 1.0                     , "J"        , "joule" };
     static inline constexpr UnitDefinition electron_volt      = { ENERGY     , elementaryChargeCoulomb , "eV"       , "electron_volt" };
-    static inline constexpr UnitDefinition calorie            = { ENERGY     , 4.1868                  , "cal"      , "calorie" };
-    static inline constexpr UnitDefinition kcalorie           = { ENERGY     , 4186.8                  , "kcal"     , "kcalorie" };
+    static inline constexpr UnitDefinition calorie            = { ENERGY     , calorieJoules           , "cal"      , "calorie" };    
+    static inline constexpr UnitDefinition kcalorie           = { ENERGY     , 1.0e3*calorieJoules     , "kcal"     , "kcalorie" };
     
     // unit less
     static inline constexpr UnitDefinition no_unity           = { OTHER      , 1.0                     , ""         , "" };
