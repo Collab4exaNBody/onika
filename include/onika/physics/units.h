@@ -153,6 +153,7 @@ namespace onika
 
     // energy
     static inline constexpr UnitDefinition joule              = { ENERGY     , 1.0                     , "J"        , "joule" };
+    static inline constexpr UnitDefinition kilojoule          = { ENERGY     , 1000.0                  , "kJ"       , "kilojoule" };
     static inline constexpr UnitDefinition electron_volt      = { ENERGY     , elementaryChargeCoulomb , "eV"       , "electron_volt" };
     static inline constexpr UnitDefinition calorie            = { ENERGY     , calorieJoules           , "cal"      , "calorie" };    
     static inline constexpr UnitDefinition kcalorie           = { ENERGY     , 1.0e3*calorieJoules     , "kcal"     , "kcalorie" };
@@ -200,7 +201,7 @@ namespace onika
       mol, particle,
       candela,
       radian, degree,
-      joule, electron_volt, calorie, kcalorie };
+      joule, kilojoule, electron_volt, calorie, kcalorie };
     
     // number of available unit definitions 
     static inline constexpr int number_of_units = sizeof(all_units) / sizeof(UnitDefinition);
@@ -519,6 +520,7 @@ namespace YAML
   [[maybe_unused]] constexpr auto rad    = ::onika::physics::radian;            \
   [[maybe_unused]] constexpr auto degree = ::onika::physics::degree;            \
   [[maybe_unused]] constexpr auto J      = ::onika::physics::joule;             \
+  [[maybe_unused]] constexpr auto kJ     = ::onika::physics::kilojoule;         \
   [[maybe_unused]] constexpr auto eV     = ::onika::physics::electron_volt;     \
   [[maybe_unused]] constexpr auto cal    = ::onika::physics::calorie;           \
   [[maybe_unused]] constexpr auto kcal   = ::onika::physics::kcalorie
