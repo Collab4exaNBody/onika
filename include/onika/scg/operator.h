@@ -50,7 +50,7 @@ namespace onika { namespace scg
   struct OperatorNode;
   using OperatorNodeFlavor = std::map< std::string , std::string >;
   using OperatorNodeCreateFunction = std::function<std::shared_ptr<OperatorNode>(const YAML::Node&, const OperatorNodeFlavor&)>;
-  
+
   using ParallelValueStatsFunc = std::function< void(const std::vector<double>&,int&,int&,std::vector<double>&,std::vector<double>&,std::vector<double>&) >;
   void default_parallel_stats_func(const std::vector<double>& x, int& np, int& r, std::vector<double>& minval, std::vector<double>& maxval, std::vector<double>& avg);
 
@@ -83,7 +83,7 @@ namespace onika { namespace scg
         assert(m_op!=nullptr);
         return ldbg_raw.filter(m_op->hash()) << x;
       }
-      
+
       inline LogStreamWrapper& operator << ( std::ostream& (*manip)(std::ostream&) )
       {
         assert(m_op!=nullptr);
@@ -117,7 +117,7 @@ namespace onika { namespace scg
     // unique constrtuctor is the default one
     OperatorNode() = default;
     virtual ~OperatorNode();
-    
+
     // to be called when operator will no longer be executed, before it is destructed
     virtual void finalize();
 
@@ -125,15 +125,16 @@ namespace onika { namespace scg
 
     // called from outside, calls execute internally
     virtual void run_prolog();
-    virtual void run(); 
+    virtual void run();
     virtual void run_epilog();
     virtual void execute() =0;
-    
+
     virtual inline bool nested_parallel_mode() const { return false; }
     virtual bool is_looping() const;
-    
+
     virtual inline std::string documentation() const { return std::string(); }
-    
+    virtual inline FormattedText formatted_documentation() const { return {TEXT_FORMAT_RAW,documentation()}; }
+
     // print operator and its sub graph with various level of details
     inline LogStreamWrapper& pretty_print(LogStreamWrapper& out, int details, bool prof = false, ParallelValueStatsFunc pstat = default_parallel_stats_func )
     {
@@ -141,18 +142,18 @@ namespace onika { namespace scg
       return pretty_print(out,details,0,p,pstat);
     }
     virtual LogStreamWrapper& pretty_print(LogStreamWrapper& out, int details, int indent, ProfilePrintParameters& ppp, ParallelValueStatsFunc pstat );
-    
+
     // populate user given inputs from YAML config file
     virtual void yaml_initialize(const YAML::Node&);
-    
+
     // tells if operator is terminal (true) or is a batch operator which holds other operators (false)
     virtual bool is_terminal() const;
-    
+
     // a terminal operator that cannot be removed even though it has no connected output
     // more generally, an operator that have a side effect (writes a file, etc.) might return true also
     virtual bool is_sink() const;
-    
-    // apply a function to all operators in graph    
+
+    // apply a function to all operators in graph
     virtual void apply_graph( std::function<void(OperatorNode*)> , bool prefix=false);
 
     // those 2 are virtual cause we need a specific implementation for batches whose slots are added afterward
@@ -206,7 +207,7 @@ namespace onika { namespace scg
     bool in_slot_rename(const std::string& before, const std::string& after);
     inline OperatorSlotBase* in_slot(int i) const { if(i<0 || i>=in_slot_count()) return nullptr; else return m_in_slot_storage[i].second; }
     inline OperatorSlotBase* in_slot(const std::string& k) const { return in_slot(in_slot_idx(k)); }
-    
+
     int out_slot_count() const { return m_out_slot_count; }
     int out_slot_idx(const std::string& k) const;
     int out_slot_idx(const OperatorSlotBase *s) const;
@@ -237,7 +238,7 @@ namespace onika { namespace scg
     // how deep if the operator in operator tree
     inline unsigned int depth() const { return m_depth; }
 
-    // get operator hash    
+    // get operator hash
     inline size_t hash() const { return m_hash; }
     static inline size_t max_hash() { return s_global_instance_index; }
 
@@ -266,12 +267,12 @@ namespace onika { namespace scg
     onika::parallel::ParallelExecutionStream* parallel_execution_stream(int lane = onika::parallel::DEFAULT_EXECUTION_LANE);
     onika::parallel::ParallelExecutionQueue& parallel_execution_queue();
     void wait_all_parallel_execution_streams();
-    
+
     // free resources associated to slots
     void free_all_resources();
 
-    // pretty print full documentation of operator and its 
-    std::ostream& print_documentation( std::ostream& out ) const;
+    // pretty print full documentation of operator and its
+    LogStreamWrapper& print_documentation( LogStreamWrapper& out ) const;
 
     // set wall clock start point for profiling measures
     static void reset_profiling_reference_timestamp();
@@ -297,16 +298,16 @@ namespace onika { namespace scg
     ssize_t m_resident_mem_inc = 0;
 
     // debug stream wrapper to enable log filtering
-    OperatorDebugStreamHelper ldbg { this };    
+    OperatorDebugStreamHelper ldbg { this };
 
   private:
 
     static void finalize_parallel_execution(onika::parallel::ParallelExecutionContext* pec, void * v_self);
     static void task_start_callback( const onika::omp::OpenMPToolTaskTiming& evt );
     static void task_stop_callback( const onika::omp::OpenMPToolTaskTiming& evt );
-  
+
     static constexpr size_t MAX_SLOT_COUNT = 128;
-  
+
     // operator unique id
     size_t m_hash = 0;
     static size_t s_global_instance_index;
@@ -340,29 +341,29 @@ namespace onika { namespace scg
 
     // if not -1, this will limit the number of OpenMP threads available in parallel regions for this particular operator
     int m_omp_num_threads = -1;
-        
+
     // Operator protection after compilation
     bool m_compiled = false;
 
     // profiling
     bool m_profiling = true;
-    
+
     // allow OpenMP task creation and shared parallel operation stream queues across several operators when activated at a batch level
     bool m_omp_task_mode = false;
-    
+
     // allow gpu execution for this particular instance
     bool m_gpu_execution_allowed = true;
-    
+
     bool m_multiple_run = false;
-    
+
     bool m_gpu_profile_start_stop = false;
-    
+
     static ProfilingFunctionSet s_profiling_functions;
     static TimeStampT s_profiling_timestamp_ref;
-    
+
     // GPU context
     static std::shared_ptr<onika::cuda::CudaContext> s_global_cuda_ctx;
-    
+
     static bool s_global_profiling;
     static bool s_global_mem_profiling;
     static bool s_debug_execution;
@@ -376,7 +377,7 @@ namespace onika { namespace scg
 #ifdef ONIKA_SCG_EXPORT_NAMESPACE
 namespace ONIKA_SCG_EXPORT_NAMESPACE
 {
-	using ::onika::scg::OperatorNode;
+  using ::onika::scg::OperatorNode;
 }
 #endif
 

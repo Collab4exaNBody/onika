@@ -199,7 +199,7 @@ namespace onika { namespace scg_builtin
           multiProcessorCount = cuda_ctx->m_devices[i].m_deviceProp.multiProcessorCount;
           sharedMemPerBlock = cuda_ctx->m_devices[i].m_deviceProp.sharedMemPerBlock;
 #         if ( ! defined(ONIKA_HIP_VERSION) ) || ( HIP_VERSION >= 60000000 )
-	  l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
+    l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
 #         endif
         }
 
