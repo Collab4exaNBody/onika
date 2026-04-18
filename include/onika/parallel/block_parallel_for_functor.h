@@ -37,6 +37,27 @@ namespace onika
     struct block_parallel_for_gpu_epilog_t : public block_parallel_for_epilog_t {};
     struct block_parallel_for_cpu_epilog_t : public block_parallel_for_epilog_t {};
 
+    /* Behavior of execution scheduler depending on overloaded call operator :
+     * 
+     * void operator () ( block_parallel_for_prolog_t )                                  | Called before task is scheduled
+     * void operator () ( block_parallel_for_prolog_t , ParallelExecutionStream * )      | for CPU or GPU executions
+     * 
+     * void operator () ( block_parallel_for_cpu_prolog_t )                              | Called before task is scheduled, only if executed on CPU
+     * 
+     * void operator () ( block_parallel_for_gpu_prolog_t )                              | Called before task is scheduled
+     * void operator () ( block_parallel_for_gpu_prolog_t , ParallelExecutionStream * )  | only if executed on GPU
+     *
+     * void operator () ( block_parallel_for_epilog_t )                                  | Called after task has completed, for CPU or GPU executions
+     * 
+     * void operator () ( block_parallel_for_epilog_t , ParallelExecutionStream * )      | Called after task is scheduled, for CPU or GPU executions
+     * 
+     * void operator () ( block_parallel_for_cpu_epilog_t )                              | Called after task has completed, for CPU only executions
+     * 
+     * void operator () ( block_parallel_for_gpu_epilog_t )                              | Called after task has completed, for GPU only executions
+     * 
+     * void operator () ( block_parallel_for_gpu_epilog_t , ParallelExecutionStream * )  | Called after task is scheduled, for GPU only executions
+     */
+
     // marker for single function call with a single task (no parallelism) event though parallel execution space span several elements
     struct block_parallel_for_single_task_t {};
     template<class T> concept block_parallel_for_single_task = std::is_same_v<T,block_parallel_for_single_task_t>;
@@ -60,6 +81,7 @@ namespace onika
       virtual inline void stream_gpu_initialize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
       virtual inline void stream_gpu_kernel(ParallelExecutionContext*,ParallelExecutionStream*) const {}
       virtual inline void stream_gpu_finalize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
+      virtual inline void execute_gpu_epilog(const ParallelExecutionContext* pec) const {}
 
       // parallel execution space info
       virtual inline unsigned int execution_space_ndims() const { return 0; }
@@ -92,9 +114,9 @@ namespace onika
       return BlockParallelSingleTaskFunctor<FuncT>{ f };
     }
 
-    inline const BlockParallelForHostFunctor & get_block_parallel_functor( ParallelExecutionContext* pec )
+    inline const BlockParallelForHostFunctor & get_block_parallel_functor( const ParallelExecutionContext* pec )
     {
-      return * reinterpret_cast<BlockParallelForHostFunctor*>( pec->m_host_scratch.functor_data );
+      return * reinterpret_cast<const BlockParallelForHostFunctor*>( pec->m_host_scratch.functor_data );
     }
 
   }

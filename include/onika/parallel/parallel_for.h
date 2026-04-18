@@ -41,7 +41,6 @@ namespace onika
      */
     struct ParallelForOptions
     {
-      ParallelExecutionCallback user_cb = {};
       void * return_data = nullptr;
       size_t return_data_size = 0;
       bool enable_gpu = true;
@@ -98,7 +97,6 @@ namespace onika
       , const ParallelForOptions& opts = ParallelForOptions{} )
     {          
       BlockParallelForOptions bpfopts = {};
-      bpfopts.user_cb = opts.user_cb;
       bpfopts.return_data = opts.return_data;
       bpfopts.return_data_size = opts.return_data_size;
       bpfopts.enable_gpu = opts.enable_gpu;
@@ -125,7 +123,6 @@ namespace onika
       static_assert( ND <= 3 );
              
       BlockParallelForOptions bpfopts = {};
-      bpfopts.user_cb = opts.user_cb;
       bpfopts.return_data = opts.return_data;
       bpfopts.return_data_size = opts.return_data_size;
       bpfopts.enable_gpu = opts.enable_gpu;

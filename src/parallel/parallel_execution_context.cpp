@@ -145,15 +145,6 @@ namespace onika
       m_return_data_size = sz;
     }
 
-    void ParallelExecutionContext::execution_end_callback( onikaStream_t stream,  onikaError_t status, void*  userData )
-    {
-      const ParallelExecutionContext * pec = reinterpret_cast<const ParallelExecutionContext *>( userData );
-      if( pec != nullptr && pec->m_execution_end_callback.m_func != nullptr )
-      {
-        ( * pec->m_execution_end_callback.m_func ) ( pec->m_execution_end_callback.m_data );
-      }
-    }
-
   }
 
 }

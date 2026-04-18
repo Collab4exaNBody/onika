@@ -43,7 +43,6 @@ namespace onika
      */
     struct BlockParallelForOptions
     {
-      ParallelExecutionCallback user_cb = {};
       void * return_data = nullptr;
       size_t return_data_size = 0;
       unsigned int max_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
@@ -77,7 +76,6 @@ namespace onika
       // construct virtual functor adapter inplace, using reserved functor space
       static_assert( ( HostKernelExecutionScratch::MAX_FUNCTOR_ALIGNMENT % alignof(FuncT) ) == 0 , "functor_data alignment is not sufficient for user functor" );
 
-      pec->m_execution_end_callback = opts.user_cb;
       pec->m_omp_sched = opts.omp_scheduling;
     
 	    // printf("block_parallel_for: %s %s: cudacompat=%d\n", pec->m_tag != nullptr ? pec->m_tag : "<null>" , pec->m_sub_tag != nullptr ? pec->m_sub_tag : "" , int(  ) );
