@@ -31,12 +31,12 @@ namespace onika
     template<> struct ElementCoordT<1> { using type = ssize_t; };
     template<unsigned int ND> using element_coord_t = typename ElementCoordT<ND>::type;
     
-    template<class T, bool = std::is_integral_v<T>, bool = is_orray_v<T> > struct ElementCoordND { static inline constexpr unsigned int value = 0; };
+    template<class T, bool = std::is_integral_v<T>, bool = is_oarray_v<T> > struct ElementCoordND { static inline constexpr unsigned int value = 0; };
     template<class T> struct ElementCoordND<T,true,false> { static inline constexpr unsigned int value = 1; };
     template<class T> struct ElementCoordND<T,false,true> { static inline constexpr unsigned int value = T::array_size; };
     template<class T> static inline constexpr unsigned int element_coord_nd_v = ElementCoordND<T>::value;
 
-    template<some_integral_orray_t ArrayT>
+    template<some_integral_oarray_t ArrayT>
     inline constexpr size_t coord_range_size( const ArrayT& range_start , const ArrayT& range_end )
     {
       constexpr unsigned int ND = ArrayT::array_size;
@@ -51,7 +51,7 @@ namespace onika
       return ( range_end > range_start ) ? ( range_end - range_start ) : 0 ;
     }
 
-    template<some_orray_t ArrayT>
+    template<some_oarray_t ArrayT>
     inline constexpr bool coord_range_iterator_increment(ArrayT& range_it , const ArrayT& range_start , const ArrayT& range_end )
     {
       constexpr unsigned int ND = ArrayT::array_size;
@@ -81,7 +81,7 @@ namespace onika
     }
 
     template<class T>
-    concept some_space_coord = some_integral_orray_t<T> || std::is_integral_v<T>;
+    concept some_space_coord = some_integral_oarray_t<T> || std::is_integral_v<T>;
 
     template<some_space_coord CoordRangeT>
     inline auto coord_range_to_list( const CoordRangeT& range_start , const CoordRangeT& range_end )

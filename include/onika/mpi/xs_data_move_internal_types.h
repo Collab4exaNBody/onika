@@ -80,8 +80,8 @@ namespace onika
         inline IdLocalizationSerializeBuffer(size_type nBefore, size_type nAfter) : m_ids_before_count(nBefore), m_ids_after_count(nAfter) {}
         inline IdLocalizationSerializeBuffer() {}
 
-        size_type m_ids_before_count;
-        size_type m_ids_after_count;
+        size_type m_ids_before_count = 0;
+        size_type m_ids_after_count = 0;
         IdLocalization m_ids[0];
     };
 
@@ -121,7 +121,7 @@ namespace onika
         inline IdMoveSerializeBuffer(size_type N) : m_count(N) {}
         inline IdMoveSerializeBuffer() {}
 
-        size_type m_count;
+        size_type m_count = 0;
         IdMove m_idmove[0];
     };
 

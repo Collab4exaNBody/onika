@@ -319,13 +319,6 @@ namespace onika
     
 #   endif
 
-    template<class T>
-    struct alignas( alignof(T) ) UnitializedPlaceHolder
-    {
-      static_assert( sizeof(unsigned char) == 1 , "expected char to be 1 byte" );
-      unsigned char byte[sizeof(T)];
-      ONIKA_HOST_DEVICE_FUNC inline T& get_ref() { return * reinterpret_cast<T*>(byte); }
-    };
   }
 }
 
@@ -380,4 +373,3 @@ namespace onika
 #   define gpu_frontend_compiler() ONIKA_GPU_FRONTEND_COMPILER{}
   }
 }
-

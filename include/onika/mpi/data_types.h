@@ -21,6 +21,7 @@ under the License.
 #include <mpi.h>
 #include <vector>
 #include <cassert>
+#include <cstdlib>
 
 namespace onika
 {
