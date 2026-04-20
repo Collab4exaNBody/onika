@@ -3,6 +3,7 @@
 #include <onika/cuda/cuda.h>
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/lambda_tools.h>
+#include <concepts>
 
 namespace onika
 {
@@ -36,6 +37,31 @@ namespace onika
     struct block_parallel_for_gpu_epilog_t : public block_parallel_for_epilog_t {};
     struct block_parallel_for_cpu_epilog_t : public block_parallel_for_epilog_t {};
 
+    /* Behavior of execution scheduler depending on overloaded call operator :
+     * 
+     * void operator () ( block_parallel_for_prolog_t )                                  | Called before task is scheduled
+     * void operator () ( block_parallel_for_prolog_t , ParallelExecutionStream * )      | for CPU or GPU executions
+     * 
+     * void operator () ( block_parallel_for_cpu_prolog_t )                              | Called before task is scheduled, only if executed on CPU
+     * 
+     * void operator () ( block_parallel_for_gpu_prolog_t )                              | Called before task is scheduled
+     * void operator () ( block_parallel_for_gpu_prolog_t , ParallelExecutionStream * )  | only if executed on GPU
+     *
+     * void operator () ( block_parallel_for_epilog_t )                                  | Called after task has completed, for CPU or GPU executions
+     * 
+     * void operator () ( block_parallel_for_epilog_t , ParallelExecutionStream * )      | Called after task is scheduled, for CPU or GPU executions
+     * 
+     * void operator () ( block_parallel_for_cpu_epilog_t )                              | Called after task has completed, for CPU only executions
+     * 
+     * void operator () ( block_parallel_for_gpu_epilog_t )                              | Called after task has completed, for GPU only executions
+     * 
+     * void operator () ( block_parallel_for_gpu_epilog_t , ParallelExecutionStream * )  | Called after task is scheduled, for GPU only executions
+     */
+
+    // marker for single function call with a single task (no parallelism) event though parallel execution space span several elements
+    struct block_parallel_for_single_task_t {};
+    template<class T> concept block_parallel_for_single_task = std::is_same_v<T,block_parallel_for_single_task_t>;
+
     template<long long FunctorSize, long long MaxSize, class FuncT>
     struct AssertFunctorSizeFitIn
     {
@@ -51,34 +77,47 @@ namespace onika
       virtual inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int num_tasks ) const {}
       virtual inline void execute_epilog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
 
-      // Host individual task execution interface
-      virtual inline void operator () (uint64_t i) const {}
-      virtual inline void operator () (uint64_t i, uint64_t end) const { for(;i<end;i++) this->operator () (i); }
-      virtual inline void operator () (const uint64_t * __restrict__ idx, uint64_t N) const { for(uint64_t i=0;i<N;i++) this->operator () (idx[i]); }
-
-      virtual inline void operator () (const onikaInt3_t& c) const {}
-      virtual inline void operator () (const onikaInt3_t& s, const onikaInt3_t& e) const
-      {
-        for(ssize_t k=s.z;k<e.z;k++) 
-        for(ssize_t j=s.y;j<e.y;j++) 
-        for(ssize_t i=s.x;i<e.x;i++)
-        {
-          this->operator () ( onikaInt3_t{i,j,k} );
-        }
-      }
-      virtual inline void operator () (const onikaInt3_t * __restrict__ idx, uint64_t N) const
-      {
-        for(uint64_t i=0;i<N;i++) this->operator () ( idx[i] );
-      }
-
       // GPU Kernel launch interface
       virtual inline void stream_gpu_initialize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
       virtual inline void stream_gpu_kernel(ParallelExecutionContext*,ParallelExecutionStream*) const {}
       virtual inline void stream_gpu_finalize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
+      virtual inline void execute_gpu_epilog(const ParallelExecutionContext* pec) const {}
+
+      // parallel execution space info
+      virtual inline unsigned int execution_space_ndims() const { return 0; }
+      virtual inline size_t execution_space_nitems() const { return 0; }
+      virtual inline bool is_single_task() const { return false; }
+      virtual inline size_t execution_space_range(ssize_t * buf, size_t bufsz) const { return 0; }
 
       // destructor
       virtual inline ~BlockParallelForHostFunctor() {}
     };
+
+
+    // utility template to implement host controlled single task parallel operation
+    template<class FuncT>
+    requires std::invocable<FuncT&>
+    struct BlockParallelSingleTaskFunctor
+    {
+      FuncT m_func;
+      inline void operator () ( parallel::block_parallel_for_single_task_t ) const // single task parallel operation
+      {
+        //printf("Executing single task\n");
+        m_func();
+      }
+    };
+    
+    template<class FuncT>
+    requires std::invocable<FuncT&>
+    inline auto make_single_task_block_parallel_functor( const FuncT& f )
+    {
+      return BlockParallelSingleTaskFunctor<FuncT>{ f };
+    }
+
+    inline const BlockParallelForHostFunctor & get_block_parallel_functor( const ParallelExecutionContext* pec )
+    {
+      return * reinterpret_cast<const BlockParallelForHostFunctor*>( pec->m_host_scratch.functor_data );
+    }
 
   }
 }

@@ -41,12 +41,13 @@ namespace onika
       m_cuda_ctx = nullptr;
       m_default_queue = nullptr;
       m_stream = nullptr;
-      m_preferred_lane = DEFAULT_EXECUTION_LANE;
+      m_lane = UNDEFINED_EXECUTION_LANE;
       m_omp_num_tasks = 0;
       m_next = nullptr;
       m_tag = nullptr;
       m_sub_tag = nullptr;
       // additional information about what to do before/after kernel execution
+      m_data_access.clear();
       m_execution_end_callback = ParallelExecutionCallback{};
       m_finalize = ParallelExecutionFinalize{};
       m_return_data_input = nullptr;
@@ -142,15 +143,6 @@ namespace onika
       }
       m_return_data_output = ptr;
       m_return_data_size = sz;
-    }
-
-    void ParallelExecutionContext::execution_end_callback( onikaStream_t stream,  onikaError_t status, void*  userData )
-    {
-      const ParallelExecutionContext * pec = reinterpret_cast<const ParallelExecutionContext *>( userData );
-      if( pec != nullptr && pec->m_execution_end_callback.m_func != nullptr )
-      {
-        ( * pec->m_execution_end_callback.m_func ) ( pec->m_execution_end_callback.m_data );
-      }
     }
 
   }

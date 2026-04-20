@@ -69,8 +69,14 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debu
 # OpenMP with task and ompt support is appreciated
 # packages and tools
 find_package(OpenMP REQUIRED)
+
+if(OpenMP_CXX_FLAGS MATCHES "-fopenmp=.*")
+  set(OpenMP_CXX_FLAGS -fopenmp)
+endif()
 list(APPEND ONIKA_LIBRARIES ${OpenMP_CXX_LIBRARIES})
 list(APPEND ONIKA_COMPILE_OPTIONS ${OpenMP_CXX_FLAGS})
+message(STATUS "OpenMP_CXX_LIBRARIES=${OpenMP_CXX_LIBRARIES} , OpenMP_CXX_FLAGS=${OpenMP_CXX_FLAGS}")
+#list(APPEND ONIKA_LIBRARIES OpenMP::OpenMP_CXX)
 
 # for export to onika-config file
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "find_package(OpenMP REQUIRED)\n")
@@ -105,6 +111,15 @@ endif()
 if(ONIKA_HAVE_OPENMP_DETACH)
   message(STATUS "OpenMP detach enabled")
   list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_HAVE_OPENMP_DETACH=1)
+endif()
+
+
+# ======================================================
+# === Onika specific debug and optimization features ===
+# ======================================================
+set(ONIKA_ENABLE_KERNEL_DEBUG_INFO OFF CACHE BOOL "Enable parallel kernel debug info")
+if(ONIKA_ENABLE_KERNEL_DEBUG_INFO)
+  list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_ENABLE_KERNEL_DEBUG_INFO=1)
 endif()
 
 # configure maximum number of openmp task dependences
