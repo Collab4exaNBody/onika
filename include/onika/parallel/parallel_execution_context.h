@@ -71,6 +71,8 @@ namespace onika
     {
       void(*m_func)(void*) = nullptr;
       void *m_data = nullptr;
+      inline bool is_null() const { return m_func==nullptr; }
+      inline void execute() const { if(m_func!=nullptr) (*m_func)(m_data); }
     };
 
     struct ParallelExecutionFinalize

@@ -351,12 +351,6 @@ namespace onika
             ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( pec->m_return_data_output , pec->m_cuda_scratch->return_data , pec->m_return_data_size , exec_stream->m_cu_stream ) );
           }
 
-          // inserts a callback to stream if user passed one in
-          if( pec->m_execution_end_callback.m_func != nullptr )
-          {
-            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_ADD_CALLBACK(exec_stream->m_cu_stream, ParallelExecutionContext::execution_end_callback , pec ) );
-          }
-
           // inserts stop event to account for total execution time
           assert( pec->m_stop_evt != nullptr );
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_EVENT( pec->m_stop_evt, exec_stream->m_cu_stream ) );

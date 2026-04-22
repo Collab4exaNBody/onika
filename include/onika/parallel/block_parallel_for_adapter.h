@@ -22,6 +22,13 @@ namespace onika
 
     // ========================== GPU execution kernels ==========================
 
+    static inline void pec_execute_gpu_epilog_cb( onikaStream_t stream,  onikaError_t status, void*  userData )
+    {
+      const ParallelExecutionContext * pec = reinterpret_cast<const ParallelExecutionContext *>( userData );
+      const auto & func = get_block_parallel_functor( pec );
+      func.execute_gpu_epilog(pec);
+    }
+
     // GPU execution kernel for fixed size grid, using workstealing element assignment to blocks
     template<class ElementCoordRangeT, class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
@@ -87,12 +94,18 @@ namespace onika
       using FuncParamType = std::conditional_t< FuncParamDim==1 , ssize_t , onikaInt3_t >;
       using ParExecSpaceT = ParallelExecutionSpace<ND,ElemND,ElementListT>;
 
-      static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
-      static inline constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_prolog_t>;
-      static inline constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_prolog_t,ParallelExecutionStream*>;
-      static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
-      static inline constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_epilog_t>;
-      static inline constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_epilog_t,ParallelExecutionStream*>;
+      static inline constexpr bool functor_has_prolog            = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
+      static inline constexpr bool functor_has_prolog_stream     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t,ParallelExecutionStream*>;
+      static inline constexpr bool functor_has_cpu_prolog        = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_prolog_t>;
+      static inline constexpr bool functor_has_gpu_prolog        = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_prolog_t>;
+      static inline constexpr bool functor_has_gpu_prolog_stream = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_prolog_t,ParallelExecutionStream*>;
+
+      static inline constexpr bool functor_has_epilog            = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
+      static inline constexpr bool functor_has_epilog_stream     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t,ParallelExecutionStream*>;
+      static inline constexpr bool functor_has_cpu_epilog        = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_epilog_t>;
+      static inline constexpr bool functor_has_gpu_epilog        = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_epilog_t>;
+      static inline constexpr bool functor_has_gpu_epilog_stream = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_epilog_t,ParallelExecutionStream*>;
+      
       static inline constexpr bool functor_is_single_task = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_single_task_t>;
 
       static_assert( lambda_is_compatible_with_v<FuncT,void,FuncParamType> || functor_is_single_task , "User defined functor is not compatible with execution space");
@@ -123,8 +136,11 @@ namespace onika
 #         ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
           ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , dmesg_exec_gpu , pec );
 #         endif
-          if constexpr ( functor_has_gpu_prolog ) { m_func( block_parallel_for_gpu_prolog_t{} , pes ); }
+          if constexpr ( functor_has_gpu_prolog ) { m_func( block_parallel_for_gpu_prolog_t{} ); }
+          else if constexpr ( functor_has_gpu_prolog_stream ) { m_func( block_parallel_for_gpu_prolog_t{} , pes ); }
           else if constexpr ( functor_has_prolog ) { m_func( block_parallel_for_prolog_t{} ); }
+          else if constexpr ( functor_has_prolog_stream ) { m_func( block_parallel_for_prolog_t{} , pes ); }
+          
         }
         else { fatal_error() << "called stream_gpu_initialize with no GPU support" << std::endl; }
       }
@@ -178,8 +194,13 @@ namespace onika
       {
         if constexpr ( GPUSupport )
         {
-          if constexpr ( functor_has_gpu_epilog ) { m_func( block_parallel_for_gpu_epilog_t{} , pes ); }
-          else if constexpr ( functor_has_epilog ) { m_func( block_parallel_for_epilog_t{} ); }
+          if constexpr ( functor_has_gpu_epilog_stream ) { m_func( block_parallel_for_gpu_epilog_t{} , pes ); }
+          else if constexpr ( functor_has_epilog_stream ) { m_func( block_parallel_for_epilog_t{} , pes ); }
+
+          if ( functor_has_gpu_epilog || functor_has_epilog || ! pec->m_execution_end_callback.is_null() )
+          {
+            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_ADD_CALLBACK( pes->m_cu_stream, pec_execute_gpu_epilog_cb, pec ) );
+          }
 #         ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
           ONIKA_CU_STREAM_HOST_FUNC( pes->m_cu_stream , dmesg_end_gpu , pec );
 #         endif
@@ -187,6 +208,12 @@ namespace onika
         else { fatal_error() << "called stream_gpu_finalize with no GPU support" << std::endl; }
       }
 
+      inline void execute_gpu_epilog(const ParallelExecutionContext* pec) const override final
+      {
+        if constexpr ( functor_has_gpu_epilog ) { m_func( block_parallel_for_gpu_epilog_t{} ); }
+        else if constexpr ( functor_has_epilog ) { m_func( block_parallel_for_epilog_t{} ); }
+        pec->m_execution_end_callback.execute();
+      }
 
       // ================ CPU OpenMP execution interface ======================
       inline void execute_prolog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
@@ -196,6 +223,7 @@ namespace onika
 #       endif
         if constexpr (functor_has_cpu_prolog) { m_func( block_parallel_for_cpu_prolog_t{} ); }
         else if constexpr (functor_has_prolog) { m_func( block_parallel_for_prolog_t{} ); }
+        else if constexpr (functor_has_prolog_stream) { m_func( block_parallel_for_prolog_t{} , pes ); }
       }
 
       inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const override final
@@ -316,10 +344,6 @@ namespace onika
 
         execute_epilog( pec , pes );
         pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
-        if( pec->m_execution_end_callback.m_func != nullptr )
-        {
-          (* pec->m_execution_end_callback.m_func) ( pec->m_execution_end_callback.m_data );
-        }
         pes->m_omp_execution_count.fetch_sub(1);
       }
 
@@ -382,11 +406,6 @@ namespace onika
         // here all tasks of taskloop have completed, since notaskgroup clause is _NOT_ specified
         self->execute_epilog( pec , pes );
         pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
-        if( pec->m_execution_end_callback.m_func != nullptr )
-        {
-          (* pec->m_execution_end_callback.m_func) ( pec->m_execution_end_callback.m_data );
-        }
-
       }
 
       static inline void execute_omp_inner_taskloop_cb( void* userData )
@@ -491,6 +510,8 @@ namespace onika
       {
         if constexpr (functor_has_cpu_epilog) { m_func( block_parallel_for_cpu_epilog_t{} ); }
         else if constexpr (functor_has_epilog) { m_func( block_parallel_for_epilog_t{} ); }
+        else if constexpr (functor_has_epilog_stream) { m_func( block_parallel_for_epilog_t{} , pes ); }
+        pec->m_execution_end_callback.execute();
 #       ifdef ONIKA_ENABLE_KERNEL_DEBUG_INFO
         dmesg_end_omp(pec);
 #       endif
