@@ -546,6 +546,11 @@ endforeach()
 # compile contributed plugins
 add_subdirectory(plugins)
 
+option(ONIKA_BUILD_CONTRIBS "Build  contribs" OFF)
+if(ONIKA_BUILD_CONTRIBS)
+  add_subdirectory(contribs)
+endif()
+
 # install other files and directories directly copied from sources
 install(DIRECTORY cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(DIRECTORY include/onika DESTINATION include)
