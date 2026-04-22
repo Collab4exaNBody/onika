@@ -23,7 +23,6 @@ under the License.
 // universal no-op function, takes any arguments. returns SUCCESS.
 template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyArgs...){return 0;}
 
-
 /***************************************************************/
 /************************ Cuda API calls ***********************/
 /***************************************************************/
@@ -177,10 +176,30 @@ static inline constexpr int onikaErrorNotReady = 0;
 #define cudaStreamAddCallback _fake_cuda_api_noop
 #define cudaStreamCreate _fake_cuda_api_noop
 
-#define ONIKA_CU_PROF_RANGE_PUSH             _fake_cuda_api_noop
-#define ONIKA_CU_PROF_RANGE_POP              _fake_cuda_api_noop
-#define ONIKA_CU_PROF_START                  _fake_cuda_api_noop
-#define ONIKA_CU_PROF_STOP                   _fake_cuda_api_noop
+#ifdef ONIKA_ENABLE_EXTERNAL_PROFILER
+#  ifdef ONIKA_EXTERNAL_PROFILER_NVTX
+#    include <cuda_profiler_api.h>
+#    include <nvtx3/nvToolsExt.h>
+#    define ONIKA_CU_PROF_RANGE_PUSH(s)      nvtxRangePush(s)
+#    define ONIKA_CU_PROF_RANGE_POP()        nvtxRangePop()
+#    define ONIKA_CU_PROF_START()            cudaProfilerStart()
+#    define ONIKA_CU_PROF_STOP()             cudaProfilerStop()
+#  elif ONIKA_EXTERNAL_PROFILER_ROCTX
+#    include <hip/hip_runtime_api.h>
+#    include <roctracer/roctx.h>
+#    define ONIKA_CU_PROF_RANGE_PUSH(s)      roctxRangePush(s)
+#    define ONIKA_CU_PROF_RANGE_POP()        roctxRangePop()
+#    define ONIKA_CU_PROF_START()            hipProfilerStart()
+#    define ONIKA_CU_PROF_STOP()             hipProfilerStop()
+#  else
+#    error No external profiler defined
+#  endif
+#else
+#  define ONIKA_CU_PROF_RANGE_PUSH           _fake_cuda_api_noop
+#  define ONIKA_CU_PROF_RANGE_POP            _fake_cuda_api_noop
+#  define ONIKA_CU_PROF_START                _fake_cuda_api_noop
+#  define ONIKA_CU_PROF_STOP                 _fake_cuda_api_noop
+#endif
 #define ONIKA_CU_MEM_PREFETCH                _fake_cuda_api_noop
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING  _fake_cuda_api_noop
 #define ONIKA_CU_STREAM_ADD_CALLBACK         _fake_cuda_api_noop
