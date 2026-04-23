@@ -37,6 +37,7 @@ namespace OnikaEGLRender
     using IntVector = std::vector<GLint>;
 
     ADD_SLOT( std::string , surface        , INPUT , "window" );
+    ADD_SLOT( std::string , camera        , INPUT , "camera" );
     ADD_SLOT( std::string , vertex_buffer  , INPUT , "vertices" );
     ADD_SLOT( std::string , shader_program , INPUT , "shader" );
     ADD_SLOT( long , vertex_start , INPUT , 0 );
@@ -60,6 +61,11 @@ namespace OnikaEGLRender
       auto & render_surface = egl_render_manager->surface(*surface);
       auto & vbo = egl_render_manager->vertex_buffers(*vertex_buffer);
       auto & shader = egl_render_manager->shader_program(*shader_program);
+      if( egl_render_manager->camera_id(*camera) != -1 )
+      {
+        lout << "using camera "<< *camera << std::endl;
+        egl_render_manager->camera(*camera).use();
+      }
 
       long vstart = *vertex_start;
       long vcount = *vertex_count;
