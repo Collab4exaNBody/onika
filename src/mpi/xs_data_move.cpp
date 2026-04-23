@@ -392,7 +392,7 @@ namespace onika
         recv_indices.resize( localElementCountAfter, -1 );
         MPI_Alltoallv( partial_recv_indices.data() , send_count.data(), send_displ.data() , MPI_INT , recv_indices.data() , recv_count.data() , recv_displ.data() , MPI_INT , comm );
 
-    #   ifndef DEBUG
+    #   ifndef NDEBUG
         for(size_type i=0;i<localElementCountAfter;i++)
         {
           assert( recv_indices[i]>=0 && static_cast<size_type>(recv_indices[i])<localElementCountAfter );
