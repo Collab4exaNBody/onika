@@ -117,6 +117,9 @@ int main(int argc, char* argv[])
 		assert( in_arrays[mid][i] == out_arrays[mid][i] );
 	}
 
+	in_arrays.resize(0);
+	out_arrays.resize(0);
+
 	std::cout<<"serialization ok"<<std::endl;
 	return 0;
 }

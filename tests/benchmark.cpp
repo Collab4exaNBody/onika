@@ -144,12 +144,12 @@ int main(int argc, char* argv[])
 
 	if(argc>=2)
 	{
-	  N = atoi(argv[2]);
+	  N = atoi(argv[1]);
 	}
 
 	if(argc>=3)
 	{
-	  seed = atoi(argv[3]);
+	  seed = atoi(argv[2]);
 	}
 
   //if(arraysImpl == STATIC_PACKED_FIELD_ARRAYS) { N = S; }
@@ -190,6 +190,8 @@ int main(int argc, char* argv[])
   auto arrays = soatl::make_hybrid_field_arrays( soatl::cst::align<TEST_ALIGNMENT>(), soatl::cst::chunk<TEST_CHUNK_SIZE>(), field_rx, field_ry, field_rz, field_e);
   result = benchmark(arrays,N,field_e,field_rx,field_ry,field_rz);
   std::cout<<"result = "<<result<<std::endl;
+
+  arrays.resize(0);
 
 	return 0;
 }
