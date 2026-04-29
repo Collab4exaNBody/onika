@@ -61,7 +61,7 @@ namespace OnikaEGLRender
                  , { static_cast<GLfloat>(look_at->x), static_cast<GLfloat>(look_at->y), static_cast<GLfloat>(look_at->z) } );
       cam.perspective(*fov,*aspect,*near,*far);
 
-      cam.attach_to_shader( egl_render_manager->shader_program_ptr(shader_prog_id), *camera , "modelview", "projection" );
+      cam.attach_to_shader( egl_render_manager->shader_program_ptr(shader_prog_id), "camera" , "modelview", "projection" );
       cam.update_uniform();
 
       ldbg << "EGL : create camera " << *camera <<" id="<<cam_id<< " shader="<< *shader << std::endl;
