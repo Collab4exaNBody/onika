@@ -37,21 +37,34 @@ namespace OnikaEGLRender
   class EGLRenderCameraCreate : public OperatorNode
   {
     ADD_SLOT( std::string , camera , INPUT_OUTPUT , "camera" );
-    ADD_SLOT( Vec3d , position , INPUT , Vec3d{-5,5,0} );
-    ADD_SLOT( Vec3d , lookat , INPUT , Vec3d{0,0,0} );
+    ADD_SLOT( std::string , shader , INPUT_OUTPUT , "shader" );
+    ADD_SLOT( Vec3d       , position , INPUT , Vec3d{-5,5,0} );
+    ADD_SLOT( Vec3d       , look_at , INPUT , Vec3d{0,0,0} );
+    ADD_SLOT( double      , fov , INPUT , 60.0 );
+    ADD_SLOT( double      , aspect , INPUT , 16.0/9.0 );
+    ADD_SLOT( double      , near , INPUT , 0.1 );
+    ADD_SLOT( double      , far , INPUT , 100.0 );
     ADD_SLOT( EGLRenderManager , egl_render_manager , INPUT_OUTPUT );
 
   public:
     inline void execute() override final
-    {
+    {      
+      auto shader_prog_id = egl_render_manager->shader_program_id(*shader);
+      if( shader_prog_id < 0 )
+      {
+        fatal_error()<<"shader '"<< *shader <<"' not found"<<std::endl;
+      }
+      
       auto cam_id = egl_render_manager->create_camera( *camera );
       auto & cam = egl_render_manager->camera(cam_id);
-      cam.lookAt( position->x, position->y, position->z, lookat->x, lookat->y, lookat->z );
-      ldbg << "EGL : create camera " << *camera <<" id="<<cam_id
-           << ", left=("<<cam.m_left[0]<<","<<cam.m_left[0]<<","<<cam.m_left[0]<<")"
-           << ", up=("<<cam.m_up[0]<<","<<cam.m_up[0]<<","<<cam.m_up[0]<<")"
-           << ", front=("<<cam.m_front[0]<<","<<cam.m_front[0]<<","<<cam.m_front[0]<<")"
-           << std::endl;
+      cam.look_at( { static_cast<GLfloat>(position->x), static_cast<GLfloat>(position->y), static_cast<GLfloat>(position->z) }
+                 , { static_cast<GLfloat>(look_at->x), static_cast<GLfloat>(look_at->y), static_cast<GLfloat>(look_at->z) } );
+      cam.perspective(*fov,*aspect,*near,*far);
+
+      cam.attach_to_shader( egl_render_manager->shader_program_ptr(shader_prog_id), *camera , "modelview", "projection" );
+      cam.update_uniform();
+
+      ldbg << "EGL : create camera " << *camera <<" id="<<cam_id<< " shader="<< *shader << std::endl;
     }
 
   };
