@@ -35,7 +35,6 @@ namespace OnikaEGLRender
   class EGLRenderSurfaceMakeCurrent : public OperatorNode
   {
     ADD_SLOT( std::string , surface        , INPUT , "window" );
-    ADD_SLOT( bool , sim_continue , INPUT_OUTPUT , true );
     ADD_SLOT( EGLRenderManager , egl_render_manager , INPUT_OUTPUT );
 
   public:
@@ -45,12 +44,6 @@ namespace OnikaEGLRender
     {
       auto & render_surface = egl_render_manager->surface(*surface);
       ldbg << "EGL : make_current surface="<< *surface << std::endl;
-      render_surface.process_events();
-      if( egl_render_manager->m_user_exit )
-      {
-        ldbg<<"user requested stop"<<std::endl;
-        *sim_continue = false;
-      }
       render_surface.make_current();
     }
 

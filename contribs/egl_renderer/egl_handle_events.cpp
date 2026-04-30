@@ -37,9 +37,7 @@ namespace OnikaEGLRender
     int mouse_coord[2] = { 0, 0 };
     int mouse_button[3] = { 0, 0, 0 };
     int tilt[2] = { 0, 0 }; 
-    int translate[2] = { 0, 0 };
-    int forward = 0;
-    int key_pressed = 0;
+    int move[3] = { 0, 0, 0 };
     int should_exit = false;
   };
 
@@ -132,7 +130,7 @@ namespace OnikaEGLRender
       if( cam_id >= 0 )
       {
         egl_render_manager->camera(cam_id).tilt( uistate.tilt[0]*0.1f , uistate.tilt[1]*0.1f );
-        egl_render_manager->camera(cam_id).move( uistate.translate[0]*0.1f , uistate.translate[1]*0.1f , uistate.translate[2]*0.1f );
+        egl_render_manager->camera(cam_id).move( - uistate.move[0]*0.1f , uistate.move[1]*0.1f , uistate.move[2]*0.1f );
         uistate.tilt[0] = 0;
         uistate.tilt[1] = 0;
         uistate.move[0] = 0;
