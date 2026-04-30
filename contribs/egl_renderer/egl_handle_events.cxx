@@ -34,22 +34,28 @@ namespace OnikaEGLRender
 
   struct UserInteractionState
   {
-    GLfloat cam_dist = 5.0f;
-    GLfloat angle_h = 0.0f;
-    GLfloat angle_v = 0.0f;
-    int mouse_last_x = -1;
-    int mouse_last_y = -1;
+    int mouse_coord[2] = { 0, 0 };
+    int mouse_button[3] = { 0, 0, 0 };
+    int tilt[2] = { 0, 0 }; 
+    int translate[2] = { 0, 0 };
+    int forward = 0;
+    int key_pressed = 0;
     int should_exit = false;
-    int left_drag = false;
-    int right_drag = false;
+  };
+
+  struct UserInteractionHandler
+  {
+    UserInteractionState m_uistate = {};
+    EGLRender::NativeWindowEventHandler m_callbacks = {};
   };
 
   class EGLRenderEventHandler : public OperatorNode
   {
     ADD_SLOT( std::string , surface        , INPUT , "window" );
+    ADD_SLOT( std::string , camera        , INPUT , "camera" );
     ADD_SLOT( bool , sim_continue , INPUT_OUTPUT , true );
     ADD_SLOT( EGLRenderManager , egl_render_manager , INPUT_OUTPUT );
-    ADD_SLOT( UserInteractionState , egl_interaction_state , INPUT_OUTPUT );
+    ADD_SLOT( UserInteractionHandler , egl_interaction_handler , PRIVATE );
 
   public:
     inline bool is_sink() const override final { return true; }
@@ -57,72 +63,84 @@ namespace OnikaEGLRender
     inline void execute() override final
     {
       auto & ren_surf = egl_render_manager->surface(*surface);
-      ldbg << "EGL : make_current surface="<< *surface << std::endl;
+      ldbg << "EGL : egl_handle_events surface="<< *surface << " , camera="<< *camera <<std::endl;
 
-      if( surf_type == EGLRenderSurfaceClass::WINDOW )
+      auto & uistate = egl_interaction_handler->m_uistate;
+      if( ! egl_interaction_handler->m_callbacks.on_button_press )
       {
-        auto & uistate = *egl_interaction_state;
-        ren_surf.m_event_handler.on_button_press = [&uistate,f=ren_surf.m_event_handler.on_button_press](int state, int b, int x,int y)
+        egl_interaction_handler->m_callbacks.on_button_press = [&uistate](int state, int b, int x,int y)
         {
-          f(state,b,x,y);
-          switch( b )
+          uistate.mouse_button[b-1] = 1;
+          uistate.mouse_coord[0] = x;
+          uistate.mouse_coord[1] = y;
+        };
+        ren_surf.m_event_handler.on_button_press = egl_interaction_handler->m_callbacks.on_button_press;
+      }
+      if( ! egl_interaction_handler->m_callbacks.on_button_release )
+      {
+        egl_interaction_handler->m_callbacks.on_button_release = [&uistate](int state, int b, int x,int y)
+        {
+          uistate.mouse_button[b-1] = 0;
+          uistate.mouse_coord[0] = x;
+          uistate.mouse_coord[1] = y;
+        };
+        ren_surf.m_event_handler.on_button_release = egl_interaction_handler->m_callbacks.on_button_release;
+      }
+      if( ! egl_interaction_handler->m_callbacks.on_mouse_move )
+      {
+        egl_interaction_handler->m_callbacks.on_mouse_move = [&uistate](int x,int y)
+        {
+          int dx = x - uistate.mouse_coord[0];
+          int dy = y - uistate.mouse_coord[1];
+          uistate.mouse_coord[0] = x;
+          uistate.mouse_coord[1] = y;
+          if( uistate.mouse_button[0] )
           {
-            case 1 : uistate.left_drag=true; break;
-            case 2 : uistate.right_drag=true; break;
-            case 3 : uistate.should_exit=true; break;
+            uistate.tilt[0] += dx;
+            uistate.tilt[1] += dy;
+          }
+          if( uistate.mouse_button[1] )
+          {
+            uistate.move[0] += dx;
+            uistate.move[1] += dy;
+          }
+          if( uistate.mouse_button[2] )
+          {
+            uistate.move[2] += dy;
           }
         };
-        ren_surf.m_event_handler.on_button_release = [&uistate,f=ren_surf.m_event_handler.on_button_release](int state, int b, int x,int y)
+        ren_surf.m_event_handler.on_mouse_move = egl_interaction_handler->m_callbacks.on_mouse_move;
+      }
+      if( ! egl_interaction_handler->m_callbacks.on_key_release )
+      {
+        egl_interaction_handler->m_callbacks.on_key_release = [&uistate](int key)
         {
-          f(state,b,x,y);
-          switch( b )
-          {
-            case 1 : uistate.left_drag=false; break;
-            case 2 : uistate.right_drag=false; break;
-          }
+          if( key == 65307 ) uistate.should_exit = 1;
         };
-        ren_surf.m_event_handler.on_mouse_move = [&uistate,&camera,f=ren_surf.m_event_handler.on_mouse_move](int x,int y)
-        {
-          f(x,y);
-          int dx = x - uistate.mouse_last_x;
-          int dy = y - uistate.mouse_last_y;
-          bool update_cam = false;
-          if( uistate.left_drag )
-          {
-            uistate.angle_h += dx * 0.01f;
-            uistate.angle_v += dy * 0.01f;
-            update_cam = true;        
-          }
-          else if( uistate.right_drag )
-          {
-            uistate.cam_dist += dy * 0.01f;
-            update_cam = true;
-          }
-          if(update_cam)
-          {
-            const auto d = uistate.cam_dist;
-            const auto h = uistate.angle_h;
-            const auto v = uistate.angle_v;
-            GLfloat eyeZ = d * cos(v);
-            GLfloat eyeY = d * sin(v);
-            GLfloat eyeX = eyeZ * sin(h);
-            eyeZ = eyeZ * cos(v);
-            camera.look_at( {eyeX,eyeY,eyeZ} , {0,0,0} );
-          }
-          uistate.mouse_last_x = x;
-          uistate.mouse_last_y = y;
-        };
+        ren_surf.m_event_handler.on_key_release = egl_interaction_handler->m_callbacks.on_key_release;
       }
 
       ren_surf.process_events();
-      if( egl_interaction_state->should_exit )
+      
+      if( uistate.should_exit )
       {
         ldbg<<"user requested stop"<<std::endl;
         *sim_continue = false;
       }
-      ren_surf.make_current();
-    }
+      
+      const auto cam_id = egl_render_manager->camera_id( *camera );
+      if( cam_id >= 0 )
+      {
+        egl_render_manager->camera(cam_id).tilt( uistate.tilt[0]*0.1f , uistate.tilt[1]*0.1f );
+        egl_render_manager->camera(cam_id).move( uistate.translate[0]*0.1f , uistate.translate[1]*0.1f , uistate.translate[2]*0.1f );
+        uistate.tilt[0] = 0;
+        uistate.tilt[1] = 0;
+        uistate.move[0] = 0;
+        uistate.move[1] = 0;
+        uistate.move[2] = 0;
+      }
 
+    }
   };
 
   // === register factories ===
