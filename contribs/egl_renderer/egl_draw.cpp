@@ -61,11 +61,6 @@ namespace OnikaEGLRender
       auto & render_surface = egl_render_manager->surface(*surface);
       auto & vbo = egl_render_manager->vertex_buffers(*vertex_buffer);
       auto & shader = egl_render_manager->shader_program(*shader_program);
-      if( egl_render_manager->camera_id(*camera) != -1 )
-      {
-        lout << "using camera "<< *camera << std::endl;
-        egl_render_manager->camera(*camera).use();
-      }
 
       long vstart = *vertex_start;
       long vcount = *vertex_count;
@@ -74,6 +69,14 @@ namespace OnikaEGLRender
       ldbg << "EGL : draw surface="<< *surface <<" vbo="<< *vertex_buffer << " shader="<< *shader_program << " vstart="<<vstart<<" vcount="<<vcount << std::endl;
 
       shader.use();
+
+      const auto cam_id = egl_render_manager->camera_id(*camera);
+      if( cam_id != -1 )
+      {
+        ldbg << "updating camera "<< *camera << std::endl;
+        egl_render_manager->camera(cam_id).update_uniform();
+      }
+
       vbo.use();
 
       glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);

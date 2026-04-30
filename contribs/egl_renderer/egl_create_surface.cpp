@@ -45,12 +45,7 @@ namespace OnikaEGLRender
     {
       EGLRenderSurfaceClass surf_type = ( (*surface_type)=="window" || (*surface_type)=="WINDOW" ) ? EGLRenderSurfaceClass::WINDOW : EGLRenderSurfaceClass::PBUFFER ;
       const auto surf_id = egl_render_manager->create_surface( *surface, surf_type, *width , *height );
-      auto & surf = egl_render_manager->surface( surf_id );
-      if( surf_type == EGLRenderSurfaceClass::WINDOW )
-      {
-        auto & user_stop = egl_render_manager->m_user_exit;
-        surf.m_event_handler.on_button_press = [&user_stop,f=surf.m_event_handler.on_button_press](int state, int b, int x,int y) { f(state,b,x,y); if(b==3) user_stop=true; };
-      }
+      //auto & surf = egl_render_manager->surface( surf_id );
       ldbg << "EGL : create surface " << *surface << " , type="<< render_surface_type_as_string(surf_type) <<", size="<< *width <<"x"<< *height <<" , id="<<surf_id<< std::endl;
     }
 

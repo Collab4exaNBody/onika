@@ -38,7 +38,7 @@ namespace OnikaEGLRender
   {
     ADD_SLOT( std::string , camera , INPUT_OUTPUT , "camera" );
     ADD_SLOT( std::string , shader , INPUT_OUTPUT , "shader" );
-    ADD_SLOT( Vec3d       , position , INPUT , Vec3d{-5,5,0} );
+    ADD_SLOT( Vec3d       , eye , INPUT , Vec3d{0,5,10} );
     ADD_SLOT( Vec3d       , look_at , INPUT , Vec3d{0,0,0} );
     ADD_SLOT( double      , fov , INPUT , 60.0 );
     ADD_SLOT( double      , aspect , INPUT , 16.0/9.0 );
@@ -57,7 +57,7 @@ namespace OnikaEGLRender
       
       auto cam_id = egl_render_manager->create_camera( *camera );
       auto & cam = egl_render_manager->camera(cam_id);
-      cam.look_at( { static_cast<GLfloat>(position->x), static_cast<GLfloat>(position->y), static_cast<GLfloat>(position->z) }
+      cam.look_at( { static_cast<GLfloat>(eye->x), static_cast<GLfloat>(eye->y), static_cast<GLfloat>(eye->z) }
                  , { static_cast<GLfloat>(look_at->x), static_cast<GLfloat>(look_at->y), static_cast<GLfloat>(look_at->z) } );
       cam.perspective(*fov,*aspect,*near,*far);
 
