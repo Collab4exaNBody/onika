@@ -76,21 +76,26 @@ namespace OnikaEGLRender
 
   class EGLRenderShaderProgramCreate : public OperatorNode
   {
+    using ShaderSourceMap = std::map<std::string,std::string>;
+    
     ADD_SLOT( std::string , shader_program , INPUT , "shader" );
-    ADD_SLOT( std::string  , vertex_shader , INPUT , "" );
-    ADD_SLOT( std::string  , geometry_shader , INPUT , "" );
-    ADD_SLOT( std::string  , fragment_shader , INPUT , "" );
+    ADD_SLOT( ShaderSourceMap  , sources , INPUT , ShaderSourceMap{} );
     ADD_SLOT( GLPipelineConfig , pipeline_config , INPUT , GLPipelineConfig{} );
     ADD_SLOT( EGLRenderManager , egl_render_manager , INPUT_OUTPUT );
 
   public:
     inline void execute() override final
     {
-      const auto prog_id = egl_render_manager->create_shader_program( *shader_program, *vertex_shader, *geometry_shader, *fragment_shader, *pipeline_config );
+      std::vector<GLShaderTypeSource> type_sources;
+      for(const auto & src : *sources)
+      {
+        GLenum shType = gl_enum_from_string(src.first);
+        ldbg << "add source "<< gl_enum_to_string(shType) <<" : "<<src.second<<std::endl;
+        type_sources.push_back( { shType , src.second } );
+      }
+      
+      const auto prog_id = egl_render_manager->create_shader_program( *shader_program, type_sources, *pipeline_config );
       ldbg << "EGL : create shader program " << *shader_program << " id="<<prog_id<<std::endl;
-      ldbg << "Vertex shader:" << std::endl << *vertex_shader << std::endl;
-      ldbg << "Geometry shader:" << std::endl << *geometry_shader << std::endl;
-      ldbg << "Fragment shader:" << std::endl << *fragment_shader << std::endl;
       ldbg << "Pipeline config:" << std::endl;
       egl_render_manager->shader_program(*shader_program).m_pipeline_config.to_stream( ldbg );
     }
