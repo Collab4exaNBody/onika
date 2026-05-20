@@ -255,6 +255,10 @@ namespace onika
         for(int i=0;i<nProcs;i++) { serialize_id_counter[i] = 0; }
         for(index_type i=0;i<id_range_size;i++)
         {
+            if( id_move[i].m_src_owner < 0 || id_move[i].m_src_owner >= nProcs ) {
+                std::cerr << "P" << rank << ": fatal: Id #" << i << " has no source owner (m_src_owner=" << id_move[i].m_src_owner << ")\n"; std::cerr.flush();
+                MPI_Abort(comm, 1);
+            }
             ++ serialize_id_counter[ id_move[i].m_src_owner ];
         }
 
@@ -289,7 +293,11 @@ namespace onika
         for(index_type i=0;i<id_range_size;i++)
         {
             int src_owner = id_move[i].m_src_owner;
-            index_type move_offset = serialize_id_counter[ id_move[i].m_src_owner ] ++ ;
+            if( src_owner < 0 || src_owner >= nProcs ) {
+                std::cerr << "P" << rank << ": fatal: Id #" << i << " has invalid src_owner=" << src_owner << "\n"; std::cerr.flush();
+                MPI_Abort(comm, 1);
+            }
+            index_type move_offset = serialize_id_counter[ src_owner ] ++ ;
             move_serialize_buffers[ src_owner ]->id_move(move_offset) = id_move[i]; // a condenser
         }
 
@@ -330,6 +338,10 @@ namespace onika
                 std::cout <<"P"<<rank<<": send "<<idmove.m_src_index<<" -> P"<<idmove.m_dst_owner<<" @"<<idmove.m_dst_index<<std::endl;
                 std::cout.flush();
     #         endif
+              if( idmove.m_dst_owner < 0 || idmove.m_dst_owner >= nProcs ) {
+                std::cerr << "P" << rank << ": fatal: IdMove entry has invalid dst_owner=" << idmove.m_dst_owner << "\n"; std::cerr.flush();
+                MPI_Abort(comm, 1);
+              }
               ++ send_count[idmove.m_dst_owner];
               ++ send_indices_count;
             }
