@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""
+Python equivalent of:
+    onika-exec data/config/main-config.msp
+
+Requires the pyonika module installed (make install with -DONIKA_BUILD_PYTHON=ON)
+and the environment sourced:
+
+    source <install-prefix>/bin/setup-env.sh
+    python exemples/run_main_config.py
+"""
+import os
+import sys
+import pyonika
+
+main_config = os.path.join(os.environ["ONIKA_CONFIG_PATH"], "main-config.msp")
+ctx = pyonika.init([sys.argv[0], main_config])
+if ctx.error_code >= 0:
+    sys.exit(ctx.error_code)
+
+print(f"[pyonika] rank={ctx.mpi_rank}/{ctx.mpi_nprocs}  "
+      f"cpus={ctx.cpucount}  gpus={ctx.ngpus}")
+
+# --- inspect the simulation graph -----------------------------------
+print("\n[pyonika] === simulation graph ===")
+operators = []
+root = ctx.node("simulation")
+if root is not None:
+    root.apply_graph(operators.append)
+    for op in operators:
+        indent = "  " * op.depth()
+        print(f"  {indent}{op.pathname()}")
+        for name, slot in op.in_slots():
+            val = slot.value_as_string() if slot.has_value() else "<unset>"
+            print(f"  {indent}  in  {name}: {slot.value_type()} = {val}")
+        for name, slot in op.out_slots():
+            val = slot.value_as_string() if slot.has_value() else "<unset>"
+            print(f"  {indent}  out {name}: {slot.value_type()} = {val}")
+
+# --- factory access -------------------------------------------------
+print("\n[pyonika] === registered operators ===")
+for name in pyonika.available_operators():
+    print(f"  {name}")
+
+print("\n[pyonika] === make_operator demo ===")
+op = pyonika.make_operator("unit_system", {"verbose": True})
+print(f"  created: {op}")
+for name, slot in op.in_slots():
+    val = slot.value_as_string() if slot.has_value() else "<unset>"
+    print(f"    in  {name}: {slot.value_type()} = {val}")
+
+print("\n[pyonika] === make_operator demo ===")
+op = pyonika.make_operator("global", {"dt": 1.0, "nsteps": 20, "timestep": 0, "compute_loop_continue": True})
+print(f"  created: {op}")
+for name, slot in op.in_slots():
+    val = slot.value_as_string() if slot.has_value() else "<unset>"
+    print(f"    in  {name}: {slot.value_type()} = {val}")
+
+# --- run & end ------------------------------------------------------
+pyonika.run(ctx)
+pyonika.end(ctx)
