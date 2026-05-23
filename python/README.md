@@ -66,7 +66,7 @@ After install, source the generated environment script to put `pyonika` on `PYTH
 
 ```bash
 source /path/to/install/bin/setup-env.sh
-python exemples/print_loop.py
+python exemples/pyonika_reproduce_print_loop_case.py
 ```
 
 The installed layout is:
@@ -123,7 +123,7 @@ An `.msp` file has two logical sections that map directly to Python calls:
 | `- op: {key: val}` | `{"op": {"key": val}}` dict in the list |
 | `loop:` / `condition:` / `body:` / `rebind:` | same keys in the dict |
 
-**Full example** — `exemples/print_loop.py` reproduces `data/exemples/print_loop.msp`:
+**Full example** — `exemples/pyonika_reproduce_print_loop_case.py` reproduces `data/exemples/print_loop.msp`:
 
 ```python
 import pyonika
@@ -169,20 +169,20 @@ pyonika.end(ctx)
 
 The `exemples/` directory contains four Python scripts that demonstrate the API. All of them assume `setup-env.sh` has been sourced.
 
-### `test.py`
+### `pyonika_dryrun_test_import_pyonika.py`
 
 Minimal smoke test — imports `pyonika` and prints a confirmation message. Useful for verifying that the install is correct before going further.
 
 ```bash
-python exemples/test.py
+python exemples/pyonika_dryrun_test_import_pyonika.py
 # Onika successfully imported!!!
 ```
 
-### `run_main_config.py`
+### `pyonika_run_main_config.py`
 
-Runs a simulation from an existing `.msp` file (`data/exemples/print_loop.msp`), then demonstrates the factory API:
+Runs a simulation from `main-config.msp`, then demonstrates the factory API:
 
-- calls `pyonika.init()` with the `.msp` file — onika builds the simulation graph internally
+- calls `pyonika.init()` with `main-config.msp` — onika builds the simulation graph internally
 - traverses the graph with `ctx.node("simulation").apply_graph(...)` and prints all operators and their slots
 - lists all registered operators via `pyonika.available_operators()`
 - creates two standalone operators with `pyonika.make_operator()` and inspects their slots
@@ -190,7 +190,7 @@ Runs a simulation from an existing `.msp` file (`data/exemples/print_loop.msp`),
 
 Use this script when you already have a working `.msp` file and want to inspect or extend it from Python.
 
-### `print_loop.py`
+### `pyonika_reproduce_print_loop_case.py`
 
 Full Python reproduction of `data/exemples/print_loop.msp` without using the `.msp` file at all:
 
@@ -201,9 +201,15 @@ Full Python reproduction of `data/exemples/print_loop.msp` without using the `.m
 
 Use this script as a template when you want to drive a simulation entirely from Python without writing any `.msp` file.
 
-### `print_loop_new.py`
+### `pyonika_execute_user_specified_msp_file.py`
 
-Alternate version of `print_loop.py` with the same structure, provided as a starting point for experimenting with changes to the graph or operator defaults.
+Interactive launcher that prompts the user for an `.msp` file path at runtime, with readline-based tab-completion for file paths:
+
+- sets up a tab-completer (compatible with both GNU readline and macOS libedit)
+- prompts the user to enter the path to any `.msp` input file
+- calls `pyonika.init()` with the supplied file, runs the graph, and finalises
+
+Use this script when you want to quickly run an arbitrary `.msp` file without editing the source.
 
 ---
 
@@ -540,8 +546,8 @@ onika/
 │   ├── bind_app.h / .cpp        ← ApplicationContext, init/run/end
 │   └── README.md                ← this file
 └── exemples/
-    ├── test.py                  ← import smoke test
-    ├── run_main_config.py       ← .msp-driven run + factory/slot inspection
-    ├── print_loop.py            ← full Python reproduction of print_loop.msp
-    └── print_loop_new.py        ← alternate starting point for experimentation
+    ├── pyonika_dryrun_test_import_pyonika.py      ← import smoke test
+    ├── pyonika_run_main_config.py                 ← .msp-driven run + factory/slot inspection
+    ├── pyonika_reproduce_print_loop_case.py       ← full Python reproduction of print_loop.msp
+    └── pyonika_execute_user_specified_msp_file.py ← interactive launcher for any .msp file
 ```
