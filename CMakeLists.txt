@@ -190,7 +190,11 @@ else()
   set(ONIKA_USE_HIP OFF)
   set(ONIKA_USE_CUDA ${ONIKA_BUILD_CUDA})
   if(ONIKA_BUILD_CUDA)
-    set(CMAKE_CUDA_ARCHITECTURES "86" CACHE STRING "Cuda target architecture(s)")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+      set(CMAKE_CUDA_ARCHITECTURES "87" CACHE STRING "Cuda target architecture(s)")
+    else()
+      set(CMAKE_CUDA_ARCHITECTURES "86" CACHE STRING "Cuda target architecture(s)")
+    endif()
 
     # If some Cude compile chain properties have been set during cmake configuration, we propagate them
     if(CMAKE_CUDA_ARCHITECTURES)
@@ -437,9 +441,23 @@ if(ONIKA_FUTURE_DEPRECATION)
   list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_FUTURE_DEPRECATION=1)
 endif()
 
+option(ONIKA_BUILD_PYTHON "Build Python (PyBind11) bindings" OFF)
+
 # finally, add overall invariant compile options and dependent libraries
 list(APPEND ONIKA_LIBRARIES dl)
 list(APPEND ONIKA_COMPILE_OPTIONS -Wall)
+
+# Architecture-specific compile options
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+  message(STATUS "Target architecture: aarch64/ARM64 — enabling NEON baseline (-march=armv8-a)")
+  list(APPEND ONIKA_COMPILE_OPTIONS -march=armv8-a)
+  # Note: replace -march=armv8-a with -mcpu=native when building natively for
+  # better auto-tuning (e.g. Apple M-series, AWS Graviton, Ampere Altra).
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+  message(STATUS "Target architecture: x86_64")
+else()
+  message(STATUS "Target architecture: ${CMAKE_SYSTEM_PROCESSOR} (no architecture-specific flags set; scalar SIMD fallback will be used)")
+endif()
 
 # compile main lib
 file(GLOB_RECURSE onika_CXX_SRCS src/*.cpp)
@@ -497,6 +515,13 @@ set(ONIKA_RUN ${PROJECT_BINARY_DIR}/onikarun)
 
 # generate helper script to setup environment from installed location
 set(ONIKA_SETUP_ENV_COMMANDS "${ONIKA_SETUP_ENV_COMMANDS}" CACHE STRING "Environment setup commands")
+if(ONIKA_BUILD_PYTHON)
+  set(ONIKA_INSTALL_PYTHON_ENV "export PYTHONPATH=${CMAKE_INSTALL_PREFIX}/lib:\$PYTHONPATH\n")
+  set(ONIKA_BUILD_PYTHON_ENV "export PYTHONPATH=${PROJECT_BINARY_DIR}/lib:\$PYTHONPATH\n")
+else()
+  set(ONIKA_INSTALL_PYTHON_ENV "")
+  set(ONIKA_BUILD_PYTHON_ENV "")
+endif()
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
   "# Onika environment configuration\n"
   "${ONIKA_SETUP_ENV_COMMANDS}\n"
@@ -507,6 +532,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
   "export ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config\n"
   "export ONIKA_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/plugins\n"
   "export ONIKA_DATA_PATH=${ONIKA_DEFAULT_DATA_DIRS}\n"
+  "${ONIKA_INSTALL_PYTHON_ENV}"
   "[ \$ONIKA_DEBUG ] && echo \"Onika environment setup : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
 
@@ -527,6 +553,7 @@ file(WRITE ${ONIKA_RUN}
   "export ONIKA_CONFIG_PATH=${CMAKE_CURRENT_SOURCE_DIR}/data/config\n"
   "export ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins\n"
   "export ONIKA_DATA_PATH=${ONIKA_DEFAULT_DATA_DIRS}\n"
+  "${ONIKA_BUILD_PYTHON_ENV}"
   "[ \$ONIKA_DEBUG ] && echo \"Onika build : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n"
   "${ONIKA_EXEC} \$*\n")
 file(CHMOD ${CMAKE_CURRENT_BINARY_DIR}/onikarun FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
@@ -550,6 +577,13 @@ add_subdirectory(plugins)
 install(DIRECTORY cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(DIRECTORY include/onika DESTINATION include)
 install(DIRECTORY data DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+# ===========================
+# === Python bindings     ===
+# ===========================
+if(ONIKA_BUILD_PYTHON)
+  add_subdirectory(python)
+endif()
 
 # ==================
 # === test suite ===
@@ -607,24 +641,37 @@ if(ONIKA_ENABLE_TESTS)
       add_custom_target(vecreport)
     endif()
 
-    GenerateBenchmark(64 16 d ON OFF)
-    GenerateBenchmark(64 16 d ON ON)
-    GenerateBenchmark(64 16 f ON OFF)
-    GenerateBenchmark(64 16 f ON ON)
-    GenerateBenchmark(32 8 d ON OFF)
-    GenerateBenchmark(32 8 f ON OFF)
-    GenerateBenchmark(16 4 d ON OFF)
-    GenerateBenchmark(16 4 f ON OFF)
-    GenerateBenchmark(1 1 d OFF OFF)
-    GenerateBenchmark(1 1 d OFF ON)
-    GenerateBenchmark(1 1 f OFF OFF)
-    GenerateBenchmark(1 1 f OFF ON)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+      # aarch64/NEON: 128-bit registers → natural alignment is 16 bytes.
+      # 32- and 64-byte benchmarks would build and pass (arrays are simply over-aligned)
+      # but add no diagnostic value on this architecture.
+      GenerateBenchmark(16 2 d ON OFF)
+      GenerateBenchmark(16 4 f ON OFF)
+      GenerateBenchmark(1 1 d OFF OFF)
+      GenerateBenchmark(1 1 d OFF ON)
+      GenerateBenchmark(1 1 f OFF OFF)
+      GenerateBenchmark(1 1 f OFF ON)
+    else()
+      # x86_64: cover SSE (16 B), AVX/AVX2 (32 B) and AVX-512 (64 B) widths.
+      GenerateBenchmark(64 16 d ON OFF)
+      GenerateBenchmark(64 16 d ON ON)
+      GenerateBenchmark(64 16 f ON OFF)
+      GenerateBenchmark(64 16 f ON ON)
+      GenerateBenchmark(32 8 d ON OFF)
+      GenerateBenchmark(32 8 f ON OFF)
+      GenerateBenchmark(16 4 d ON OFF)
+      GenerateBenchmark(16 4 f ON OFF)
+      GenerateBenchmark(1 1 d OFF OFF)
+      GenerateBenchmark(1 1 d OFF ON)
+      GenerateBenchmark(1 1 f OFF OFF)
+      GenerateBenchmark(1 1 f OFF ON)
+    endif()
   endif()
 
 
 
   ###### xs data move algorithm tests ########
-  set(NUMPROCS_LIST 1 7 8)
+  set(NUMPROCS_LIST 1 2 3 4 )
   set(IDROTATION_LIST 0 1 77)
   set(IDSTART_LIST 0 1 1023)
   set(IDCOUNT_LIST 10 110 100000)

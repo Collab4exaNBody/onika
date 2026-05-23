@@ -192,12 +192,23 @@ namespace onika
     m_oss << manip;
     return *this;
   }
-  FatalErrorLogStream::~FatalErrorLogStream()
+  static bool s_fatal_error_python_mode = false;
+
+  void FatalErrorLogStream::enable_python_mode(bool on)
+  {
+    s_fatal_error_python_mode = on;
+  }
+
+  FatalErrorLogStream::~FatalErrorLogStream() noexcept(false)
   {
     if( ! m_oss.view().empty() )
     {
-      using namespace std::chrono_literals;
       lerr_stream() << m_oss.str() << "*****************************************" << std::endl << std::flush;
+      if( s_fatal_error_python_mode )
+      {
+        throw std::runtime_error( m_oss.str() );
+      }
+      using namespace std::chrono_literals;
       std::this_thread::sleep_for(500ms);
       std::abort();
     }
