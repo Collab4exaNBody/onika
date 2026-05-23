@@ -1,7 +1,0 @@
-/home/lafourcadep/local/onikaCPU/plugins/libonikaBasicTutorial-plugin.so operator default_slot_value_from_ctor_args
-/home/lafourcadep/local/onikaCPU/plugins/libonikaParallelTutorial-plugin.so operator async_block_parallel
-/home/lafourcadep/local/onikaCPU/plugins/libonikaParallelTutorial-plugin.so operator concurrent_block_parallel
-/home/lafourcadep/local/onikaCPU/plugins/libonikaParallelTutorial-plugin.so operator parallel_for_3d_benchmark
-/home/lafourcadep/local/onikaCPU/plugins/libonikaParallelTutorial-plugin.so operator parallel_for_benchmark
-/home/lafourcadep/local/onikaCPU/plugins/libonikaParallelTutorial-plugin.so operator synchronous_block_parallel
-/home/lafourcadep/local/onikaCPU/plugins/libonikaTools-plugin.so operator memory_stats
