@@ -32,7 +32,7 @@ namespace OnikaEGLRender
   using namespace onika::scg;
   using namespace EGLRender;
 
-  class EGLRenderSurfaceMakeCurrent : public OperatorNode
+  class EGLRenderSurfaceEndFrame : public OperatorNode
   {
     ADD_SLOT( std::string , surface        , INPUT , "window" );
     ADD_SLOT( EGLRenderManager , egl_render_manager , INPUT_OUTPUT );
@@ -43,16 +43,16 @@ namespace OnikaEGLRender
     inline void execute() override final
     {
       auto & render_surface = egl_render_manager->surface(*surface);
-      ldbg << "EGL : make_current surface="<< *surface << std::endl;
-      render_surface.make_current();
+      ldbg << "EGL : end frame, surface="<< *surface << std::endl;
+      render_surface.swap_buffers();
     }
 
   };
 
   // === register factories ===
-  ONIKA_AUTORUN_INIT(egl_make_current)
+  ONIKA_AUTORUN_INIT(egl_end_frame)
   {
-    OperatorNodeFactory::instance()->register_factory( "egl_make_current", make_compatible_operator< EGLRenderSurfaceMakeCurrent > );
+    OperatorNodeFactory::instance()->register_factory( "egl_end_frame", make_compatible_operator< EGLRenderSurfaceEndFrame > );
   }
 
 }
