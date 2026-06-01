@@ -167,7 +167,7 @@ pyonika.end(ctx)
 
 ## Example scripts
 
-The `exemples/` directory contains four Python scripts that demonstrate the API. All of them assume `setup-env.sh` has been sourced.
+The `exemples/` directory contains five Python scripts that demonstrate the API. All of them assume `setup-env.sh` has been sourced.
 
 ### `pyonika_dryrun_test_import_pyonika.py`
 
@@ -210,6 +210,50 @@ Interactive launcher that prompts the user for an `.msp` file path at runtime, w
 - calls `pyonika.init()` with the supplied file, runs the graph, and finalises
 
 Use this script when you want to quickly run an arbitrary `.msp` file without editing the source.
+
+### `pyonika_run_simulation.py`
+
+Demonstrates running **multiple simulations sequentially** from a single Python process using named batch operators already defined in `main-config.msp`:
+
+```python
+import os, sys, pyonika
+
+main_config = os.path.join(os.environ["ONIKA_CONFIG_PATH"], "main-config.msp")
+
+# 1 — run the "simulation_test" batch by its explicit name
+ctx = pyonika.init([sys.argv[0], main_config])
+graph = pyonika.build_simulation_graph(ctx, ["simulation_test"])
+pyonika.run_node(ctx, graph)
+pyonika.end(ctx)
+
+# 2 — run "default_simulation" by its explicit name
+ctx = pyonika.init([sys.argv[0], main_config])
+graph = pyonika.build_simulation_graph(ctx, ["default_simulation"])
+pyonika.run_node(ctx, graph)
+pyonika.end(ctx)
+
+# 3 — use the symbolic name "simulation" (alias resolved via ctx.m_simulation_node)
+ctx = pyonika.init([sys.argv[0], main_config])
+graph = pyonika.build_simulation_graph(ctx, ["simulation"])
+pyonika.run_node(ctx, graph)
+pyonika.end(ctx)
+
+# 4 — omit the argument entirely; defaults to ctx.m_simulation_node from init()
+ctx = pyonika.init([sys.argv[0], main_config])
+graph = pyonika.build_simulation_graph(ctx)
+pyonika.run_node(ctx, graph)
+pyonika.end(ctx)
+```
+
+`simulation_test` and `default_simulation` are top-level named batch sequences in `main-config.msp`. `build_simulation_graph(ctx, ["name"])` looks up that batch via the operator defaults loaded by `init()` and builds the corresponding graph.
+
+> **"simulation" as a symbolic alias.**  In `main-config.msp`, `simulation: default_simulation` declares `simulation` as an alias rather than a concrete batch sequence.  `load_yaml_input` (in `api.cpp`) extracts this key and removes it from the operator defaults before registering them with the factory — so the factory cannot resolve `"simulation"` when it appears as a body item.  The Python binding's `build_simulation_graph` pre-resolves any `"simulation"` string in the list by substituting it with `ctx.m_simulation_node` (the stored value of the `simulation:` key) before passing the list to C++. See [Simulation alias resolution](#simulation-alias-resolution).
+
+> **No argument — use the config's simulation directly.**  `build_simulation_graph(ctx)` (no `simulation` argument) passes `ctx.m_simulation_node` straight to the C++ factory, exactly replicating the path taken by `init()` when it builds and stores the graph internally. This is the most direct way to re-execute whatever `simulation:` is set to in the `.msp` file.
+
+> **Multiple init/end cycles.** Each `init()` call reloads YAML, re-reads plugins, and resets the operator defaults. Thanks to the MPI `atexit` fix (see [MPI multi-run support](#mpi-multi-run-support)), MPI stays alive across all cycles and is finalised once at process exit. This replaces the previous behaviour where `end()` called `MPI_Finalize()` directly, which prevented any subsequent `init()` call from using MPI.
+
+Use this script as a template for parameter sweeps, sensitivity studies, or any workflow that needs to run several independent simulations in one Python session.
 
 ---
 
@@ -260,7 +304,7 @@ pyonika.end(ctx)
 
 #### `pyonika.end(ctx: ApplicationContext)`
 
-Finalise the simulation: write profiling traces, free resources, finalise MPI (if onika initialised it). Must be called exactly once after `run`.
+Finalise the simulation: write profiling traces and free all operator resources. MPI is **not** finalized here — it is deferred to an `atexit` handler registered on the first `init()` call, so that multiple `init`/`end` cycles within a single Python process work correctly. Must be called once after each `run` or `run_node`.
 
 #### `pyonika.make_operator(name: str, config: dict = {}) -> OperatorNode`
 
@@ -290,9 +334,20 @@ pyonika.set_operator_defaults({
 })
 ```
 
-#### `pyonika.build_simulation_graph(ctx: ApplicationContext, simulation: list) -> OperatorNode`
+#### `pyonika.build_simulation_graph(ctx: ApplicationContext, simulation: list = None) -> OperatorNode`
 
 Build a simulation graph from a Python list of operator specs (the `simulation:` sequence of an `.msp` file). Calls `post_graph_build()` on every node, which is required for slot resource allocation and graph connections.
+
+**`simulation` is optional.** When omitted (or `None`), the simulation node stored in `ctx` during `init()` is used directly — identical to what `init()` does internally. This is the simplest way to re-run the simulation defined in the `.msp` file:
+
+```python
+ctx = pyonika.init([sys.argv[0], "main-config.msp"])
+graph = pyonika.build_simulation_graph(ctx)   # uses "simulation:" from main-config.msp
+pyonika.run_node(ctx, graph)
+pyonika.end(ctx)
+```
+
+If an item in an explicit `simulation` list is the string `"simulation"` and that key is not present in the current operator defaults (always the case after `init()` — it is extracted and stored in `ctx` separately), it is automatically resolved to `ctx.m_simulation_node` before the graph is built. This lets you write `["simulation"]` as a shorthand for "whatever `simulation:` points to in the config file". See [Simulation alias resolution](#simulation-alias-resolution).
 
 Returns the root `OperatorNode`. Pass it to `run_node(ctx, graph)` to execute it.
 
@@ -496,6 +551,33 @@ arr = op.slot_as_array("input1")   # → np.ndarray
 
 `FatalErrorLogStream::~FatalErrorLogStream()` was marked `noexcept(false)` and a static `enable_python_mode(bool)` function was added. When Python mode is active (enabled at module load), the destructor throws `std::runtime_error` instead of calling `std::abort()`. This makes onika fatal errors recoverable from Python.
 
+### Simulation alias resolution
+
+**`python/bind_app.cpp` — `build_simulation_graph`**
+
+`load_yaml_input` (in `src/core/api.cpp`) extracts the `simulation:` key from the YAML input and removes it from the operator defaults before registering them with the factory. This means that if `simulation: default_simulation` is defined in the `.msp` file, the string `"simulation"` cannot be resolved as a batch body item — the factory throws "Could not find a operator factory for 'simulation'".
+
+The Python binding works around this at the call site: before forwarding the simulation list to C++, it checks each scalar item against the string `"simulation"`. If found and `"simulation"` is absent from the current operator defaults (the normal case after `init()`), it substitutes the item with the content of `ctx.m_simulation_node`:
+
+- scalar `ctx.m_simulation_node` (e.g. `"default_simulation"`) → the item `"simulation"` is replaced with `"default_simulation"`, so the factory resolves it through the normal batch lookup.
+- sequence `ctx.m_simulation_node` (inline simulation list) → the items from the sequence are inlined in place of `"simulation"`.
+
+This makes `build_simulation_graph(ctx, ["simulation"])` behave exactly like `build_simulation_graph(ctx, ["default_simulation"])` when the config contains `simulation: default_simulation`.
+
+### MPI multi-run support
+
+**`src/core/api.cpp` — `initialize_mpi` and `finalize`**
+
+The MPI standard forbids calling any MPI routine after `MPI_Finalize()`, including `MPI_Initialized()`. When `end()` called `MPI_Finalize()` directly, any subsequent `init()` in the same process would see `MPI_Initialized() == 1` (true — MPI was initialised) and enter the "external MPI" branch, which calls `MPI_Query_thread()` — crashing immediately.
+
+The fix introduces two changes:
+
+1. **`initialize_mpi`** now also checks `MPI_Finalized()`. When onika calls `MPI_Init` for the first time, it registers a one-shot `atexit` handler that calls `MPI_Finalize()` (guarded by a `MPI_Finalized()` check). On subsequent `init()` calls, MPI is already initialised and not yet finalised, so the code takes the "external MPI" path safely.
+
+2. **`finalize`** no longer calls `MPI_Finalize()` directly. The `atexit` handler takes over that responsibility, ensuring MPI is finalised exactly once when the Python (or C++) process exits.
+
+This has no observable effect on single-run C++ programs: `MPI_Finalize` is still called exactly once, just deferred to the natural process-exit sequence.
+
 ### CMake integration
 
 The Python module is opt-in via `-DONIKA_BUILD_PYTHON=ON`. pybind11 is fetched automatically via `FetchContent` if not already installed:
@@ -536,6 +618,7 @@ endif()
 onika/
 ├── include/onika/log.h          ← modified: noexcept(false), enable_python_mode()
 ├── src/core/log.cpp             ← modified: s_fatal_error_python_mode flag
+├── src/core/api.cpp             ← modified: MPI atexit fix for multi-run support
 ├── python/
 │   ├── CMakeLists.txt           ← pybind11 FetchContent, pyonika target
 │   ├── module.cpp               ← PYBIND11_MODULE entry point
@@ -549,5 +632,6 @@ onika/
     ├── pyonika_dryrun_test_import_pyonika.py      ← import smoke test
     ├── pyonika_run_main_config.py                 ← .msp-driven run + factory/slot inspection
     ├── pyonika_reproduce_print_loop_case.py       ← full Python reproduction of print_loop.msp
-    └── pyonika_execute_user_specified_msp_file.py ← interactive launcher for any .msp file
+    ├── pyonika_execute_user_specified_msp_file.py ← interactive launcher for any .msp file
+    └── pyonika_run_simulation.py                  ← multiple sequential simulations in one process
 ```
