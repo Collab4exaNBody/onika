@@ -6,8 +6,8 @@ Python equivalent of:
 Requires the pyonika module installed (make install with -DONIKA_BUILD_PYTHON=ON)
 and the environment sourced:
 
-    source <install-prefix>/bin/setup-env.sh
-    python exemples/run_main_config.py
+    source <onika-install-prefix>/bin/setup-env.sh
+    python pyonika_run_main_config.py
 """
 import os
 import sys
