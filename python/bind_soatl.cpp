@@ -15,10 +15,15 @@ namespace py = pybind11;
 using OSB = onika::scg::OperatorSlotBase;
 
 // ---------------------------------------------------------------------------
-// Registry: C++ type_index → function that turns a slot into a numpy array.
+// Registry: mangled type name → function that turns a slot into a Python object.
+// Keyed by typeid(T).name() (ABI-stable string) rather than std::type_index so
+// that extractors registered from RTLD_LOCAL extension modules (e.g. _exanb_data)
+// can match slots whose RTTI lives in a different DSO.  slot_as_array() does an
+// O(1) lookup via OperatorSlotBase::value_type() and then calls the extractor
+// with static_cast — no dynamic_cast required.
 // ---------------------------------------------------------------------------
 using SlotToArray = std::function<py::object(OSB&)>;
-static std::unordered_map<std::type_index, SlotToArray> g_extractors;
+static std::unordered_map<std::string, SlotToArray> g_extractors;
 
 // Register a 1-D array extractor for std::vector<T>.
 // The returned numpy array is a non-owning VIEW of the vector's storage;
@@ -27,9 +32,9 @@ template<typename T>
 static void register_vector()
 {
   using VecT = std::vector<T>;
-  g_extractors[std::type_index(typeid(VecT))] = [](OSB& slot) -> py::object {
-    auto* typed = dynamic_cast<onika::scg::OperatorSlot<VecT>*>(&slot);
-    if (!typed || !typed->has_value()) return py::none();
+  g_extractors[typeid(VecT).name()] = [](OSB& slot) -> py::object {
+    auto* typed = static_cast<onika::scg::OperatorSlot<VecT>*>(&slot);
+    if (!typed->has_value()) return py::none();
     VecT& vec = **typed;
     if (vec.empty()) return py::array_t<T>(0);
     return py::array_t<T>(
@@ -51,9 +56,9 @@ static void register_vector_of_array()
 {
   using ElemT = std::array<T, N>;
   using VecT  = std::vector<ElemT>;
-  g_extractors[std::type_index(typeid(VecT))] = [](OSB& slot) -> py::object {
-    auto* typed = dynamic_cast<onika::scg::OperatorSlot<VecT>*>(&slot);
-    if (!typed || !typed->has_value()) return py::none();
+  g_extractors[typeid(VecT).name()] = [](OSB& slot) -> py::object {
+    auto* typed = static_cast<onika::scg::OperatorSlot<VecT>*>(&slot);
+    if (!typed->has_value()) return py::none();
     VecT& vec = **typed;
     if (vec.empty()) return py::array_t<T>(std::vector<py::ssize_t>{0, (py::ssize_t)N});
     return py::array_t<T>(
@@ -69,17 +74,18 @@ static void register_vector_of_array()
   };
 }
 
+// Public registration API — callable from other pybind11 extensions.
+void register_slot_extractor(std::type_index ti, SlotExtractorFn fn)
+{
+  g_extractors[ti.name()] = std::move(fn);
+}
+
 // Public entry-point used by OperatorNode.slot_as_array() and bind_scg.
 py::object slot_as_array(OSB& slot)
 {
-  // Try each registered extractor until one succeeds (dynamic_cast determines
-  // the match). The registry is small so a linear scan is fine.
-  for (auto& [ti, fn] : g_extractors) {
-    (void)ti;
-    py::object result = fn(slot);
-    if (!result.is_none()) return result;
-  }
-  return py::none();
+  auto it = g_extractors.find(slot.value_type());
+  if (it == g_extractors.end()) return py::none();
+  return it->second(slot);
 }
 
 void bind_soatl(py::module_& m)
@@ -112,4 +118,12 @@ void bind_soatl(py::module_& m)
         py::arg("slot"),
         "Return a numpy array view of a slot's value, or None if the type is "
         "not registered or the value is not yet initialised.");
+
+  // Expose register_slot_extractor as a PyCapsule so other pybind11 extensions
+  // (e.g. pyexanbody._exanb_data) can call it without requiring RTLD_GLOBAL or
+  // explicit linking against pyonika.  The capsule holds the raw function
+  // pointer and is retrieved via pyonika._register_slot_extractor_fn.
+  m.attr("_register_slot_extractor_fn") = py::capsule(
+      reinterpret_cast<void*>(&register_slot_extractor),
+      "_register_slot_extractor_fn");
 }
