@@ -154,7 +154,10 @@ int main(int argc, char* argv[])
   { auto tmp = cell_arrays1[0]; tmp.copy_or_zero_fields(cell_arrays2[0]); cell_arrays1.set_tuple(0,tmp); }
   cell_arrays1[0].copy_existing_fields(cell_arrays2[0]);
   std::cout << cell_arrays1[0] << std::endl;
-  
+
+  cell_arrays1.clear();
+  cell_arrays2.clear();
+
   return 0;
 }
 

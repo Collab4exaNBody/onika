@@ -65,7 +65,7 @@ namespace onika
         // WARNING: DO NOT delete objects bound to a memory location
         static inline IdLocalizationSerializeBuffer* bindTo( char* ptr )
         {
-            return new( ptr ) IdLocalizationSerializeBuffer();
+            return reinterpret_cast<IdLocalizationSerializeBuffer*>( ptr );
         }
 
         inline size_type beforeCount() const { return m_ids_before_count; }
@@ -109,8 +109,8 @@ namespace onika
         // WARNING: DO NOT delete objects bound to a memory location
         static inline IdMoveSerializeBuffer* bindTo( char* ptr )
         {
-            return new( ptr ) IdMoveSerializeBuffer();
-        }    
+            return reinterpret_cast<IdMoveSerializeBuffer*>( ptr );
+        }
         
         inline size_type size() const { return bufferSize( count() ); }
 
