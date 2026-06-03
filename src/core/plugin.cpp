@@ -36,31 +36,81 @@ under the License.
 
 namespace onika
 {
+  // format used to convert a plugin name to a dynamic library file name
   static std::string g_plugin_to_dynlib_format = PLUGIN_DYNLIB_FORMAT ;
+  
+  // list of directory where to load plugins from
   static std::vector<std::string> g_plugin_search_dirs;
+  
+  // associates (optionnaly) a namespace name with a plugin path.
+  // every operator loaded from a plugin in one of this directory
+  // is both named with its original name (i.e. xxx) and with its namespace compbounded
+  // name (i.e. yyy@xxxx) where xxx is the operator name and yyy is the namespace.
+  static std::map<std::string,std::string> g_plugin_dir_namespace;
+  
+  // similar to g_plugin_dir_namespace but at the file scope
+  static std::map<std::string,std::string> g_plugin_file_namespace;
+  
+  // current namespace to associate with dynamic libraries to load
+  static std::string g_plugin_namespace = "";
+  
+  // set of already loaded dynamix libraries
   static std::set<std::string> g_loaded_dynlibs;
+  
+  // name of plugin currently beeing loaded and installed
   static std::string g_loading_plugin;
+  
+  // name of database file containing all known plugins information
   static std::string g_plugin_db_filename;
+  
+  // loaded plugin database
   static PluginDBMap g_plugin_db;
-  static std::set<std::string> g_plugin_db_files; // keep track of dynlib files loaded
+  
+  // keep track of dynlib files loaded
+  static std::set<std::string> g_plugin_db_files;
+  
+  // if true, no console output is generated during plugin loads
   static bool g_quiet_plugin_register = true;
+
+  // ======================= plugin API implementation =======================
 
   void set_quiet_plugin_register(bool b) { g_quiet_plugin_register = b; }
   bool quiet_plugin_register() { return g_quiet_plugin_register; }
+
+  const std::string& get_plugin_namespace()
+  {
+    return g_plugin_namespace;
+  }
 
   void set_plugin_search_dirs(const std::string& str)
   {
     g_plugin_search_dirs.clear();
     std::string::size_type s = 0;
     std::string::size_type e = str.find(':');
+    auto add_plugin_search_dir = [](std::string pdir)
+    {
+      auto namespace_separator_pos = pdir.find('@');
+      if( namespace_separator_pos != std::string::npos )
+      {
+        auto nspace = pdir.substr(0,namespace_separator_pos);
+        auto dname = pdir.substr(namespace_separator_pos+1);
+        g_plugin_search_dirs.push_back( dname );
+        g_plugin_dir_namespace[dname] = nspace;
+      }
+      else
+      {
+        g_plugin_search_dirs.push_back( pdir );
+        g_plugin_dir_namespace[pdir] = "";
+      }
+    };
     while( e != std::string::npos )
     {
-      if( e != s ) { g_plugin_search_dirs.push_back( str.substr( s , e - s ) ); }
+      if( e != s ) add_plugin_search_dir( str.substr(s,e-s) );
       s = e + 1;
       e = str.find(':',s);
     } 
     e = str.length();
-    if( e != s ) { g_plugin_search_dirs.push_back( str.substr(s,e-s) ); }
+    if( e != s ) add_plugin_search_dir( str.substr(s,e-s) );
 
     ldbg << "g_plugin_search_dirs =";
     for(const auto& p:g_plugin_search_dirs) ldbg <<" "<<p;
@@ -74,9 +124,8 @@ namespace onika
 
   std::string plugin_path_env()
   {
-    std::string s;
-    for(const auto& dirpath : g_plugin_search_dirs) { if(!s.empty()) s+=":"; s+=dirpath; }
-    return s;
+    const char * pluginpath = std::getenv("ONIKA_PLUGIN_PATH"); // where to look for component plugins to load
+    return ( pluginpath != nullptr ) ? pluginpath : "";
   }
 
   void generate_plugin_db( const std::string& filename )
@@ -90,7 +139,7 @@ namespace onika
   {
     if( !g_plugin_db_filename.empty() && !g_loading_plugin.empty() )
     {
-//      std::cout << "plugin append : "<< g_loading_plugin << " " << itemCategory << " " << itemName << std::endl;
+      // std::cout << "plugin append : "<< g_loading_plugin << " " << itemCategory << " " << itemName << std::endl;
       std::ofstream fout(g_plugin_db_filename, std::ios::app);
       fout << g_loading_plugin << " " << itemCategory << " " << itemName << std::endl;
     }
@@ -162,15 +211,18 @@ namespace onika
       //lout<<"scan plugin path "<< p << std::endl;
       if( std::filesystem::status(p).type() == std::filesystem::file_type::directory )
       {
+        const auto dirnamespace = g_plugin_dir_namespace[p];
         for (auto it{std::filesystem::directory_iterator(p)}; it != std::filesystem::directory_iterator(); ++it)
         {
           if( std::filesystem::status(it->path()).type() == std::filesystem::file_type::regular )
           {
             const std::string filepath = it->path().string();
-            //const std::string regexp_str = format_string( g_plugin_to_dynlib_format , p , ".*" );
-            //const std::regex mexp( regexp_str );
-//            std::cout<<"plugin lib '"<<filepath<<"' macthes '"<<regexp_str<<"' = " << std::regex_match(filepath, mexp) << std::endl;
-            if( std::regex_match(filepath,std::regex(format_string(g_plugin_to_dynlib_format,p,".*"))) ) plugin_files.push_back( filepath );
+            if( std::regex_match(filepath,std::regex(format_string(g_plugin_to_dynlib_format,p,".*"))) )
+            {
+              plugin_files.push_back( filepath );
+              //std::cout << "plugin " << filepath <<" has namesapce '"<<dirnamespace<<"'"<<std::endl;
+              g_plugin_file_namespace[filepath] = dirnamespace;
+            }
           }
         }
       }
@@ -198,12 +250,15 @@ namespace onika
         ++ it;
       }
       
+      g_plugin_namespace = g_plugin_file_namespace[p];
+      //std::cout << "load shared lib "<<p<<" with namesapce '"<< g_plugin_namespace << "'" << std::endl;
       if( g_loaded_dynlibs.find(fp) == g_loaded_dynlibs.end() )
       {
         if( ! quiet_plugin_register() ) lout<<"+ "<<fp<<std::endl;
         if( ! load_plugin_priv( fp ) ) { lerr<<"Warning, could not load plugin "<<p<<std::endl; }
         else { ++ n_loaded; }
       }
+      g_plugin_namespace = "";
     }
     g_loading_plugin = loading_plugin_backup;
     return n_loaded;
