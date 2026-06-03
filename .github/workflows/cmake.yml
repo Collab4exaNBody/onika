@@ -1,0 +1,35 @@
+name: Check CMake Installation and tests
+on:
+  push:
+    branches:
+      - main
+    pull_request:
+      - main
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+    - name: Get Yaml cpp
+      run: sudo apt install libyaml-cpp-dev
+    - name: Install
+      run: sudo apt-get update && sudo apt-get install lcov
+    - name: Install MPI
+      run: sudo apt install mpich
+      
+    - name: Configure Onika
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install
+    - name: Build Onika
+      run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
+    - name: Run onika Tests
+      working-directory: ${{github.workspace}}/build
+      run: ctest -E "onika_test_omp_tasks_(5|6|7|8|9|10|11)$|(np[4-9](_|$)|np[0-9]{2,}(_|$))"
