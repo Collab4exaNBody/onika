@@ -30,8 +30,8 @@ namespace onika { namespace memory
 template<typename T>
 struct SimdRequirements
 {
-	static constexpr size_t alignment = 64;
-	static constexpr size_t chunksize = 16;
+	static constexpr size_t alignment = alignof(T);
+	static constexpr size_t chunksize = 1;
 };
 #define SET_ARCH_SIMD_REQUIREMENT(_T,_a,_c) \
 	template<> struct SimdRequirements<_T> { \
@@ -99,9 +99,33 @@ SET_ARCH_SIMD_REQUIREMENT(uint16_t ,16,4);
 SET_ARCH_SIMD_REQUIREMENT(int8_t   ,16,4);
 SET_ARCH_SIMD_REQUIREMENT(uint8_t  ,16,4);
 
+#elif defined(__aarch64__) || defined(__ARM_NEON)
+
+inline const char* simd_arch() { return "NEON"; }
+SET_ARCH_SIMD_REQUIREMENT(double   ,16,2);
+SET_ARCH_SIMD_REQUIREMENT(float    ,16,4);
+SET_ARCH_SIMD_REQUIREMENT(int64_t  ,16,2);
+SET_ARCH_SIMD_REQUIREMENT(uint64_t ,16,2);
+SET_ARCH_SIMD_REQUIREMENT(int32_t  ,16,4);
+SET_ARCH_SIMD_REQUIREMENT(uint32_t ,16,4);
+SET_ARCH_SIMD_REQUIREMENT(int16_t  ,16,8);
+SET_ARCH_SIMD_REQUIREMENT(uint16_t ,16,8);
+SET_ARCH_SIMD_REQUIREMENT(int8_t   ,16,16);
+SET_ARCH_SIMD_REQUIREMENT(uint8_t  ,16,16);
+
 #else
 
 inline const char* simd_arch() { return "<unknown>"; }
+SET_ARCH_SIMD_REQUIREMENT(double   ,8,1);
+SET_ARCH_SIMD_REQUIREMENT(float    ,4,1);
+SET_ARCH_SIMD_REQUIREMENT(int64_t  ,8,1);
+SET_ARCH_SIMD_REQUIREMENT(uint64_t ,8,1);
+SET_ARCH_SIMD_REQUIREMENT(int32_t  ,4,1);
+SET_ARCH_SIMD_REQUIREMENT(uint32_t ,4,1);
+SET_ARCH_SIMD_REQUIREMENT(int16_t  ,2,1);
+SET_ARCH_SIMD_REQUIREMENT(uint16_t ,2,1);
+SET_ARCH_SIMD_REQUIREMENT(int8_t   ,1,1);
+SET_ARCH_SIMD_REQUIREMENT(uint8_t  ,1,1);
 
 #endif
 
