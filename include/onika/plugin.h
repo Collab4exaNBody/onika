@@ -43,6 +43,8 @@ namespace onika
   void set_quiet_plugin_register(bool b);
   bool quiet_plugin_register();
 
+  const std::string& get_plugin_namespace();
+
   // load a set of pluings, return the number of successfuly loaded
   std::vector<std::string> plugin_files_from_search_directories(const std::vector<std::string> & plugin_files_or_directories);
   size_t load_plugins( const std::vector<std::string> & plugin_files = plugin_files_from_search_directories(plugin_search_dirs()) );

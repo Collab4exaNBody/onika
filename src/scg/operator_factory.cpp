@@ -49,7 +49,7 @@ namespace onika { namespace scg
   /*!
     Register a factory (Operator creaton function), associating it to an operator name
   */
-  void OperatorNodeFactory::register_factory( const std::string& name, OperatorNodeCreateFunction creator )
+  void OperatorNodeFactory::register_factory( const std::string& name, OperatorNodeCreateFunction creator)
   {
     //std::cout << "register_factory("<<name<<",...) m_registration_enabled="<< m_registration_enabled<<" quiet="<<onika::quiet_plugin_register() <<std::endl;
     if( ! m_registration_enabled )
@@ -57,20 +57,22 @@ namespace onika { namespace scg
       m_defered_creators_to_register.push_back( {name,creator} );
     }
     else
-    {  
+    {
       onika::plugin_db_register( "operator" , name );
-
       if( ! onika::quiet_plugin_register() && m_creators.find(name) == m_creators.end() )
       {
         lout<<"  operator    "<< name << std::endl;
       }
-
       if( m_creators.find(name) != m_creators.end() )
       {
         ldbg<<"  overload    "<< name << std::endl;
       }
-    
       m_creators[name].push_front( creator );
+    }
+
+    if( name.find('@')==std::string::npos && !get_plugin_namespace().empty() )
+    {
+      register_factory(get_plugin_namespace()+"@"+name,creator);
     }
   }
 
@@ -78,7 +80,11 @@ namespace onika { namespace scg
   {
     m_registration_enabled = true;
     auto l = std::move(m_defered_creators_to_register);
-    for(auto& f:l) { register_factory( f.first , f.second ); }
+    assert( get_plugin_namespace().empty() );
+    for(auto& f:l)
+    {
+      register_factory( f.first , f.second );
+    }
   }
 
   void OperatorNodeFactory::set_operator_defaults(YAML::Node node)
