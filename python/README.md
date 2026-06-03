@@ -223,6 +223,18 @@ as a YAML nesting separator.  So `--omp_num_threads 4` produces
 `{ configuration: { omp_num_threads: 4 } }`, and `--omp-num-threads 4`
 produces `{ configuration: { omp: { num: { threads: 4 } } } }`.
 
+Boolean flags can be passed as a single element — the parser defaults the
+value to `true` when no following value is present:
+
+```python
+ctx = pyonika.init([sys.argv[0], "my_sim.msp", "--nogpu"])
+# → { configuration: { nogpu: true } }  — disables GPU even if one is present
+```
+
+Note: `--no-gpu` would NOT work — the dash splits into nested YAML
+`{ no: { gpu: true } }` which matches nothing.  The correct key is `nogpu`
+(no dash), as declared in `onika/include/onika/app/default_app_config.h`.
+
 To override simulation parameters (e.g. `global`, `input_data`, …) use
 `set_operator_defaults()` after `init()` as described in Pattern C above — those keys are not reachable via
 the command-line override mechanism.
