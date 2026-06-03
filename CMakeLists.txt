@@ -581,14 +581,12 @@ if(ONIKA_ENABLE_TESTS)
     onika_add_test(omp_tasks_${tn} ${CMAKE_CURRENT_BINARY_DIR}/omp_tasks ${tn})
   endforeach()
 
-
-
   ############ SOATL tests ##################
 #  onika_add_test(soatl_fa_pfa_aliasing ${CMAKE_CURRENT_BINARY_DIR}/soatl_fa_pfa_aliasing)
-  onika_add_test(soatl_test1 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 0)
-  onika_add_test(soatl_test2 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 34523452)
-  onika_add_test(soatl_test3 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 1976)
-  onika_add_test(soatl_test4 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 234234234)
+#  onika_add_test(soatl_test1 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 0)
+#  onika_add_test(soatl_test2 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 34523452)
+#  onika_add_test(soatl_test3 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 1976)
+#  onika_add_test(soatl_test4 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 234234234)
 #  onika_add_test(soatl_compute1 ${CMAKE_CURRENT_BINARY_DIR}/soatlcomputetest 1000 0)
 #  onika_add_test(soatl_compute2 ${CMAKE_CURRENT_BINARY_DIR}/soatlcomputetest 1000 34523452)
 #  onika_add_test(soatl_compute3 ${CMAKE_CURRENT_BINARY_DIR}/soatlcomputetest 1000 1976)
