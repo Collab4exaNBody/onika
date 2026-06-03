@@ -11,7 +11,7 @@ arrays.
 
 1. [Source layout](#source-layout)
 2. [Build](#build)
-3. [Quick start](#quick-start)
+3. [Quick start](#quick-start) — Pattern A (.msp-driven), B (full Python graph), C (patch .msp values)
 4. [API reference](#api-reference)
    - [Module-level functions](#module-level-functions)
    - [ApplicationContext](#applicationcontext)
@@ -54,7 +54,14 @@ onika/
     ├── bind_soatl.h / .cpp   ← numpy buffer registry and slot_as_array
     ├── bind_factory.h / .cpp ← make_operator, available_operators, set/get_operator_defaults
     ├── bind_app.h / .cpp     ← ApplicationContext, init / run / run_node / end / build_simulation_graph
-    └── exemples/             ← five ready-to-run Python scripts
+    └── exemples/
+        ├── pyonika_dryrun_test_import_pyonika.py      ← import smoke test
+        ├── pyonika_run_main_config.py                 ← Pattern A: run + full graph/slot inspection
+        ├── pyonika_execute_user_specified_msp_file.py ← Pattern A: interactive .msp launcher
+        ├── pyonika_reproduce_print_loop_case.py       ← Pattern B: full Python graph, no .msp
+        ├── pyonika_run_simulation.py                  ← multiple sequential init/run/end cycles
+        ├── pyonika_make_operator_usage.py             ← make_operator: slot introspection
+        └── pyonika_read_slot_values.py                ← reading slot values after run_node()
 ```
 
 ---
@@ -121,6 +128,10 @@ pyonika.run(ctx)
 pyonika.end(ctx)
 ```
 
+> **Examples:** `exemples/pyonika_dryrun_test_import_pyonika.py` (smoke test),
+> `exemples/pyonika_run_main_config.py` (Pattern A + full graph/slot inspection),
+> `exemples/pyonika_execute_user_specified_msp_file.py` (interactive .msp launcher).
+
 ```python
 # Pattern B — build the graph entirely from Python
 ctx = pyonika.init([sys.argv[0], main_config])   # bootstrap only
@@ -151,6 +162,42 @@ pyonika.run_node(ctx, graph)
 pyonika.end(ctx)
 ```
 
+> **Example:** `exemples/pyonika_reproduce_print_loop_case.py` — full Python reproduction of
+> `data/exemples/print_loop.msp` without reading any `.msp` file.
+
+```python
+# Pattern C — load an .msp file but patch some values before running
+#
+# init() builds the simulation graph internally from the .msp file, but does
+# NOT run it yet.  set_operator_defaults() merges new values into the factory
+# defaults (it does not replace the whole block — only the keys you supply are
+# overridden).  You must then call build_simulation_graph() to produce a new
+# graph that uses those updated defaults, and run it with run_node().
+#
+# IMPORTANT: run(ctx) would execute the graph that was built internally during
+# init(), before set_operator_defaults() was called — your changes would have
+# no effect.  Always use run_node(ctx, graph) after build_simulation_graph().
+
+ctx = pyonika.init([sys.argv[0], main_config])
+if ctx.error_code >= 0:
+    sys.exit(ctx.error_code)
+
+# Patch only the keys you want to change — the rest come from the .msp file.
+pyonika.set_operator_defaults({
+    "global": {
+        "nsteps": 50,      # was e.g. 100 in the .msp
+        "dt":     2.0,     # was 1.0
+    },
+})
+
+# Rebuild the graph reusing the simulation: structure stored by init().
+# build_simulation_graph(ctx) with no list argument is equivalent to
+# build_simulation_graph(ctx, [<simulation-node from the .msp>]).
+graph = pyonika.build_simulation_graph(ctx)
+pyonika.run_node(ctx, graph)
+pyonika.end(ctx)
+```
+
 ---
 
 ## API reference
@@ -161,12 +208,24 @@ pyonika.end(ctx)
 
 Initialise onika from a list of command-line arguments.  `argv[0]` is the
 program name (used only in usage messages); `argv[1]` is the path to an `.msp`
-configuration file.  Additional `--key=value` pairs are accepted.
+configuration file.  Additional `--key value` pairs may follow to override
+`configuration:` YAML keys at runtime.
 
 ```python
 ctx = pyonika.init([sys.argv[0], "my_sim.msp"])
-ctx = pyonika.init([sys.argv[0], "my_sim.msp", "--configuration.omp_num_threads=4"])
+ctx = pyonika.init([sys.argv[0], "my_sim.msp", "--omp_num_threads", "4"])
 ```
+
+**Command-line override format:** each override is two separate list elements
+`"--key"` and `"value"` (space-separated, not `--key=value`).  The key is
+automatically wrapped under `configuration:` and `-` (dash) in the key is used
+as a YAML nesting separator.  So `--omp_num_threads 4` produces
+`{ configuration: { omp_num_threads: 4 } }`, and `--omp-num-threads 4`
+produces `{ configuration: { omp: { num: { threads: 4 } } } }`.
+
+To override simulation parameters (e.g. `global`, `input_data`, …) use
+`set_operator_defaults()` after `init()` as described in Pattern C above — those keys are not reachable via
+the command-line override mechanism.
 
 `init()` loads plugins, initialises MPI and OpenMP, parses the `.msp` file,
 registers operator defaults, and builds the simulation graph internally (stored
@@ -216,15 +275,116 @@ Instantiate a registered operator by name and optionally configure its input
 slots from a Python dict (converted to YAML before being passed to
 `yaml_initialize`).
 
-```python
-op = pyonika.make_operator("unit_system", {"verbose": True})
-op = pyonika.make_operator("message", {"mesg": "Hello from Python"})
-```
-
-Call `op.compile()` before accessing slot values — this allocates slot
-resources, which `post_graph_build()` normally does for graph-embedded nodes.
+`make_operator()` requires the factory to be populated, so `init()` must be
+called first to load plugins.  The returned node is **already compiled** —
+the factory calls `compile()` internally after `yaml_initialize`.  Do not call
+`compile()` again; it will throw `RuntimeError: OperatorNode cannot be re-compiled`.
 
 Raises `pyonika.OnikaError` if the operator name is not registered.
+
+**What `make_operator` is for — slot introspection, not value reading:**
+In onika's slot model, input slots are backed by global shared storage that is
+allocated and connected when a full simulation graph is built and run.  Outside
+a graph (`make_operator` standalone), the slots are declared and their C++ types
+are known, but they are not connected to any storage — so `has_value()` returns
+`False` and `slot_values()` returns `{}` for most operators.  The main use of
+`make_operator` from Python is therefore to inspect **what slots an operator
+has and what their types are**, not to read their values.
+
+```python
+import os, sys
+import pyonika
+
+main_config = os.path.join(os.environ["ONIKA_CONFIG_PATH"], "main-config.msp")
+
+# init() populates the factory — make_operator() needs this.
+ctx = pyonika.init([sys.argv[0], main_config])
+
+# ── Inspect a unit_system operator ─────────────────────────────────────────
+# make_operator() already compiles the node — do NOT call compile() after it.
+op = pyonika.make_operator("unit_system", {"verbose": True})
+
+print(op)                              # <OperatorNode 'unit_system'>
+print(f"compiled: {op.compiled()}")   # True — already done by make_operator
+
+# Iterate over all input slots to discover their names and C++ types.
+# has_value() is False in standalone context (slots are not backed by global
+# shared storage outside a full graph), so values appear as "<unset>".
+for name, slot in op.in_slots():
+    val = slot.value_as_string() if slot.has_value() else "<unset>"
+    print(f"  in  {name}: {slot.value_type()} = {val}")
+for name, slot in op.out_slots():
+    val = slot.value_as_string() if slot.has_value() else "<unset>"
+    print(f"  out {name}: {slot.value_type()} = {val}")
+# Expected output:
+#   in  unit_system: N5onika7physics10UnitSystemE = <unset>
+#   in  verbose: b = <unset>
+# slot_values() returns {} for the same reason.
+
+# ── List all available operator names ──────────────────────────────────────
+all_ops = pyonika.available_operators()
+print(f"{len(all_ops)} operators registered")
+print("unit_system" in all_ops)   # True after init()
+
+pyonika.end(ctx)
+```
+
+To read actual slot values after a simulation has run, use `ctx.node()` or
+`apply_graph()` on a graph built with `build_simulation_graph()` — in that
+context, slots are connected to global shared storage and `has_value()` returns
+`True` for populated slots.
+
+```python
+# Build and run a graph, then read slot values from within it.
+ctx = pyonika.init([sys.argv[0], main_config])
+
+pyonika.set_operator_defaults({
+    "global": {"dt": 1.0, "nsteps": 10, "timestep": 0, "compute_loop_continue": True},
+    "compute_loop": {
+        "loop": True, "condition": "compute_loop_continue",
+        "body": ["next_time_step", "compute_loop_stop"],
+    },
+    "compute_loop_stop": {
+        "rebind": {"end_at": "nsteps", "result": "compute_loop_continue"},
+        "body": ["sim_continue"],
+    },
+})
+
+graph = pyonika.build_simulation_graph(ctx, ["global", "mpi_comm_world", "compute_loop"])
+pyonika.run_node(ctx, graph)
+
+# NOTE: ctx.node() searches the graph built internally by init(), not the graph
+# returned by build_simulation_graph().  When using run_node(ctx, graph), always
+# look up nodes through the `graph` variable.
+# ctx.node() is only useful in Pattern A, where run(ctx) executes the init graph.
+
+# ── Find a specific operator by name via apply_graph() ─────────────────────
+found = [None]
+def find_global(node):
+    if node.name() == "global" and found[0] is None:
+        found[0] = node
+graph.apply_graph(find_global)
+
+global_op = found[0]
+if global_op is not None:
+    for name, slot in global_op.in_slots():
+        if slot.has_value():
+            print(f"  {name} = {slot.value_as_string()}")
+# e.g.:  dt = 1   nsteps = 10   timestep = 10   compute_loop_continue = 0
+
+# ── Walk every node and collect values ─────────────────────────────────────
+def print_slots(node):
+    vals = node.slot_values()   # {} for nodes with no populated slots
+    if vals:
+        print(f"{node.pathname()}: {vals}")
+
+graph.apply_graph(print_slots)
+
+pyonika.end(ctx)
+```
+
+> **Examples:** `exemples/pyonika_make_operator_usage.py` (slot introspection with `make_operator`),
+> `exemples/pyonika_read_slot_values.py` (reading values via `apply_graph` after `run_node`).
 
 ---
 
@@ -343,7 +503,7 @@ Represents a node in the simulation computation graph (SCG).
 | `in_slots()` | `list[(str, OperatorSlotBase)]` | All input slots as (name, slot) pairs |
 | `out_slots()` | `list[(str, OperatorSlotBase)]` | All output slots as (name, slot) pairs |
 | `compiled()` | `bool` | Whether slot resources have been allocated |
-| `compile()` | — | Allocate slot resources (needed for standalone `make_operator` nodes) |
+| `compile()` | — | Allocate slot resources — **not needed after `make_operator()`** (factory already calls it); exposed for advanced use only |
 | `yaml_initialize(config: dict)` | — | Configure input/output slots from a Python dict |
 | `slot_values()` | `dict[str, str]` | String representations of all initialised slot values |
 | `slot_as_array(name: str)` | `ndarray \| None` | numpy view of a named slot (see below) |
@@ -465,6 +625,8 @@ pyonika.run_node(ctx, graph)
 pyonika.end(ctx)
 ```
 
+> **Example:** `exemples/pyonika_reproduce_print_loop_case.py`.
+
 ---
 
 ## Running multiple simulations
@@ -490,6 +652,9 @@ for nsteps in [10, 50, 100]:
 > out of the box.  When using `pyonika` directly, the first `init()` registers
 > the `atexit` handler — subsequent calls are safe as long as you do not call
 > `MPI_Finalize()` yourself between cycles.
+
+> **Example:** `exemples/pyonika_run_simulation.py` — runs several named batch
+> sequences in sequence within a single Python process.
 
 ---
 
@@ -528,13 +693,12 @@ Returns `None` for unregistered types or uninitialised slots.
 Keep the `ApplicationContext` alive for as long as you use the array.  Assigning
 `arr = None` releases the Python reference but does not free the C++ memory.
 
-**Standalone operators:** for nodes created with `make_operator()`, call
-`op.compile()` before accessing slot arrays — this allocates the slot storage.
+**Standalone operators:** nodes created with `make_operator()` are already
+compiled by the factory — `slot_as_array()` can be called on them immediately.
 
 ```python
-op = pyonika.make_operator("default_slot_value_from_ctor_args")
-op.compile()
-arr = op.slot_as_array("input1")   # → np.ndarray
+op = pyonika.make_operator("my_op_with_vector_slot")
+arr = op.slot_as_array("input1")   # → np.ndarray or None
 ```
 
 **Extending the registry:** other pybind11 extension modules can register

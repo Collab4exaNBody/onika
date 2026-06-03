@@ -85,7 +85,9 @@ void bind_scg(py::module_& m)
       return result;
     })
 
-    // Finalise slot resource allocation (needed for standalone make_operator nodes).
+    // Finalise slot resource allocation. NOTE: make_operator() already calls
+    // compile() internally via the factory — calling it again will throw
+    // "OperatorNode cannot be re-compiled". Exposed for advanced use only.
     .def("compile", [](ON& op) {
       try { op.compile(); }
       catch (const std::exception& e) { throw std::runtime_error(e.what()); }
