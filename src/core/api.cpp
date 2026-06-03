@@ -194,9 +194,6 @@ namespace onika
 
       const char * datapath = std::getenv("ONIKA_DATA_PATH"); // to look for data files whse filename is resolved through onika::data_file_path( relative_or_absolute_path )
       if( datapath != nullptr ) set_data_file_dirs( datapath );
-
-      const char * pluginpath = std::getenv("ONIKA_PLUGIN_PATH"); // where to look for component plugins to load
-      if( pluginpath != nullptr ) set_plugin_search_dirs( pluginpath );
     }
 
     void
@@ -585,8 +582,6 @@ namespace onika
       }
       return n_gpus;
     }
-
-
 
     std::pair< const onika::PluginDBMap* , bool >
     initialize_plugins( onika::app::ApplicationConfiguration & configuration )
