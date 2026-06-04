@@ -36,8 +36,10 @@ namespace OnikaEGLRender
 
   class EGLRenderCameraCreate : public OperatorNode
   {
+    using StringVector = std::vector<std::string>;
+    
     ADD_SLOT( std::string , camera , INPUT_OUTPUT , "camera" );
-    ADD_SLOT( std::string , shader , INPUT_OUTPUT , "shader" );
+    ADD_SLOT( StringVector , bond_shaders , INPUT , StringVector{"shader"} );
     ADD_SLOT( Vec3d       , eye , INPUT , Vec3d{0,5,10} );
     ADD_SLOT( Vec3d       , look_at , INPUT , Vec3d{0,0,0} );
     ADD_SLOT( double      , fov , INPUT , 60.0 );
@@ -49,22 +51,25 @@ namespace OnikaEGLRender
   public:
     inline void execute() override final
     {      
-      auto shader_prog_id = egl_render_manager->shader_program_id(*shader);
-      if( shader_prog_id < 0 )
-      {
-        fatal_error()<<"shader '"<< *shader <<"' not found"<<std::endl;
-      }
-      
       auto cam_id = egl_render_manager->create_camera( *camera );
       auto & cam = egl_render_manager->camera(cam_id);
       cam.look_at( { static_cast<GLfloat>(eye->x), static_cast<GLfloat>(eye->y), static_cast<GLfloat>(eye->z) }
                  , { static_cast<GLfloat>(look_at->x), static_cast<GLfloat>(look_at->y), static_cast<GLfloat>(look_at->z) } );
       cam.perspective(*fov,*aspect,*near,*far);
 
-      cam.attach_to_shader( egl_render_manager->shader_program_ptr(shader_prog_id) );
+      ldbg << "EGL : create camera " << *camera <<" id="<<cam_id << std::endl;
+      for( const auto & shader : *bond_shaders )
+      {
+        ldbg << "attach shader "<< shader << std::endl;
+        auto ptr = egl_render_manager->shader_program_ptr(shader);
+        if( ptr == nullptr )
+        {
+          fatal_error() << "EGL: shader '"<<shader<<"' does not exist"<<std::endl;
+        }
+        cam.attach_shader( ptr );
+      }
       cam.update_uniform();
 
-      ldbg << "EGL : create camera " << *camera <<" id="<<cam_id<< " shader="<< *shader << std::endl;
     }
 
   };

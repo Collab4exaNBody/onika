@@ -36,12 +36,11 @@ namespace OnikaEGLRender
   {
     using IntVector = std::vector<GLint>;
 
-    ADD_SLOT( std::string , surface        , INPUT , "window" );
-    ADD_SLOT( std::string , camera        , INPUT , "camera" );
     ADD_SLOT( std::string , vertex_buffer  , INPUT , "vertices" );
+    ADD_SLOT( std::string , elements       , INPUT , "all" );
     ADD_SLOT( std::string , shader_program , INPUT , "shader" );
-    ADD_SLOT( long , vertex_start , INPUT , 0 );
-    ADD_SLOT( long , vertex_count , INPUT , -1 );
+    ADD_SLOT( long , element_start , INPUT , 0 );
+    ADD_SLOT( long , element_count , INPUT , -1 );
     ADD_SLOT( std::string , primitive , INPUT , "GL_POINTS" , DocString{"May be one of the following : GL_POINTS, GL_LINE_STRIP or GL_TRIANGLE_STRIP"} );
 
 //    ADD_SLOT( bool , sim_continue , INPUT_OUTPUT, true );
@@ -58,31 +57,26 @@ namespace OnikaEGLRender
         onika::fatal_error() << "primitive must be one of the following : GL_POINTS, GL_LINE_STRIP or GL_TRIANGLE_STRIP. Found "<< (*primitive) << " instead"<< std::endl;
       }
 
-      auto & render_surface = egl_render_manager->surface(*surface);
       auto & vbo = egl_render_manager->vertex_buffers(*vertex_buffer);
       auto & shader = egl_render_manager->shader_program(*shader_program);
+      std::shared_ptr<EGLRender::GLElementBuffer> elbuf = egl_render_manager->element_buffer_ptr( *elements );
 
-      long vstart = *vertex_start;
-      long vcount = *vertex_count;
-      if(vcount==-1) vcount = vbo.number_of_vertices() - vstart;
-
-      ldbg << "EGL : draw surface="<< *surface <<" vbo="<< *vertex_buffer << " shader="<< *shader_program << " vstart="<<vstart<<" vcount="<<vcount << std::endl;
+      long vstart = *element_start;
+      long vcount = *element_count;
+      ldbg << "EGL : vbo="<< *vertex_buffer << " shader="<< *shader_program << "elements="<< *elements << " vstart="<<vstart<<" vcount="<<vcount << std::endl;
 
       shader.use();
-
-      const auto cam_id = egl_render_manager->camera_id(*camera);
-      if( cam_id != -1 )
-      {
-        ldbg << "updating camera "<< *camera << std::endl;
-        egl_render_manager->camera(cam_id).update_uniform();
-      }
-
       vbo.use();
 
-      glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
-      glDrawArrays(prim_type, vstart, vcount);
-
-      render_surface.swap_buffers();
+      if( elbuf != nullptr )
+      {
+        elbuf->draw(prim_type, vstart, vcount);
+      }
+      else
+      {
+        if(vcount==-1) vcount = vbo.number_of_vertices() - vstart;
+        glDrawArrays(prim_type, vstart, vcount);
+      }
     }
 
   };
