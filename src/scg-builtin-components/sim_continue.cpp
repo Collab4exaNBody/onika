@@ -101,7 +101,8 @@ namespace onika
           stop_request = std::ifstream( *stop_file ).good();
         }
 
-        *result = ( *timestep <= *end_at ) && ( tremain > *remain ) && !stop_request && !s_simulation_termination_requested;
+        bool may_continue = ( *timestep <= *end_at ) && ( tremain > *remain ) && !stop_request && !s_simulation_termination_requested;
+        if( ! may_continue ) *result = false;
 
         if( checked )
         {

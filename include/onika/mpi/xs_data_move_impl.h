@@ -92,29 +92,12 @@ namespace onika
         std::memset( reinterpret_cast<void*>(comm_output.data()), 0xFF, sizeof(DataType)*recvSize );
     #   endif
 
-        switch( sizeof(DataType) )
         {
-          case sizeof(char):
-            MPI_Alltoallv( (char*) comm_input.data() , (int*) send_count.data(), (int*) send_displ.data() , MPI_CHAR , (char*) comm_output.data() , (int*) recv_count.data() , (int*) recv_displ.data() , MPI_CHAR , comm );
-            break;
-            
-          case sizeof(float):
-            MPI_Alltoallv( (float*) comm_input.data() , (int*) send_count.data(), (int*) send_displ.data() , MPI_FLOAT , (float*) comm_output.data() , (int*) recv_count.data() , (int*) recv_displ.data() , MPI_FLOAT , comm );
-            break;
-            
-          case sizeof(double):
-            MPI_Alltoallv( (double*) comm_input.data() , (int*) send_count.data(), (int*) send_displ.data() , MPI_DOUBLE , (double*) comm_output.data() , (int*) recv_count.data() , (int*) recv_displ.data() , MPI_DOUBLE , comm );
-            break;
-
-          default:
-            {
-                MPI_Datatype element_type; 
-                MPI_Type_contiguous(sizeof(DataType), MPI_CHAR, &element_type);
-                MPI_Type_commit(&element_type);
-                MPI_Alltoallv( comm_input.data() , (int*) send_count.data(), (int*) send_displ.data() , element_type , comm_output.data() , (int*) recv_count.data() , (int*) recv_displ.data() , element_type , comm );
-                MPI_Type_free(&element_type);
-            }
-            break;
+            MPI_Datatype element_type;
+            MPI_Type_contiguous(sizeof(DataType), MPI_BYTE, &element_type);
+            MPI_Type_commit(&element_type);
+            MPI_Alltoallv( comm_input.data() , (int*) send_count.data(), (int*) send_displ.data() , element_type , comm_output.data() , (int*) recv_count.data() , (int*) recv_displ.data() , element_type , comm );
+            MPI_Type_free(&element_type);
         }
 
         for(int i=0 ; i<recvSize ; i++ , ++output )
