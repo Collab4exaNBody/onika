@@ -1,6 +1,10 @@
-name: Check CMake Installation and tests (CUDA/nvcc)
+name: CMake CUDA
 on:
-  push
+  push:
+    branches:
+      - main
+    pull_request:
+      - main
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
