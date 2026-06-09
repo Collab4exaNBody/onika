@@ -27,26 +27,46 @@ namespace onika
 
     bool CudaContext::s_global_gpu_enable = true;
 
+    std::shared_ptr<CudaContext> CudaContext::s_default_cuda_ctx = nullptr;
+
     void CudaContext::set_global_gpu_enable(bool yn)
     {
       s_global_gpu_enable = yn;
     }
-    
+
     bool CudaContext::global_gpu_enable()
     {
       return s_global_gpu_enable;
+    }
+
+    CudaContext* CudaContext::default_cuda_ctx()
+    {
+      if( ! global_gpu_enable() ) return nullptr;
+      if( s_default_cuda_ctx == nullptr )
+      {
+        s_default_cuda_ctx = std::make_shared<CudaContext>();
+        s_default_cuda_ctx->m_devices.resize(1);
+        s_default_cuda_ctx->m_devices[0].device_id = 0;
+        ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_PROPERTIES( & s_default_cuda_ctx->m_devices[0].m_deviceProp , s_default_cuda_ctx->m_devices[0].device_id ) );
+#       if defined(__CUDACC_VER_MAJOR__) && __CUDACC_VER_MAJOR__ >= 13
+	ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_ATTRIBUTE( & s_default_cuda_ctx->m_devices[0].m_clock_rate , onikaDevAttrClockRate, s_default_cuda_ctx->m_devices[0].device_id ) );
+#       else
+	s_default_cuda_ctx->m_devices[0].m_clock_rate = 0;
+#       endif
+      }
+      return s_default_cuda_ctx.get();
     }
 
     bool CudaContext::has_devices() const
     {
       return ! m_devices.empty();
     }
-    
+
     unsigned int CudaContext::device_count() const
     {
       return m_devices.size();
     }
-    
+
     onikaStream_t CudaContext::getThreadStream(unsigned int tid)
     {
       if( tid >= m_threadStream.size() )

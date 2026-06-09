@@ -19,6 +19,8 @@ under the License.
 
 #pragma once
 
+#include <functional>
+#include <string_view>
 #include <cstdlib>
 #include <cmath>
 #include <onika/cuda/cuda.h>
