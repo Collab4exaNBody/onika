@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <onika/parallel/block_parallel_for_functor.h>
@@ -36,9 +54,10 @@ namespace onika
     ONIKA_STATIC_INLINE_KERNEL
     void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, const ElementCoordRangeT idx, ONIKA_CU_GRID_CONSTANT const FuncT func )
     {
+#     ifdef ONIKA_GPU_DEVICE_COMPILE
       using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
       static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
-
+      
       // avoid use of compute buffer when possible
       ONIKA_CU_BLOCK_SHARED unsigned int i;
       do
@@ -55,6 +74,7 @@ namespace onika
         }
       }
       while( i < N );
+#     endif
     }
 
     // GPU execution kernel for adaptable size grid, a.k.a. conventional Cuda kernel execution on N element blocks
@@ -64,10 +84,12 @@ namespace onika
     ONIKA_STATIC_INLINE_KERNEL
     void block_parallel_for_gpu_kernel_regulargrid( const ElementCoordRangeT idx , ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start )
     {
+#     ifdef ONIKA_GPU_DEVICE_COMPILE
       using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
       static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
       if constexpr (ElemND==0) func( start + ONIKA_CU_BLOCK_IDX );
       if constexpr (ElemND>=1) func( idx[ start + ONIKA_CU_BLOCK_IDX ] );
+#     endif
     }
 
     template< class FuncT>
@@ -76,7 +98,9 @@ namespace onika
     ONIKA_STATIC_INLINE_KERNEL
     void block_parallel_for_gpu_kernel_regulargrid_3D( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const onikaInt3_t start_coord )
     {
+#     ifdef ONIKA_GPU_DEVICE_COMPILE
       func( start_coord + ONIKA_CU_BLOCK_COORD );
+#     endif
     }
 
 
