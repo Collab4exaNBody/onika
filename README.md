@@ -1,3 +1,8 @@
+[![CMake](https://github.com/Collab4exaNBody/onika/actions/workflows/cmake_gcc.yml/badge.svg)](https://github.com/Collab4exaNBody/onika/actions/workflows/cmake_gcc.yml)
+[![CMake](https://github.com/Collab4exaNBody/onika/actions/workflows/cmake_cuda.yml/badge.svg)](https://github.com/Collab4exaNBody/onika/actions/workflows/cmake_cuda.yml)
+[![CMake](https://github.com/Collab4exaNBody/onika/actions/workflows/cmake_hip.yml/badge.svg)](https://github.com/Collab4exaNBody/onika/actions/workflows/cmake_hip.yml) 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 # Onika
 
 ![](doc/logo.png)

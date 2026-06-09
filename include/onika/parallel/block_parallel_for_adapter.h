@@ -50,33 +50,35 @@ namespace onika
     ONIKA_STATIC_INLINE_KERNEL
     void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, const ElementCoordRangeT idx, ONIKA_CU_GRID_CONSTANT const FuncT func ONIKA_KERNEL_TAG_ARGS )
     {
-#     ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
-      if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
-      {
-        char t[9]; str_from_uint64( t , ktag );
-        char st[9]; str_from_uint64( st , ksubtag );
-        printf("Cuda workstealing %s/%s\n",t,st);
-      }
+#     ifdef ONIKA_GPU_DEVICE_COMPILE
+#       ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
+        if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
+        {
+          char t[9]; str_from_uint64( t , ktag );
+          char st[9]; str_from_uint64( st , ksubtag );
+          printf("Cuda workstealing %s/%s\n",t,st);
+        }
+#       endif
+        using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
+        static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
+        
+        // avoid use of compute buffer when possible
+        ONIKA_CU_BLOCK_SHARED unsigned int i;
+        do
+        {
+          if( ONIKA_CU_THREAD_IDX == 0 )
+          {
+            i = ONIKA_CU_ATOMIC_ADD( scratch->counters[GPUKernelExecutionScratch::WORKSTEALING_COUNTER] , 1u );
+          }
+          ONIKA_CU_BLOCK_SYNC();
+          if( i < N )
+          {
+            if constexpr (ElemND==0) func( i );
+            if constexpr (ElemND>=1) func( idx[i] );
+          }
+        }
+        while( i < N );
 #     endif
-      using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
-      static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
-      
-      // avoid use of compute buffer when possible
-      ONIKA_CU_BLOCK_SHARED unsigned int i;
-      do
-      {
-        if( ONIKA_CU_THREAD_IDX == 0 )
-        {
-          i = ONIKA_CU_ATOMIC_ADD( scratch->counters[GPUKernelExecutionScratch::WORKSTEALING_COUNTER] , 1u );
-        }
-        ONIKA_CU_BLOCK_SYNC();
-        if( i < N )
-        {
-          if constexpr (ElemND==0) func( i );
-          if constexpr (ElemND>=1) func( idx[i] );
-        }
-      }
-      while( i < N );
     }
 
     // GPU execution kernel for adaptable size grid, a.k.a. conventional Cuda kernel execution on N element blocks
@@ -86,18 +88,20 @@ namespace onika
     ONIKA_STATIC_INLINE_KERNEL
     void block_parallel_for_gpu_kernel_regulargrid( const ElementCoordRangeT idx , ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const unsigned int start ONIKA_KERNEL_TAG_ARGS )
     {
-#     ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
-      if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
-      {
-        char t[9]; str_from_uint64( t , ktag );
-        char st[9]; str_from_uint64( st , ksubtag );
-        printf("Cuda regulargrid1D %s / %s\n",t,st);
-      }
+#     ifdef ONIKA_GPU_DEVICE_COMPILE
+#       ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
+        if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
+        {
+          char t[9]; str_from_uint64( t , ktag );
+          char st[9]; str_from_uint64( st , ksubtag );
+          printf("Cuda regulargrid1D %s / %s\n",t,st);
+        }
+#       endif
+        using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
+        static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
+        if constexpr (ElemND==0) func( start + ONIKA_CU_BLOCK_IDX );
+        if constexpr (ElemND>=1) func( idx[ start + ONIKA_CU_BLOCK_IDX ] );
 #     endif
-      using ElementCoordT = std::remove_cv_t< std::remove_reference_t< decltype(idx[0]) > >;
-      static constexpr unsigned int ElemND = element_coord_nd_v<ElementCoordT>;
-      if constexpr (ElemND==0) func( start + ONIKA_CU_BLOCK_IDX );
-      if constexpr (ElemND>=1) func( idx[ start + ONIKA_CU_BLOCK_IDX ] );
     }
 
     template< class FuncT>
@@ -106,15 +110,17 @@ namespace onika
     ONIKA_STATIC_INLINE_KERNEL
     void block_parallel_for_gpu_kernel_regulargrid_3D( ONIKA_CU_GRID_CONSTANT const FuncT func , ONIKA_CU_GRID_CONSTANT const onikaInt3_t start_coord ONIKA_KERNEL_TAG_ARGS )
     {
-#     ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
-      if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
-      {
-        char t[9]; str_from_uint64( t , ktag );
-        char st[9]; str_from_uint64( st , ksubtag );
-        printf("Cuda regulargrid3D %s / %s\n",t,st);
-      }
-#     endif
-      func( start_coord + ONIKA_CU_BLOCK_COORD );
+#     ifdef ONIKA_GPU_DEVICE_COMPILE
+#       ifdef ONIKA_ENABLE_KERNEL_TAG_ARGS
+        if( ONIKA_CU_BLOCK_IDX == 0 && ONIKA_CU_THREAD_IDX==0 )
+        {
+          char t[9]; str_from_uint64( t , ktag );
+          char st[9]; str_from_uint64( st , ksubtag );
+          printf("Cuda regulargrid3D %s / %s\n",t,st);
+        }
+#       endif
+        func( start_coord + ONIKA_CU_BLOCK_COORD );
+#   endif
     }
 
 
