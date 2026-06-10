@@ -137,7 +137,7 @@ namespace onika
       coord_t m_end;
       element_list_t m_elements = {};
       
-      static inline consteval unsigned int space_nd() { return SpaceNDim; }
+      static inline constexpr unsigned int space_nd() { return SpaceNDim; }
       inline constexpr size_t number_of_items() const { return coord_range_size( m_start , m_end ); }
     };
 
