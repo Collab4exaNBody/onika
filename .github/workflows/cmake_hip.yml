@@ -1,10 +1,11 @@
 name: CMake HIP
 on:
-  push:
-    branches:
-      - main
-    pull_request:
-      - main
+  push
+  # push:
+  #   branches:
+  #     - main
+  #   pull_request:
+  #     - main
   
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
