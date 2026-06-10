@@ -40,10 +40,10 @@ namespace OnikaEGLRender
     
     ADD_SLOT( std::string , camera , INPUT_OUTPUT , "camera" );
     ADD_SLOT( StringVector , bond_shaders , INPUT , StringVector{"shader"} );
+    ADD_SLOT( std::string , surface , INPUT , "window" );
     ADD_SLOT( Vec3d       , eye , INPUT , Vec3d{0,5,10} );
     ADD_SLOT( Vec3d       , look_at , INPUT , Vec3d{0,0,0} );
     ADD_SLOT( double      , fov , INPUT , 60.0 );
-    ADD_SLOT( double      , aspect , INPUT , 16.0/9.0 );
     ADD_SLOT( double      , near , INPUT , 0.1 );
     ADD_SLOT( double      , far , INPUT , 100.0 );
     ADD_SLOT( EGLRenderManager , egl_render_manager , INPUT_OUTPUT );
@@ -55,9 +55,27 @@ namespace OnikaEGLRender
       auto & cam = egl_render_manager->camera(cam_id);
       cam.look_at( { static_cast<GLfloat>(eye->x), static_cast<GLfloat>(eye->y), static_cast<GLfloat>(eye->z) }
                  , { static_cast<GLfloat>(look_at->x), static_cast<GLfloat>(look_at->y), static_cast<GLfloat>(look_at->z) } );
-      cam.perspective(*fov,*aspect,*near,*far);
-
       ldbg << "EGL : create camera " << *camera <<" id="<<cam_id << std::endl;
+
+      int surf_id = egl_render_manager->surface_id( *surface );
+      int w = cam.m_viewport[0];
+      int h = cam.m_viewport[1];
+      if( surf_id < 0 )
+      {
+        lerr<<"Warning: surface '"<< *surface << "' not found"<<std::endl;
+      }
+      else
+      {
+        const auto& surf = egl_render_manager->surface(surf_id);
+        w = surf.width();
+        h = surf.height();
+      }
+      float aspect_ratio = w * 1.0 / h;
+
+      ldbg << "windows size = "<<w<<"x"<<h<<" , aspect ratio = "<<aspect_ratio<< std::endl;
+      cam.viewport( w , h );
+      cam.perspective(*fov,aspect_ratio,*near,*far);
+
       for( const auto & shader : *bond_shaders )
       {
         ldbg << "attach shader "<< shader << std::endl;
@@ -69,7 +87,6 @@ namespace OnikaEGLRender
         cam.attach_shader( ptr );
       }
       cam.update_uniform();
-
     }
 
   };

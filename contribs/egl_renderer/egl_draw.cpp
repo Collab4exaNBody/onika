@@ -51,10 +51,15 @@ namespace OnikaEGLRender
 
     inline void execute() override final
     {
+      static const std::set<GLenum> c_allowed_primitives = { GL_POINTS, GL_LINE_STRIP, GL_LINE_LOOP, GL_LINES, GL_LINE_STRIP_ADJACENCY, GL_LINES_ADJACENCY
+        , GL_TRIANGLE_STRIP, GL_TRIANGLE_FAN, GL_TRIANGLES, GL_TRIANGLE_STRIP_ADJACENCY, GL_TRIANGLES_ADJACENCY, GL_PATCHES
+        , GL_LINE_STRIP_ADJACENCY, GL_LINES_ADJACENCY, GL_TRIANGLE_STRIP_ADJACENCY, GL_TRIANGLES_ADJACENCY };
       GLenum prim_type = gl_enum_from_string( *primitive );
-      if( prim_type!=GL_POINTS && prim_type!=GL_LINE_STRIP && prim_type!=GL_TRIANGLE_STRIP )
+      if( c_allowed_primitives.find(prim_type) == c_allowed_primitives.end() )
       {
-        onika::fatal_error() << "primitive must be one of the following : GL_POINTS, GL_LINE_STRIP or GL_TRIANGLE_STRIP. Found "<< (*primitive) << " instead"<< std::endl;
+        lerr<<"Accepeted values for primitive parameter are :"<<std::endl;
+        for(const auto& e : c_allowed_primitives) lerr<<"\t"<<gl_enum_to_string(e)<<std::endl;
+        onika::fatal_error() << "Invalid draw primitive type '"<< (*primitive) << "'"<< std::endl;
       }
 
       auto & vbo = egl_render_manager->vertex_buffers(*vertex_buffer);
