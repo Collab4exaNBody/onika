@@ -34,8 +34,10 @@ namespace OnikaEGLRender
 
   class EGLRenderCheckCuGraphics : public OperatorNode
   {
+    using IntVector = std::vector<int>;
     ADD_SLOT( std::string , surface        , INPUT , "window" );
     ADD_SLOT( EGLRenderManager , egl_render_manager , INPUT_OUTPUT );
+    ADD_SLOT( IntVector , egl_cuda_devices , INPUT_OUTPUT , IntVector{} );
 
   public:
     inline bool is_sink() const override final { return true; }
@@ -57,8 +59,13 @@ namespace OnikaEGLRender
       {
         fatal_error()<<"No compatible Cuda device is attached to current OpenGL context"<<std::endl;
       }
+      egl_cuda_devices->clear();
       lout<<"Found "<<cudaDeviceCount<<" compatible compute devices : [";
-      for(int i=0;i<cudaDeviceCount;i++) lout<<((i>0)?",":"")<<cudaDevices[i];
+      for(int i=0;i<cudaDeviceCount;i++)
+      {
+        egl_cuda_devices->push_back( cudaDevices[i] );
+        lout<<((i>0)?",":"")<<cudaDevices[i];
+      }
       lout<<"]"<<std::endl;
     }
 

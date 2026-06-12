@@ -43,6 +43,7 @@ namespace OnikaEGLRender
     ADD_SLOT( std::string , surface , INPUT , "window" );
     ADD_SLOT( Vec3d       , eye , INPUT , Vec3d{0,5,10} );
     ADD_SLOT( Vec3d       , look_at , INPUT , Vec3d{0,0,0} );
+    ADD_SLOT( Vec3d       , up , INPUT , Vec3d{0,1,0} );
     ADD_SLOT( double      , fov , INPUT , 60.0 );
     ADD_SLOT( double      , near , INPUT , 0.1 );
     ADD_SLOT( double      , far , INPUT , 100.0 );
@@ -54,7 +55,8 @@ namespace OnikaEGLRender
       auto cam_id = egl_render_manager->create_camera( *camera );
       auto & cam = egl_render_manager->camera(cam_id);
       cam.look_at( { static_cast<GLfloat>(eye->x), static_cast<GLfloat>(eye->y), static_cast<GLfloat>(eye->z) }
-                 , { static_cast<GLfloat>(look_at->x), static_cast<GLfloat>(look_at->y), static_cast<GLfloat>(look_at->z) } );
+                 , { static_cast<GLfloat>(look_at->x), static_cast<GLfloat>(look_at->y), static_cast<GLfloat>(look_at->z) }
+                 , { static_cast<GLfloat>(up->x), static_cast<GLfloat>(up->y), static_cast<GLfloat>(up->z) } );
       ldbg << "EGL : create camera " << *camera <<" id="<<cam_id << std::endl;
 
       int surf_id = egl_render_manager->surface_id( *surface );

@@ -90,7 +90,7 @@ namespace OnikaEGLRender
       for(const auto & src : *sources)
       {
         GLenum shType = gl_enum_from_string(src.first);
-        ldbg << "add source "<< gl_enum_to_string(shType) <<" : "<<src.second<<std::endl;
+        ldbg << "add source for "<< gl_enum_to_string(shType) /* <<" : "<<src.second */ <<std::endl;
         type_sources.push_back( { shType , src.second } );
       }
       

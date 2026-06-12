@@ -100,7 +100,7 @@ static inline constexpr auto onikaDevAttrClockRate           = hipDeviceAttribut
 #define ONIKA_CU_PROF_RANGE_POP()                      nvtxRangePop()
 #define ONIKA_CU_PROF_START()                          cudaProfilerStart()
 #define ONIKA_CU_PROF_STOP()                           cudaProfilerStop()
-#define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st)             cudaMemPrefetchAsync((const void*)(ptr),sz,0,st)
+#define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st)             cudaMemPrefetchAsync((const void*)(ptr),sz,d,st)
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) cudaStreamCreateWithFlags( & streamref, cudaStreamNonBlocking )
 #define ONIKA_CU_STREAM_ADD_CALLBACK(stream,cb,udata)  cudaStreamAddCallback(stream,cb,udata,0u)
 #define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)            cudaStreamSynchronize(STREAM)

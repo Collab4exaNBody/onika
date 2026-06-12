@@ -68,7 +68,7 @@ namespace OnikaEGLRender
 
       long vstart = *element_start;
       long vcount = *element_count;
-      ldbg << "EGL : vbo="<< *vertex_buffer << " shader="<< *shader_program << "elements="<< *elements << " vstart="<<vstart<<" vcount="<<vcount << std::endl;
+      ldbg << "EGL : vbo="<< *vertex_buffer << " shader="<< *shader_program << ", elements="<< *elements << ", vstart="<<vstart<<", vcount="<<vcount << std::endl;
 
       shader.use();
       vbo.use();
