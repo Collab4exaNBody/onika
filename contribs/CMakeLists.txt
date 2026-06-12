@@ -18,6 +18,6 @@
 
 option(ONIKA_CONTRIBS_EGL "Build EGL rendering components" ON)
 if(ONIKA_CONTRIBS_EGL)
-  add_subdirectory(egl_renderer)
+  add_subdirectory(egl)
 endif()
 
