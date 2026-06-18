@@ -22,8 +22,9 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/log.h>
-
 #include <EGLRender/egl_render_manager.h>
+#include <mpi.h>
+
 
 namespace OnikaEGLRender
 {
@@ -34,6 +35,7 @@ namespace OnikaEGLRender
 
   class EGLRenderSurfaceCreate : public OperatorNode
   {
+    ADD_SLOT( MPI_Comm , mpi , INPUT_OUTPUT , MPI_COMM_WORLD );
     ADD_SLOT( std::string , surface , INPUT_OUTPUT , "onika-egl-window" );
     ADD_SLOT( std::string , surface_type , INPUT , "window" );
     ADD_SLOT( long , width     , INPUT , 800 );
@@ -43,7 +45,10 @@ namespace OnikaEGLRender
   public:
     inline void execute() override final
     {
-      EGLRenderSurfaceClass surf_type = ( (*surface_type)=="window" || (*surface_type)=="WINDOW" ) ? EGLRenderSurfaceClass::WINDOW : EGLRenderSurfaceClass::PBUFFER ;
+      int rank = 0;
+      MPI_Comm_rank(*mpi,&rank);
+      
+      EGLRenderSurfaceClass surf_type = ( ( (*surface_type)=="window" || (*surface_type)=="WINDOW" ) && rank==0 ) ? EGLRenderSurfaceClass::WINDOW : EGLRenderSurfaceClass::PBUFFER ;
       const auto surf_id = egl_render_manager->create_surface( *surface, surf_type, *width , *height );
       //auto & surf = egl_render_manager->surface( surf_id );
       ldbg << "EGL : create surface " << *surface << " , type="<< render_surface_type_as_string(surf_type) <<", size="<< *width <<"x"<< *height <<" , id="<<surf_id<< std::endl;
