@@ -123,12 +123,6 @@ namespace OnikaEGLRender
           std::memset( d_pixels, 0xFF , hsize * width );
         }
         
-        for(int i=0;i<(width*height);i++)
-        {
-          
-        }
-        glDisable(GL_BLEND);
-        glDisable(GL_DEPTH);
         glDrawPixels( width, height/2, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data.get() );
       }
     }
