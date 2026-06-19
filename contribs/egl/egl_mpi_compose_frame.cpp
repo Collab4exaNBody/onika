@@ -43,7 +43,13 @@ namespace OnikaEGLRender
 
     inline void execute() override final
     {
-      auto & surf = egl_render_manager->surface(*surface);
+      int sufrace_id = egl_render_manager->surface_id( *surface );
+      if( sufrace_id < 0 )
+      {
+        lerr << "EGL surface "<< *surface << " not found"<<std::endl;
+        return;
+      }
+      auto & surf = egl_render_manager->surface(sufrace_id);
       long width = surf.width();
       long height = surf.height();
 
@@ -52,40 +58,60 @@ namespace OnikaEGLRender
       MPI_Comm_rank(*mpi,&rank);
       MPI_Comm_size(*mpi,&nproc);
 
+      //const long alloc_pixel_sz = width * (height+nproc);
+      const long comm_hrange = (height+nproc-1) / nproc;
+      const long comm_pixel_sz = comm_hrange * width;
+      const long alloc_comm_pixels = comm_pixel_sz * ( nproc + 1 ); // + 1 to reserve space for composition
+
+      int read_color_buffer_id = egl_render_manager->create_pixel_buffer( "mpi_compose_read_color_buffer" , width, height + nproc, GL_RGBA, GL_PIXEL_PACK_BUFFER );
+      auto & read_color_buffer = egl_render_manager->pixel_buffer(read_color_buffer_id);
+      // auto pixel_data = std::make_unique_for_overwrite<uint32_t[]>(alloc_pixel_sz);
+      // glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+      read_color_buffer.read_pixels();
+      read_color_buffer.unuse();
+      const uint32_t * pixel_data = (const uint32_t*) read_color_buffer.map_buffer_read_only();
+      uint32_t pix_min = 0xFFFFFFFF, pix_max = 0;
+      for(int i=0;i<(width*height);i++) if( pixel_data[i]<pix_min ) pix_min=pixel_data[i]; else if ( pixel_data[i]>pix_max ) pix_max=pixel_data[i];
+
+      int read_depth_buffer_id = egl_render_manager->create_pixel_buffer( "mpi_compose_read_depth_buffer" , width, height + nproc, GL_DEPTH_COMPONENT, GL_PIXEL_PACK_BUFFER );
+      auto & read_depth_buffer = egl_render_manager->pixel_buffer(read_depth_buffer_id);
+      // auto depth_data = std::make_unique_for_overwrite<GLfloat[]>(alloc_pixel_sz);
+      // glReadPixels(0, 0, width, height,  GL_DEPTH_COMPONENT , GL_FLOAT, NULL );   
+      read_depth_buffer.read_pixels();      
+      read_depth_buffer.unuse();
+      const GLfloat * depth_data = (const GLfloat*) read_depth_buffer.map_buffer_read_only();
+      GLfloat depth_min = 1e32, depth_max = -1e32;
+      for(int i=0;i<(width*height);i++) if( depth_data[i]<depth_min ) depth_min=depth_data[i]; else if ( depth_data[i]>depth_max ) depth_max=depth_data[i];
+      ldbg << "pixel buffer : color in ["<<pix_min<<";"<<pix_max<<"] , depth in ["<<depth_min<<";"<<depth_max<<"]"<<std::endl;
+      
+      auto other_pixel_data = std::make_unique_for_overwrite<uint32_t[]>( alloc_comm_pixels );
+      auto other_depth_data = std::make_unique_for_overwrite<GLfloat []>( alloc_comm_pixels );
+
       auto mpi_rank_to_height_range = [height](long rank, long nproc) -> std::pair<long,long>
       {
         return { (height*rank)/nproc , (height*(rank+1))/nproc };
       };
 
-      const long alloc_pixel_sz = width * (height+nproc);
-      const long comm_hrange = (height+nproc-1) / nproc;
-      const long comm_pixel_sz = comm_hrange * width;
-      const long alloc_comm_pixels = comm_pixel_sz * nproc;
-
-      auto pixel_data = std::make_unique_for_overwrite<uint32_t[]>(alloc_pixel_sz);
-      glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data.get() );
-
-      auto depth_data = std::make_unique_for_overwrite<GLfloat[]>(alloc_pixel_sz);
-      glReadPixels(0, 0, width, height,  GL_DEPTH_COMPONENT , GL_FLOAT, depth_data.get() );   
-      
-      auto other_pixel_data = std::make_unique_for_overwrite<uint32_t[]>( alloc_comm_pixels );
-      auto other_depth_data = std::make_unique_for_overwrite<GLfloat []>( alloc_comm_pixels );
-
       for(int p=0;p<nproc;p++)
       {
         const auto [hstart,hend] = mpi_rank_to_height_range(p,nproc);
         //const long hsize = hend - hstart;
-        MPI_Gather( pixel_data.get() + ( hstart * width ) , comm_pixel_sz , MPI_UNSIGNED , other_pixel_data.get() , comm_pixel_sz , MPI_UNSIGNED , p , *mpi );
-        MPI_Gather( depth_data.get() + ( hstart * width ) , comm_pixel_sz , MPI_UNSIGNED , other_depth_data.get() , comm_pixel_sz , MPI_UNSIGNED , p , *mpi );
+        MPI_Gather( pixel_data + ( hstart * width ) , comm_pixel_sz , MPI_UNSIGNED , other_pixel_data.get() , comm_pixel_sz , MPI_UNSIGNED , p , *mpi );
+        MPI_Gather( depth_data + ( hstart * width ) , comm_pixel_sz , MPI_FLOAT , other_depth_data.get() , comm_pixel_sz , MPI_FLOAT , p , *mpi );
       }
+      read_color_buffer.unmap_buffer();
+      read_depth_buffer.unmap_buffer();
 
       const auto [comp_hstart,comp_hend] = mpi_rank_to_height_range(rank,nproc);
       const auto comp_hsize = comp_hend - comp_hstart;
-      auto * comp_d_pixels = pixel_data.get() + comp_hstart * width;
-      auto * comp_d_depth = depth_data.get() + comp_hstart * width;
+      uint32_t * comp_d_pixels = other_pixel_data.get() + comm_pixel_sz * nproc;
+      GLfloat * comp_d_depth = other_depth_data.get() + comm_pixel_sz * nproc;
+
+      std::memcpy( comp_d_pixels , other_pixel_data.get() + comm_pixel_sz * rank , comp_hsize * width * 4 );
+      std::memcpy( comp_d_depth , other_depth_data.get() + comm_pixel_sz * rank , comp_hsize * width * 4 );
 
       long composed_pixel_count = 0;
-      for(int p=0;p<nproc;p++)
+      for(int p=0;p<nproc;p++) if( p != rank )
       {
         const auto * s_pixels = other_pixel_data.get() + comm_pixel_sz * p;
         const auto * s_depth = other_depth_data.get() + comm_pixel_sz * p;
@@ -107,23 +133,38 @@ namespace OnikaEGLRender
         }
       }
       
-      ldbg <<"inserted "<<composed_pixel_count<<" pixels"<<std::endl;
+      ldbg <<"merged "<<composed_pixel_count<<" pixels"<<std::endl;
 
       MPI_Gather( comp_d_pixels , comm_pixel_sz , MPI_UNSIGNED , other_pixel_data.get() , comm_pixel_sz , MPI_UNSIGNED , 0 , *mpi );
       
       if( rank == 0 )
       {
+        int write_pixel_buffer_id = egl_render_manager->create_pixel_buffer("mpi_compose_write_pixel_buffer",width,height,GL_RGBA,GL_PIXEL_UNPACK_BUFFER);
+        auto & write_pixel_buffer = egl_render_manager->pixel_buffer(write_pixel_buffer_id);
+        uint32_t * out_pixel_data = (uint32_t*) write_pixel_buffer.map_buffer_write_only();
         for(int p=0;p<nproc;p++)
         {
           const auto [hstart,hend] = mpi_rank_to_height_range(p,nproc);
           const auto hsize = hend - hstart;
-          const auto * s_pixels = other_pixel_data.get() + comm_pixel_sz * p;
-          auto * d_pixels = pixel_data.get() + hstart * width;
+          const uint32_t * s_pixels = other_pixel_data.get() + comm_pixel_sz * p;
+          uint32_t * d_pixels = out_pixel_data + hstart * width;
           std::memcpy( d_pixels , s_pixels , hsize * width );
-          std::memset( d_pixels, 0xFF , hsize * width );
         }
+        write_pixel_buffer.unmap_buffer();
         
-        glDrawPixels( width, height/2, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data.get() );
+        int fb_id = egl_render_manager->frame_buffer_id("mpi_compose_framebuffer");
+        if( fb_id < 0 )
+        {
+          fb_id = egl_render_manager->create_frame_buffer("mpi_compose_framebuffer" , GL_READ_FRAMEBUFFER );
+          auto & fb = egl_render_manager->frame_buffer(fb_id);
+          fb.bind();
+          fb.attach_texture( write_pixel_buffer.copy_to_texture() , GL_COLOR_ATTACHMENT0 );
+          fb.unbind();
+        }
+        auto & fb = egl_render_manager->frame_buffer(fb_id);
+        fb.bind();
+        glBlitFramebuffer(0,0,width,height,0,0,width,height,GL_COLOR_BUFFER_BIT,GL_NEAREST);
+        fb.unbind();
       }
     }
 
