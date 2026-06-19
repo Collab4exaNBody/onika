@@ -53,10 +53,12 @@ namespace OnikaEGLRender
       long width = surf.width();
       long height = surf.height();
 
-      int nproc = 1;      
+      int nproc = 1;
       int rank = 0;
       MPI_Comm_rank(*mpi,&rank);
       MPI_Comm_size(*mpi,&nproc);
+
+      if( nproc <= 1 ) return;
 
       //const long alloc_pixel_sz = width * (height+nproc);
       const long comm_hrange = (height+nproc-1) / nproc;
@@ -71,10 +73,10 @@ namespace OnikaEGLRender
 
       int read_depth_buffer_id = egl_render_manager->create_pixel_buffer( "mpi_compose_read_depth_buffer" , width, height + nproc, GL_DEPTH_COMPONENT, GL_PIXEL_PACK_BUFFER );
       auto & read_depth_buffer = egl_render_manager->pixel_buffer(read_depth_buffer_id);
-      read_depth_buffer.read_pixels();      
+      read_depth_buffer.read_pixels();
       read_depth_buffer.unuse();
       const GLfloat * depth_data = (const GLfloat*) read_depth_buffer.map_buffer_read_only();
-      
+
       // communication and composition scratch space
       auto other_pixel_data = std::make_unique_for_overwrite<uint32_t[]>( alloc_comm_pixels );
       auto other_depth_data = std::make_unique_for_overwrite<GLfloat []>( alloc_comm_pixels );
@@ -124,11 +126,11 @@ namespace OnikaEGLRender
           }
         }
       }
-      
+
       ldbg <<"merged "<<composed_pixel_count<<" pixels"<<std::endl;
 
       MPI_Gather( comp_d_pixels , comm_pixel_sz , MPI_UNSIGNED , other_pixel_data.get() , comm_pixel_sz , MPI_UNSIGNED , 0 , *mpi );
-      
+
       if( rank == 0 )
       {
         int write_pixel_buffer_id = egl_render_manager->create_pixel_buffer("mpi_compose_write_pixel_buffer",width,height,GL_RGBA,GL_PIXEL_UNPACK_BUFFER);
@@ -144,7 +146,7 @@ namespace OnikaEGLRender
         }
         write_pixel_buffer.unmap_buffer();
         write_pixel_buffer.copy_to_texture();
-        
+
         int fb_id = egl_render_manager->frame_buffer_id("mpi_compose_framebuffer");
         if( fb_id < 0 )
         {
