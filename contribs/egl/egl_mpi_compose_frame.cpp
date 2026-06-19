@@ -65,25 +65,17 @@ namespace OnikaEGLRender
 
       int read_color_buffer_id = egl_render_manager->create_pixel_buffer( "mpi_compose_read_color_buffer" , width, height + nproc, GL_RGBA, GL_PIXEL_PACK_BUFFER );
       auto & read_color_buffer = egl_render_manager->pixel_buffer(read_color_buffer_id);
-      // auto pixel_data = std::make_unique_for_overwrite<uint32_t[]>(alloc_pixel_sz);
-      // glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
       read_color_buffer.read_pixels();
       read_color_buffer.unuse();
       const uint32_t * pixel_data = (const uint32_t*) read_color_buffer.map_buffer_read_only();
-      uint32_t pix_min = 0xFFFFFFFF, pix_max = 0;
-      for(int i=0;i<(width*height);i++) if( pixel_data[i]<pix_min ) pix_min=pixel_data[i]; else if ( pixel_data[i]>pix_max ) pix_max=pixel_data[i];
 
       int read_depth_buffer_id = egl_render_manager->create_pixel_buffer( "mpi_compose_read_depth_buffer" , width, height + nproc, GL_DEPTH_COMPONENT, GL_PIXEL_PACK_BUFFER );
       auto & read_depth_buffer = egl_render_manager->pixel_buffer(read_depth_buffer_id);
-      // auto depth_data = std::make_unique_for_overwrite<GLfloat[]>(alloc_pixel_sz);
-      // glReadPixels(0, 0, width, height,  GL_DEPTH_COMPONENT , GL_FLOAT, NULL );   
       read_depth_buffer.read_pixels();      
       read_depth_buffer.unuse();
       const GLfloat * depth_data = (const GLfloat*) read_depth_buffer.map_buffer_read_only();
-      GLfloat depth_min = 1e32, depth_max = -1e32;
-      for(int i=0;i<(width*height);i++) if( depth_data[i]<depth_min ) depth_min=depth_data[i]; else if ( depth_data[i]>depth_max ) depth_max=depth_data[i];
-      ldbg << "pixel buffer : color in ["<<pix_min<<";"<<pix_max<<"] , depth in ["<<depth_min<<";"<<depth_max<<"]"<<std::endl;
       
+      // communication and composition scratch space
       auto other_pixel_data = std::make_unique_for_overwrite<uint32_t[]>( alloc_comm_pixels );
       auto other_depth_data = std::make_unique_for_overwrite<GLfloat []>( alloc_comm_pixels );
 
@@ -148,9 +140,10 @@ namespace OnikaEGLRender
           const auto hsize = hend - hstart;
           const uint32_t * s_pixels = other_pixel_data.get() + comm_pixel_sz * p;
           uint32_t * d_pixels = out_pixel_data + hstart * width;
-          std::memcpy( d_pixels , s_pixels , hsize * width );
+          std::memcpy( d_pixels , s_pixels , hsize * width * 4 );
         }
         write_pixel_buffer.unmap_buffer();
+        write_pixel_buffer.copy_to_texture();
         
         int fb_id = egl_render_manager->frame_buffer_id("mpi_compose_framebuffer");
         if( fb_id < 0 )

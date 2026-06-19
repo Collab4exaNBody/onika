@@ -22,8 +22,8 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/log.h>
-
 #include <EGLRender/egl_render_manager.h>
+#include <mpi.h>
 
 namespace OnikaEGLRender
 {
@@ -49,6 +49,7 @@ namespace OnikaEGLRender
 
   class EGLRenderEventHandler : public OperatorNode
   {
+    ADD_SLOT( MPI_Comm , mpi , INPUT_OUTPUT , MPI_COMM_WORLD );
     ADD_SLOT( std::string , surface        , INPUT , "window" );
     ADD_SLOT( std::string , camera        , INPUT , "camera" );
     ADD_SLOT( bool , sim_continue , INPUT_OUTPUT , true );
@@ -63,62 +64,75 @@ namespace OnikaEGLRender
       auto & ren_surf = egl_render_manager->surface(*surface);
       ldbg << "EGL : egl_handle_events surface="<< *surface << " , camera="<< *camera <<std::endl;
 
+      int nproc = 1;      
+      int rank = 0;
+      MPI_Comm_rank(*mpi,&rank);
+      MPI_Comm_size(*mpi,&nproc);
+     
       auto & uistate = egl_interaction_handler->m_uistate;
-      if( ! egl_interaction_handler->m_callbacks.on_button_press )
+      
+      // process interactive events only on MPI process 0
+      if( rank == 0 )
       {
-        egl_interaction_handler->m_callbacks.on_button_press = [&uistate](int state, int b, int x,int y)
+        if( ! egl_interaction_handler->m_callbacks.on_button_press )
         {
-          uistate.mouse_button[b-1] = 1;
-          uistate.mouse_coord[0] = x;
-          uistate.mouse_coord[1] = y;
-        };
-        ren_surf.m_event_handler.on_button_press = egl_interaction_handler->m_callbacks.on_button_press;
-      }
-      if( ! egl_interaction_handler->m_callbacks.on_button_release )
-      {
-        egl_interaction_handler->m_callbacks.on_button_release = [&uistate](int state, int b, int x,int y)
-        {
-          uistate.mouse_button[b-1] = 0;
-          uistate.mouse_coord[0] = x;
-          uistate.mouse_coord[1] = y;
-        };
-        ren_surf.m_event_handler.on_button_release = egl_interaction_handler->m_callbacks.on_button_release;
-      }
-      if( ! egl_interaction_handler->m_callbacks.on_mouse_move )
-      {
-        egl_interaction_handler->m_callbacks.on_mouse_move = [&uistate](int x,int y)
-        {
-          int dx = x - uistate.mouse_coord[0];
-          int dy = y - uistate.mouse_coord[1];
-          uistate.mouse_coord[0] = x;
-          uistate.mouse_coord[1] = y;
-          if( uistate.mouse_button[0] )
+          egl_interaction_handler->m_callbacks.on_button_press = [&uistate](int state, int b, int x,int y)
           {
-            uistate.tilt[0] += dx;
-            uistate.tilt[1] += dy;
-          }
-          if( uistate.mouse_button[1] )
-          {
-            uistate.move[0] += dx;
-            uistate.move[1] += dy;
-          }
-          if( uistate.mouse_button[2] )
-          {
-            uistate.move[2] += dy;
-          }
-        };
-        ren_surf.m_event_handler.on_mouse_move = egl_interaction_handler->m_callbacks.on_mouse_move;
-      }
-      if( ! egl_interaction_handler->m_callbacks.on_key_release )
-      {
-        egl_interaction_handler->m_callbacks.on_key_release = [&uistate](int key)
+            uistate.mouse_button[b-1] = 1;
+            uistate.mouse_coord[0] = x;
+            uistate.mouse_coord[1] = y;
+          };
+          ren_surf.m_event_handler.on_button_press = egl_interaction_handler->m_callbacks.on_button_press;
+        }
+        if( ! egl_interaction_handler->m_callbacks.on_button_release )
         {
-          if( key == 65307 ) uistate.should_exit = 1;
-        };
-        ren_surf.m_event_handler.on_key_release = egl_interaction_handler->m_callbacks.on_key_release;
-      }
+          egl_interaction_handler->m_callbacks.on_button_release = [&uistate](int state, int b, int x,int y)
+          {
+            uistate.mouse_button[b-1] = 0;
+            uistate.mouse_coord[0] = x;
+            uistate.mouse_coord[1] = y;
+          };
+          ren_surf.m_event_handler.on_button_release = egl_interaction_handler->m_callbacks.on_button_release;
+        }
+        if( ! egl_interaction_handler->m_callbacks.on_mouse_move )
+        {
+          egl_interaction_handler->m_callbacks.on_mouse_move = [&uistate](int x,int y)
+          {
+            int dx = x - uistate.mouse_coord[0];
+            int dy = y - uistate.mouse_coord[1];
+            uistate.mouse_coord[0] = x;
+            uistate.mouse_coord[1] = y;
+            if( uistate.mouse_button[0] )
+            {
+              uistate.tilt[0] += dx;
+              uistate.tilt[1] += dy;
+            }
+            if( uistate.mouse_button[1] )
+            {
+              uistate.move[0] += dx;
+              uistate.move[1] += dy;
+            }
+            if( uistate.mouse_button[2] )
+            {
+              uistate.move[2] += dy;
+            }
+          };
+          ren_surf.m_event_handler.on_mouse_move = egl_interaction_handler->m_callbacks.on_mouse_move;
+        }
+        if( ! egl_interaction_handler->m_callbacks.on_key_release )
+        {
+          egl_interaction_handler->m_callbacks.on_key_release = [&uistate](int key)
+          {
+            if( key == 65307 ) uistate.should_exit = 1;
+          };
+          ren_surf.m_event_handler.on_key_release = egl_interaction_handler->m_callbacks.on_key_release;
+        }
 
-      ren_surf.process_events();
+        ren_surf.process_events();
+      }      
+
+      // broadcast interaction state to other processes
+      MPI_Bcast( & uistate , sizeof(UserInteractionState) , MPI_CHAR , 0 , *mpi );
       
       if( uistate.should_exit )
       {
