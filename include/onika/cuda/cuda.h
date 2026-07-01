@@ -373,7 +373,7 @@ namespace onika
     [[ deprecated ]]
     typedef ONIKA_GPU_DEVICE_EXECUTION_TYPE gpu_device_execution_t; // DO NOT use this one anymore, it breaks C++'s ODF
 
-#   define gpu_device_execution() ONIKA_GPU_DEVICE_EXECUTION_TYPE{}
-#   define gpu_frontend_compiler() ONIKA_GPU_FRONTEND_COMPILER{}
+    inline constexpr auto gpu_device_execution() { return ONIKA_GPU_DEVICE_EXECUTION_TYPE{}; }
+    inline constexpr auto gpu_frontend_compiler() { return ONIKA_GPU_FRONTEND_COMPILER{}; }
   }
 }
