@@ -52,27 +52,11 @@ namespace memory
     const FlatTuple<CTorArgs...> m_ctor_args;
     
     template<size_t... Ints>
-    ONIKA_HOST_DEVICE_FUNC inline void ctor_with_args( size_t i, std::index_sequence<Ints...> )
+    ONIKA_HOST_DEVICE_FUNC inline void construct_with_args( size_t i, std::index_sequence<Ints...> )
     {
       new(m_dst_pointer+i) T ( m_ctor_args.get(tuple_index<Ints>) ... );
     }
-    
-    ONIKA_HOST_DEVICE_FUNC inline void move_item( size_t i )
-    {
-      new(m_dst_pointer+i) T ( std::move( m_src_pointer[i] ) );
-    }
-
-    ONIKA_HOST_DEVICE_FUNC inline void copy_item( size_t i )
-    {
-      if constexpr ( std::is_trivially_copyable_v<T> ) m_dst_pointer[i] = m_src_pointer[i];
-      else new(m_dst_pointer+i) T ( m_src_pointer[i] );
-    }
-    
-    ONIKA_HOST_DEVICE_FUNC inline void del_item( size_t i )
-    {
-      m_dst_pointer[i].~T();
-    }
-    
+        
     ONIKA_HOST_DEVICE_FUNC inline void operator () (size_t i) const
     {
       if( m_src_pointer != m_dst_pointer )
@@ -81,25 +65,28 @@ namespace memory
         {
           if( m_move_src )
           {
-            if( i < m_dst_prev_size ) m_dst_pointer[i] = std::move( m_src_pointer[i] ); // move copy
+            if( i < m_dst_prev_size ) m_dst_pointer[i] = std::move( m_src_pointer[i] ); // move assign
             else new(m_dst_pointer+i) T ( std::move( m_src_pointer[i] ) ); // move construct
           }
           else
           {
-            if( i < m_dst_prev_size ) m_dst_pointer[i] = m_src_pointer[i]; // copy
+            if( i < m_dst_prev_size ) m_dst_pointer[i] = m_src_pointer[i]; // copy assign
             else new(m_dst_pointer+i) T ( m_src_pointer[i] ); // copy constructor
           }
         }
+        if( m_del_src && i < m_src_size ) m_src_pointer[i].T::~T();
       }
       if( i >= m_dst_size && i < m_dst_prev_size ) m_dst_pointer[i].T::~T();
-      if( i < m_src_size && m_del_src ) m_src_pointer[i].T::~T();
+      if( i >= m_dst_prev_size && i < m_dst_size ) construct_with_args(i,std::index_sequence<m_ctor_args.size()>{});
     }
   };
 
   template<class InitFunctorT>
   ONIKA_DEVICE_KERNEL_FUNC
   ONIKA_STATIC_INLINE_KERNEL
-  void initialize_array_gpu_kernel( const __grid_constant__ size_t init_start, const __grid_constant__ size_t init_elements, const __grid_constant__ InitFunctorT init_func )
+  void initialize_array_gpu_kernel( const ONIKA_CU_GRID_CONSTANT size_t init_start
+                                  , const ONIKA_CU_GRID_CONSTANT size_t init_elements
+                                  , const ONIKA_CU_GRID_CONSTANT InitFunctorT init_func )
   {
     const size_t i = ONIKA_CU_BLOCK_IDX * ONIKA_CU_BLOCK_SIZE + ONIKA_CU_THREAD_IDX;
     if( i < init_elements )
@@ -123,6 +110,7 @@ namespace memory
     ONIKA_HOST_DEVICE_FUNC inline const T & operator [] (size_t i) const { return m_data_pointer[i]; }
     ONIKA_HOST_DEVICE_FUNC inline T & operator [] (size_t i) { return m_data_pointer[i]; }
     ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
+    ONIKA_HOST_DEVICE_FUNC inline size_t capacity() const { return m_capacity; }
     ONIKA_HOST_DEVICE_FUNC inline T * data() const { return m_data_pointer; }
     ONIKA_HOST_DEVICE_FUNC inline T * begin() const { return m_data_pointer; }
     ONIKA_HOST_DEVICE_FUNC inline T * end() const { return m_data_pointer + m_size; }
@@ -130,6 +118,36 @@ namespace memory
     ONIKA_HOST_DEVICE_FUNC inline CudaMMVector() {}
     
     ONIKA_HOST_DEVICE_FUNC inline CudaMMVector(CudaMMVector && other)
+    {
+      move_from( std::move(other) );
+    }
+
+    inline CudaMMVector(size_t sz, const T& defval)
+    {
+      resize( sz , defval );
+    }
+
+    inline CudaMMVector(size_t sz)
+    {
+      resize( sz );
+    }
+    
+    inline CudaMMVector(const CudaMMVector& other)
+    {
+      copy_from(other);
+    }
+
+    inline CudaMMVector& operator = (const CudaMMVector& other)
+    {
+      copy_from(other);
+    }
+
+    ONIKA_HOST_DEVICE_FUNC inline CudaMMVector& operator = (CudaMMVector&& other)
+    {
+      move_from( std::move(other) );
+    }
+
+    ONIKA_HOST_DEVICE_FUNC inline void move_from(CudaMMVector && other)
     {
       m_data_pointer = other.m_data_pointer;
       m_size = other.m_size;
@@ -139,13 +157,47 @@ namespace memory
       other.m_capacity = 0;
     }
 
-    inline CudaMMVector(size_t sz, const T& defval = {})
+    inline void copy_from(const CudaMMVector& other)
     {
-      resize(sz,defval);
+      using InitFuncT = GPUDataInitFunctor<T>;
+      if( other.size() > capacity() )
+      {
+        // calls destructor before deallocate
+        apply_init( 0, size(), InitFuncT{ m_data_pointer, m_data_pointer, 0, size(), 0, false, false, onika::FlatTuple<>{} } );
+        CudaManagedAllocator<T>::deallocate( m_data_pointer , m_capacity );
+        m_capacity = other.size();
+        m_data_pointer = CudaManagedAllocator<T>::allocate( m_capacity );
+        m_size = 0;
+      }
+      apply_init( 0, std::max(size(),other.size())
+                , InitFuncT{ other.m_data_pointer, m_data_pointer, other.size(), size(), other.size(), false, false, onika::FlatTuple<>{} }
+                );
+      m_size = other.size();
     }
-    
-    inline CudaMMVector(const CudaMMVector& other)
+
+    ONIKA_HOST_DEVICE_FUNC inline void shrink_to_fit() { }
+
+    template<class... ConstructorArgs>
+    inline void resize(size_t sz, const ConstructorArgs & ... ctor_args )
     {
+      using InitFuncT = GPUDataInitFunctor<T,ConstructorArgs...>;
+      using ArgsTupleT = onika::FlatTuple<ConstructorArgs...>;
+      T * const old_ptr = m_data_pointer;
+      const size_t old_capacity = m_capacity;
+      const size_t old_size = m_size;
+      if( sz > m_capacity )
+      {
+        if( m_capacity*2 >= m_size ) m_capacity *= 2;
+        else m_capacity = m_size;
+        m_data_pointer = CudaManagedAllocator<T>::allocate( m_capacity );
+      }
+      m_size = sz;
+      const bool move_data = ( old_ptr != m_data_pointer );
+      const size_t prev_size = move_data ? 0 : old_size;
+      const size_t init_start = move_data ? 0 : std::min(old_size,m_size);
+      const size_t init_end = std::max(old_size,size);
+      apply_init( init_start, init_end, InitFuncT{ old_ptr, m_data_pointer, old_size, prev_size, m_size, true, true, ArgsTupleT{ctor_args...} } );
+      if( m_data_pointer != old_ptr ) CudaManagedAllocator<T>::deallocate( old_ptr , old_capacity );
     }
 
     template<class InitFuncT>
@@ -168,48 +220,6 @@ namespace memory
 #       pragma omp parallel for schedule(static)
         for(size_t i=init_start;i<init_end;i++) init_func(i);
       }
-    }
-
-    template<class... ConstructorArgs>
-    static inline void do_transfer_init(T * const src_pointer, size_t src_size, T * const dst_pointer, size_t dst_size, bool copy_flag, const ConstructorArgs & ... ctor_args )
-    {
-      const size_t transfer_count = std::min(src_size,dst_size);
-      const size_t init_start = ( src_pointer != dst_pointer ) ? 0 : transfer_count;
-      const size_t init_end = std::max(src_size,dst_size);
-      if( init_end > init_start )
-      {
-        const size_t init_elements = init_end - init_start;
-        const size_t ctor_count = ( dst_size > src_size ) ? dst_size : transfer_count;
-        const size_t dtor_count = ( dst_size < src_size ) ? src_size : ctor_count;
-        GPUDataInitFunctor<T,ConstructorArgs...> init_func = { old_ptr, m_data_pointer, transfer_count, ctor_count, dtor_count, copy_flag, onika::FlatTuple<ConstructorArgs...>{ctor_args...} };
-        apply_init(init_start,init_end,init_func);
-      }
-    }
-
-    inline void copy_from(const CudaMMVector& other)
-    {
-      if( m_capacity < other.size() )
-      GPUDataInitFunctor<T> array_init_func = { old_ptr, m_data_pointer, transfer_count, ctor_count, dtor_count, true };
-    }
-
-    template<class... ConstructorArgs>
-    inline void resize(size_t sz, const ConstructorArgs & ... ctor_args )
-    {
-      T * const old_ptr = m_data_pointer;
-      const size_t old_capacity = m_capacity;
-      const size_t old_size = m_size;
-
-      if( sz > m_capacity )
-      {
-        if( m_capacity*2 >= m_size ) m_capacity *= 2;
-        else m_capacity = m_size;
-        m_data_pointer = CudaManagedAllocator<T>::allocate( m_capacity );
-      }
-      m_size = sz;
-
-      ...
-
-      if( m_data_pointer != old_ptr ) CudaManagedAllocator<T>::deallocate( old_ptr , old_capacity );
     }
 
     inline void clear() { resize(0); }
