@@ -68,13 +68,15 @@ namespace memory
     T * const m_src_pointer = nullptr;
     T * const m_dst_pointer = nullptr;
 
-    const size_t m_src_size = 0;
-    const size_t m_dst_prev_size = 0;
-    const size_t m_dst_size = 0;
+    const size_t m_src_size = 0; // number of items to be transfered from src to dst
+    // (if m_src_pointer is null however, elements are initialized rather than transfered
+    const size_t m_dst_prev_size = 0; // number of constructed items in dst buffer
+    const size_t m_dst_size = 0; // total number of items in dst buffer
 
-    const bool m_move_src = true;
-    const bool m_del_src = true;
+    const bool m_move_src = true; // use move instead of copy
+    const bool m_del_src = true; // destruct src elements after they are transfered
     
+    // constructor parameters to intialized newly constructed elements in dst
     const FlatTuple<CTorArgs...> m_ctor_args = {};
     
     template<size_t... Ints>
@@ -133,11 +135,12 @@ namespace memory
    * and elements are NOT conserved across resize
    */
   template<class T>
-  struct CudaMMVector
+  struct alignas(32) CudaMMVector
   {
     T * __restrict__ m_data_pointer = nullptr;
     size_t m_size = 0;
     size_t m_capacity = 0;
+    bool m_host_access_hint = false; // if true, will always use cpu to initialize/write buffer
     
     ONIKA_HOST_DEVICE_FUNC inline const T & operator [] (size_t i) const { return m_data_pointer[i]; }
     ONIKA_HOST_DEVICE_FUNC inline T & operator [] (size_t i) { return m_data_pointer[i]; }
@@ -179,6 +182,16 @@ namespace memory
     ONIKA_HOST_DEVICE_FUNC inline CudaMMVector& operator = (CudaMMVector&& other)
     {
       move_from( std::move(other) );
+    }
+
+    inline void set_host_access_hint(bool h)
+    {
+      m_host_access_hint = h;
+    }
+
+    inline bool host_access_hint(bool h) const
+    {
+      return m_host_access_hint;
     }
 
     inline void push_back(const T& item)
@@ -298,14 +311,14 @@ namespace memory
     }
 
     template<class InitFuncT>
-    static inline void apply_init( size_t init_start, size_t init_end, const InitFuncT& init_func )
+    inline void apply_init( size_t init_start, size_t init_end, const InitFuncT& init_func )
     {
       if( init_end <= init_start ) return;
       const size_t init_elements = init_end - init_start;
       bool cpu_init = true;
       if constexpr( gpu_frontend_compiler() )
       {
-        if( onika::cuda::get_default_cuda_ctx()!=nullptr && onika::cuda::get_global_gpu_enable() )
+        if( !m_host_access_hint && onika::cuda::get_default_cuda_ctx()!=nullptr && onika::cuda::get_global_gpu_enable() )
         {
           static constexpr size_t bsize = 64;
           ONIKA_CU_LAUNCH_KERNEL( (init_elements+bsize-1)/bsize,bsize,0,0,initialize_array_gpu_kernel,init_start,init_elements,init_func);
