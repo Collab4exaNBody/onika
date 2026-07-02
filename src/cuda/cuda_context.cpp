@@ -24,6 +24,10 @@ namespace onika
 
   namespace cuda
   {
+    // function bridges with forward declarations in cuda.h
+    // for code portions needing it befor cuda_context.h is included
+    CudaContext * get_default_cuda_ctx() { return CudaContext::default_cuda_ctx(); }
+    bool get_global_gpu_enable() { return CudaContext::global_gpu_enable(); }
 
     bool CudaContext::s_global_gpu_enable = true;
 

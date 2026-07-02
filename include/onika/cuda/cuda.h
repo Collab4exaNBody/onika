@@ -364,16 +364,28 @@ ONIKA_DEVICE_FUNC inline double atomicMax(double* xp , double y)
 
 
 
-// user helpers to select implementations depending on Cuda or Host execution space
 #include <onika/integral_constant.h>
 namespace onika
 {
   namespace cuda
   {
+    // user helpers to select implementations depending on Cuda or Host execution space
     [[ deprecated ]]
     typedef ONIKA_GPU_DEVICE_EXECUTION_TYPE gpu_device_execution_t; // DO NOT use this one anymore, it breaks C++'s ODF
 
-    inline constexpr auto gpu_device_execution() { return ONIKA_GPU_DEVICE_EXECUTION_TYPE{}; }
-    inline constexpr auto gpu_frontend_compiler() { return ONIKA_GPU_FRONTEND_COMPILER{}; }
+    // must be a macro in order not to break ODR
+#   define gpu_device_execution() ONIKA_GPU_DEVICE_EXECUTION_TYPE{}
+#   define gpu_frontend_compiler() ONIKA_GPU_FRONTEND_COMPILER{}
+
+    // some forward declarations for code portions which needs theses informations
+    // before cuda_context.h is included
+    struct CudaContext;
+    CudaContext * get_default_cuda_ctx(); // equivalent to CudaContext::default_cuda_ctx()
+    bool get_global_gpu_enable(); // equivalent to CudaContext::global_gpu_enable()
+
+    template<class T>
+    inline constexpr long onika_dim3_size(const T& d) requires( ! std::is_arithmetic_v<T> ) { return d.x*d.y*d.z; }
+    template<class T>
+    inline constexpr long onika_dim3_size(const T& d) requires( std::is_arithmetic_v<T> ) { return long(d); }
   }
 }

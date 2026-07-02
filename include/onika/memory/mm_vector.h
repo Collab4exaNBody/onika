@@ -35,6 +35,32 @@ namespace memory
 
   template<class T> using CudaMMVector = std::vector< T , CudaManagedAllocator<T> >;
 
+  /*
+   * Simple array with managed memory allocation.
+   * WARNING: this is not a std::vector, resize fully deallocates and reallocates memory at each call,
+   * and elements are NOT conserved across resize
+   */
+  template<class T>
+  struct CudaMMArray
+  {
+    T * m_data_pointer = nullptr;
+    size_t m_size = 0;
+    ONIKA_HOST_DEVICE_FUNC inline const T & operator [] (size_t i) const { return m_data_pointer[i]; }
+    ONIKA_HOST_DEVICE_FUNC inline T & operator [] (size_t i) { return m_data_pointer[i]; }
+    ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
+    inline void resize(size_t sz)
+    {
+      if( m_data_pointer != nullptr ) CudaManagedAllocator<T>::deallocate( m_data_pointer , m_size );
+      m_size = sz;
+      if( m_size > 0 ) m_data_pointer = CudaManagedAllocator<T>::allocate( m_size );
+      else m_data_pointer = nullptr;
+    }
+    inline void clear() { resize(0); }
+    inline T * begin() const { return m_data_pointer; }
+    inline T * end() const { return m_data_pointer + m_size; }
+    inline ~CudaMMArray() { clear(); }
+  };
+
 # else
 
   template<class T, class... CTorArgs> struct GPUDataInitFunctor
@@ -206,9 +232,9 @@ namespace memory
       if( init_end <= init_start ) return;
       const size_t init_elements = init_end - init_start;
       bool cpu_init = true;
-      if constexpr( ::onika::cuda::gpu_frontend_compiler() )
+      if constexpr( gpu_frontend_compiler() )
       {
-        if( onika::cuda::CudaContext::default_cuda_ctx()!=nullptr && onika::cuda::CudaContext::global_gpu_enable() )
+        if( onika::cuda::get_default_cuda_ctx()!=nullptr && onika::cuda::get_global_gpu_enable() )
         {
           static constexpr size_t bsize = 64;
           ONIKA_CU_LAUNCH_KERNEL( (init_elements+bsize-1)/bsize,bsize,0,0,initialize_array_gpu_kernel,init_start,init_elements,init_func);
@@ -232,6 +258,8 @@ namespace memory
       m_capacity = 0;
     }
   };
+
+  template<class T> using CudaMMArray = CudaMMVector<T>;
 
 # endif // ONIKA_STL_BASED_MM_VECTOR
 
