@@ -22,7 +22,6 @@ under the License.
 #include <vector>
 #include <ranges>
 #include <onika/cuda/cuda.h>
-#include <onika/cuda/ro_shallow_copy.h>
 #include <onika/type_utils.h>
 
 namespace onika
@@ -67,6 +66,8 @@ namespace onika
       // else { /* nothing to do */ }
     }
 
+# ifdef ONIKA_STL_BASED_MM_VECTOR
+
     template<class T, class A>
     struct CudaStdVectorAccess : public std::vector<T,A>
     {
@@ -105,6 +106,18 @@ namespace onika
     template<class T> ONIKA_HOST_DEVICE_FUNC inline size_t vector_size( const VectorShallowCopy<T>& v ) { return v.size(); }
     template<class T> ONIKA_HOST_DEVICE_FUNC inline const T* vector_data( const VectorShallowCopy<T>& v ) { return v.data(); }
     template<class T> ONIKA_HOST_DEVICE_FUNC inline T* vector_data( VectorShallowCopy<T>& v ) { return v.data(); }
+
+#   else
+
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline const T * vector_data( const onika::memory::CudaMMVector<T> & v ) { return v.data(); }
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline T * vector_data( onika::memory::CudaMMVector<T> & v ) { return v.data(); }
+
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline size_t vector_size( const onika::memory::CudaMMVector<T> & v ) { return v.size(); }
+
+#   endif
 
     template<class Iterator, class T>
     ONIKA_HOST_DEVICE_FUNC inline Iterator lower_bound( Iterator begin , Iterator end , const T& x )

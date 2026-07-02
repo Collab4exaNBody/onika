@@ -20,44 +20,19 @@ under the License.
 
 #include <cstdlib>
 #include <cassert>
-#include <vector>
 #include <onika/cuda/cuda.h>
+#include <vector>
+#include <span>
+#include <onika/memory/mm_vector.h>
+#include <onika/cuda/stl_adaptors.h>
 
 namespace onika
 {
-
   namespace cuda
   {
-
-    template<class T> struct VectorShallowCopy
-    {
-      const T * m_data = nullptr;
-      size_t m_size = 0;
-      
-      VectorShallowCopy() = default;
-      VectorShallowCopy(const VectorShallowCopy&) = default;
-      VectorShallowCopy(VectorShallowCopy&&) = default;
-      VectorShallowCopy& operator = (const VectorShallowCopy&) = default;
-      VectorShallowCopy& operator = (VectorShallowCopy&&) = default;
-
-      template<class A>
-      inline VectorShallowCopy(const std::vector<T,A>& other) : m_data(other.data()) , m_size(other.size()) {}
-
-      inline VectorShallowCopy(const T * ptr, size_t sz) : m_data(ptr) , m_size(sz) {}
-      
-      ONIKA_HOST_DEVICE_FUNC inline T* data() { return m_data; }
-      ONIKA_HOST_DEVICE_FUNC inline const T* data() const { return m_data; }
-      
-      ONIKA_HOST_DEVICE_FUNC inline bool empty() const { return m_size==0; }
-      ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
-      ONIKA_HOST_DEVICE_FUNC inline void resize(size_t n) const { assert( n == m_size ); }
-      
-      ONIKA_HOST_DEVICE_FUNC inline T& operator [] (size_t i) { return m_data[i]; }
-      ONIKA_HOST_DEVICE_FUNC inline const T& operator [] (size_t i) const { return m_data[i]; }
-    };
-
     template<class T> struct ReadOnlyShallowCopyType { using type = T; };
-    template<class T, class A> struct ReadOnlyShallowCopyType< std::vector<T,A> > { using type = VectorShallowCopy<T>; };
+    template<class T, class A> struct ReadOnlyShallowCopyType< std::vector<T,A> > { using type = onika::cuda::span<T>; };
+    template<class T> struct ReadOnlyShallowCopyType< onika::memory::CudaMMVector<T> > { using type = onika::cuda::span<T>; };
 
     template<class T> using ro_shallow_copy_t = typename ReadOnlyShallowCopyType<T>::type;
   }

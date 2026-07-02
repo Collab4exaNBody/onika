@@ -114,13 +114,13 @@ namespace memory
   {
     typedef T value_type;
 
-    inline T* allocate (std::size_t n)
+    static inline T* allocate (std::size_t n)
     {
       constexpr size_t al = (CUDA_FALLBACK_ALLOC_POLICY==HostAllocationPolicy::CUDA_HOST) ? std::max( alignof(T) , MINIMUM_CUDA_ALIGNMENT ) : alignof(T);
       return static_cast<T*>( GenericHostAllocator{CUDA_FALLBACK_ALLOC_POLICY} .allocate( sizeof(T) * n , al ) );
     }
 
-    inline void deallocate (T* p, std::size_t n)
+    static inline void deallocate (T* p, std::size_t n)
     {
       GenericHostAllocator{CUDA_FALLBACK_ALLOC_POLICY} .deallocate( p , sizeof(T) * n );
     }
@@ -138,8 +138,8 @@ namespace memory
   struct NullAllocator
   {
     typedef T value_type;
-    ONIKA_HOST_DEVICE_FUNC inline T* allocate (std::size_t n) { return nullptr; }
-    ONIKA_HOST_DEVICE_FUNC inline void deallocate (T* p, std::size_t n) { }
+    ONIKA_HOST_DEVICE_FUNC static inline T* allocate (std::size_t n) { return nullptr; }
+    ONIKA_HOST_DEVICE_FUNC static inline void deallocate (T* p, std::size_t n) { }
 
     template<class U> ONIKA_HOST_DEVICE_FUNC inline bool operator == (const U&) const { return false; }
     ONIKA_HOST_DEVICE_FUNC inline bool operator == (const NullAllocator<T>&) const { return true; }
