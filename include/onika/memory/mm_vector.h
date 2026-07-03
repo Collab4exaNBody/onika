@@ -102,14 +102,14 @@ namespace memory
     {
       if( i < m_src_size && i < m_dst_size )
       {
-        if( m_src_pointer == nullptr ) init_with_args(i,std::make_index_sequence<m_ctor_args.size()>{});
+        if( m_src_pointer == nullptr ) init_with_args(i,std::make_index_sequence<sizeof...(CTorArgs)>{});
         else if( m_move_src ) move_src_to_dst(i);
         else copy_src_to_dst(i);
       }
       else
       {
         if( i >= m_dst_size && i < m_dst_prev_size ) m_dst_pointer[i].T::~T();
-        if( i >= m_dst_prev_size && i < m_dst_size ) init_with_args(i,std::make_index_sequence<m_ctor_args.size()>{});
+        if( i >= m_dst_prev_size && i < m_dst_size ) init_with_args(i,std::make_index_sequence<sizeof...(CTorArgs)>{});
       }
       if( m_del_src && i < m_src_size && m_src_pointer != nullptr ) m_src_pointer[i].T::~T();
     }
