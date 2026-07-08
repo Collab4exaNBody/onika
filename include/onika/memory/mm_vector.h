@@ -55,8 +55,12 @@ namespace memory
     template<size_t... Ints>
     ONIKA_HOST_DEVICE_FUNC inline void init_value_ctor_args( size_t i , std::index_sequence<Ints...> ) const
     {
-      if( i < m_dst_prev_size ) destruct_dst(i);
-      new(m_dst_pointer+i) T( m_ctor_args.get(tuple_index<Ints>) ... );
+      if constexpr ( !gpu_device_execution() || ( supported_features<T>::gpu_destruct && supported_features<T>::gpu_non_default_construct && supported_features<T>::gpu_copy_construct ) )
+      {
+        if( i < m_dst_prev_size ) destruct_dst(i);
+        new(m_dst_pointer+i) T( m_ctor_args.get(tuple_index<Ints>) ... );
+      }
+      else { ONIKA_CU_ABORT(); }
     }
 
     ONIKA_HOST_DEVICE_FUNC inline void init_value( size_t i ) const
@@ -66,25 +70,41 @@ namespace memory
 
     ONIKA_HOST_DEVICE_FUNC inline void destruct_src( size_t i ) const
     {
-      m_src_pointer[i].T::~T();
+      if constexpr ( !gpu_device_execution() || supported_features<T>::gpu_destruct )
+      {
+        m_src_pointer[i].T::~T();
+      }
+      else { ONIKA_CU_ABORT(); }
     }
 
     ONIKA_HOST_DEVICE_FUNC inline void destruct_dst( size_t i ) const
     {
-      m_dst_pointer[i].T::~T();
+      if constexpr ( !gpu_device_execution() || supported_features<T>::gpu_destruct )
+      {
+        m_dst_pointer[i].T::~T();
+      }
+      else { ONIKA_CU_ABORT(); }
     }
 
     ONIKA_HOST_DEVICE_FUNC inline void move_src_to_dst( size_t i ) const requires(TransferFromSource && MoveSource)
     {
-      if( i < m_dst_prev_size ) m_dst_pointer[i] = std::move( m_src_pointer[i] ); // move assign
-      else new(m_dst_pointer+i) T ( std::move( m_src_pointer[i] ) ); // move construct
+      if constexpr ( !gpu_device_execution() || ( supported_features<T>::gpu_move_construct && supported_features<T>::gpu_move_assign ) )
+      {
+        if( i < m_dst_prev_size ) m_dst_pointer[i] = std::move( m_src_pointer[i] ); // move assign
+        else new(m_dst_pointer+i) T ( std::move( m_src_pointer[i] ) ); // move construct
+      }
+      else { ONIKA_CU_ABORT(); }
     }
 
     ONIKA_HOST_DEVICE_FUNC inline void copy_src_to_dst( size_t i ) const requires(TransferFromSource)
     {
-      if( i < m_dst_prev_size ) m_dst_pointer[i] = m_src_pointer[i]; // copy assign
-      else new(m_dst_pointer+i) T ( m_src_pointer[i] ); // copy constructor
-    }    
+      if constexpr ( !gpu_device_execution() || ( supported_features<T>::gpu_copy_construct && supported_features<T>::gpu_copy_assign ) )
+      {
+        if( i < m_dst_prev_size ) m_dst_pointer[i] = m_src_pointer[i]; // copy assign
+        else new(m_dst_pointer+i) T ( m_src_pointer[i] ); // copy constructor
+      }
+      else { ONIKA_CU_ABORT(); }
+    }
 
     ONIKA_HOST_DEVICE_FUNC inline void operator () (size_t i) const
     {
@@ -176,6 +196,7 @@ namespace memory
     ONIKA_HOST_DEVICE_FUNC inline CudaMMVector& operator = (CudaMMVector&& other)
     {
       move_from( std::move(other) );
+      return *this;
     }
 
     ONIKA_HOST_DEVICE_FUNC inline const T & operator [] (size_t i) const { return m_data_pointer[i]; }
@@ -318,12 +339,12 @@ namespace memory
       m_size = sz;      
       if( old_ptr != m_data_pointer )
       {
-        GPUDataInitFunctor<T,false,false,false> deinit_func = { nullptr, old_ptr, 0, old_size, 0, {} };
+        GPUDataInitFunctor<T,false,true,false> deinit_func = { nullptr, old_ptr, 0, old_size, 0, {} };
         apply_init( 0, old_size, std::move(deinit_func) );
         CudaManagedAllocator<T>::deallocate( old_ptr , old_capacity );
       }
       size_t reset_size = ( old_ptr != m_data_pointer ) ? 0 : old_size ;
-      GPUDataInitFunctor<T,false,false,false,CTorArgs...> init_func = { nullptr, m_data_pointer, reset_size, reset_size, m_size, std::move(init_ctor_args) };
+      GPUDataInitFunctor<T,false,true,false,CTorArgs...> init_func = { nullptr, m_data_pointer, reset_size, reset_size, m_size, std::move(init_ctor_args) };
       apply_init( 0, std::max(old_size,m_size), std::move(init_func) );
     }
 
@@ -380,8 +401,7 @@ namespace memory
           ( InitFuncT::MoveSource && supported_features<T>::gpu_move_construct && supported_features<T>::gpu_move_assign )
           ||
           ( !InitFuncT::MoveSource && supported_features<T>::gpu_copy_construct && supported_features<T>::gpu_copy_assign )
-        );
-      
+        );      
       if( init_end <= init_start ) return;
       const size_t init_elements = init_end - init_start;
       bool cpu_init = true;
