@@ -30,6 +30,7 @@ under the License.
 
 #include <utility>
 #include <type_traits>
+#include <onika/type_features.h>
 		
 namespace onika
 {
@@ -258,6 +259,7 @@ namespace onika
 	    static constexpr size_t alignment() { return Alignment; }
 	    static constexpr size_t chunksize() { return ChunkSize; }
 
+      ONIKA_HOST_DEVICE_FUNC
       inline FieldArraysWithAllocator()
       {
         init();
@@ -269,23 +271,8 @@ namespace onika
         init();
         resize( n , alloc );
       }
-      /*
-      inline FieldArraysWithAllocator(size_t n, const FieldTuple<ids...>& value )
-      {
-        init();
-        resize( n, value );
-      }
-      inline FieldArraysWithAllocator(size_t n, const typename FieldId<ids>::value_type & ... args )
-      {
-        init();
-        resize( n, FieldTuple<ids...>(args...) );
-      }
-      inline FieldArraysWithAllocator(size_t n, const std::tuple< typename FieldId<ids>::value_type ... > & value )
-      {
-        init();
-        resize( n, FieldTuple<ids...>(value) );
-      }
-      */
+
+      ONIKA_HOST_DEVICE_FUNC
       inline ~FieldArraysWithAllocator()
 	    {
 		    assert( empty() );
@@ -305,14 +292,7 @@ namespace onika
                        , std::true_type{} // field exists : required to be true for [] operator
                        ) , Alignment );
       }
-/*
-      ONIKA_HOST_DEVICE_FUNC
-      inline __attribute__((always_inline)) 
-      FieldArrayElementIndexAccessor operator [] ( FieldArrayElementIndex ) const
-      {
-        return {};
-      }
-*/
+
       template<typename _id>
       ONIKA_HOST_DEVICE_FUNC
       ONIKA_ALWAYS_INLINE
@@ -347,6 +327,7 @@ namespace onika
         TEMPLATE_LIST_END
       }
 
+      ONIKA_HOST_DEVICE_FUNC
       inline FieldArraysWithAllocator( FieldArraysWithAllocator && other )
         : m_size( other.m_size )
         , m_capacity( other.m_capacity )
@@ -367,6 +348,7 @@ namespace onika
         return *this;
       }
 
+      ONIKA_HOST_DEVICE_FUNC
       inline FieldArraysWithAllocator& operator = ( FieldArraysWithAllocator && other )
       {
         clear();
@@ -449,6 +431,7 @@ namespace onika
 
     private:
 
+      ONIKA_HOST_DEVICE_FUNC
       inline void reset()
       {
         m_size = 0;
@@ -456,6 +439,7 @@ namespace onika
         init();
       }
 
+      ONIKA_HOST_DEVICE_FUNC
       inline void init()
       {
         assert( size() == 0 );
@@ -605,5 +589,18 @@ namespace onika
     struct IsFieldArrays< FieldArraysWithAllocator<A,C,Al,N,Ids...> >  : public std::true_type {};
 
   } // namespace soatl
-}
 
+
+  template<size_t _Alignment, size_t _ChunkSize, typename _DefaultAllocator, size_t _NbStoredPointers, typename... ids >
+  struct supported_features< soatl::FieldArraysWithAllocator<_Alignment,_ChunkSize,_DefaultAllocator,_NbStoredPointers,ids...> >
+  {
+    static inline constexpr bool gpu_default_construct = true;
+    static inline constexpr bool gpu_non_default_construct = false; // if this is true and T has a copy constructor, then gpu_copy_construct must be true
+    static inline constexpr bool gpu_copy_construct = false;
+    static inline constexpr bool gpu_destruct = true;
+    static inline constexpr bool gpu_copy_assign = false;
+    static inline constexpr bool gpu_move_construct = true;
+    static inline constexpr bool gpu_move_assign = true;
+  };
+
+}

@@ -23,6 +23,7 @@ under the License.
 #include <ranges>
 #include <onika/cuda/cuda.h>
 #include <onika/type_utils.h>
+#include <onika/cuda/span.h>
 
 namespace onika
 {
@@ -66,58 +67,20 @@ namespace onika
       // else { /* nothing to do */ }
     }
 
-# ifdef ONIKA_STL_BASED_MM_VECTOR
-
-    template<class T, class A>
-    struct CudaStdVectorAccess : public std::vector<T,A>
-    {
-      ONIKA_HOST_DEVICE_FUNC inline const T* _cudata() const { return this->std::vector<T,A>::_M_impl._M_start; }
-      ONIKA_HOST_DEVICE_FUNC inline T* _cudata() { return this->std::vector<T,A>::_M_impl._M_start; }
-      ONIKA_HOST_DEVICE_FUNC inline size_t _cusize() const
-      {
-        return size_t( this->std::vector<T,A>::_M_impl._M_finish - this->std::vector<T,A>::_M_impl._M_start );
-      }
-    };
-
-    template<class T, class A>
-    ONIKA_HOST_DEVICE_FUNC inline T* vector_data( std::vector<T,A>& v )
-    {
-      static_assert( sizeof(CudaStdVectorAccess<T,A>) == sizeof(std::vector<T,A>) && alignof(CudaStdVectorAccess<T,A>) == alignof(std::vector<T,A>) );
-      CudaStdVectorAccess<T,A>* va = reinterpret_cast<CudaStdVectorAccess<T,A>*>( &v );
-      return va->_cudata();
-    }
-    
-    template<class T, class A>
-    ONIKA_HOST_DEVICE_FUNC inline const T* vector_data( const std::vector<T,A>& v )
-    {
-      static_assert( sizeof(CudaStdVectorAccess<T,A>) == sizeof(std::vector<T,A>) && alignof(CudaStdVectorAccess<T,A>) == alignof(std::vector<T,A>) );
-      const CudaStdVectorAccess<T,A>* va = reinterpret_cast<const CudaStdVectorAccess<T,A>*>( &v );
-      return va->_cudata();
-    }
-
-    template<class T, class A>
-    ONIKA_HOST_DEVICE_FUNC inline size_t vector_size( const std::vector<T,A>& v )
-    {
-      static_assert( sizeof(CudaStdVectorAccess<T,A>) == sizeof(std::vector<T,A>) && alignof(CudaStdVectorAccess<T,A>) == alignof(std::vector<T,A>) );
-      const CudaStdVectorAccess<T,A>* va = reinterpret_cast<const CudaStdVectorAccess<T,A>*>( &v );
-      return va->_cusize();
-    }
-
-    template<class T> ONIKA_HOST_DEVICE_FUNC inline size_t vector_size( const VectorShallowCopy<T>& v ) { return v.size(); }
-    template<class T> ONIKA_HOST_DEVICE_FUNC inline const T* vector_data( const VectorShallowCopy<T>& v ) { return v.data(); }
-    template<class T> ONIKA_HOST_DEVICE_FUNC inline T* vector_data( VectorShallowCopy<T>& v ) { return v.data(); }
-
-#   else
-
     template<class T>
     ONIKA_HOST_DEVICE_FUNC inline const T * vector_data( const onika::memory::CudaMMVector<T> & v ) { return v.data(); }
+    
     template<class T>
     ONIKA_HOST_DEVICE_FUNC inline T * vector_data( onika::memory::CudaMMVector<T> & v ) { return v.data(); }
 
     template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline T * vector_data( onika::cuda::span<T> v ) { return v.data(); }
+    
+    template<class T>
     ONIKA_HOST_DEVICE_FUNC inline size_t vector_size( const onika::memory::CudaMMVector<T> & v ) { return v.size(); }
 
-#   endif
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline size_t vector_size( onika::cuda::span<T> v ) { return v.size(); }
 
     template<class Iterator, class T>
     ONIKA_HOST_DEVICE_FUNC inline Iterator lower_bound( Iterator begin , Iterator end , const T& x )
@@ -129,22 +92,6 @@ namespace onika
       }
       return end;
     }
-
-    template<class T>
-    struct span
-    {
-      using value_type = T;
-      T * m_start;
-      size_t m_size;
-      ONIKA_HOST_DEVICE_FUNC inline T * data() { return m_start; }
-      ONIKA_HOST_DEVICE_FUNC inline const T * data() const { return m_start; }
-      ONIKA_HOST_DEVICE_FUNC inline T& operator [] (size_t i) { return m_start[i]; }
-      ONIKA_HOST_DEVICE_FUNC inline const T& operator [] (size_t i) const { return m_start[i]; }
-      ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
-      ONIKA_HOST_DEVICE_FUNC inline bool empty() const { return size() == 0; }
-      ONIKA_HOST_DEVICE_FUNC inline auto begin() const { return m_start; }
-      ONIKA_HOST_DEVICE_FUNC inline auto end() const { return m_start + m_size; }
-    };
     
     struct PrintfBaseStdOutStream
     {
@@ -161,24 +108,6 @@ namespace onika
     };
 
     static inline constexpr PrintfBaseStdOutStream cout = {};
-  }
-
-  // partial specialization to accept onika::cuda::span as span in implementation specializations
-  template<class T> struct is_span_t< ::onika::cuda::span<T> > : public std::true_type {};
-
-  namespace cuda
-  {
-    template< std::ranges::contiguous_range T >
-    inline span<const typename T::value_type> make_const_span(const T& r)
-    {
-      return { r.data() , r.size() };
-    }
-
-    template< std::ranges::contiguous_range T >
-    inline span<typename T::value_type> make_span(T& r)
-    {
-      return { r.data() , r.size() };
-    }
   }
 
 }
