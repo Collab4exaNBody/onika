@@ -17,7 +17,6 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <onika/type_features.h>
 #include <onika/memory/mm_vector.h>
 
 #include <onika/soatl/field_id.h>
@@ -75,21 +74,6 @@ struct NotGPUCopyable
     {}
 };
 
-namespace onika
-{
-  template<>
-  struct supported_features< NotGPUCopyable<true> >
-  {
-    static inline constexpr bool gpu_default_construct = true;
-    static inline constexpr bool gpu_non_default_construct = false; // if this is true and T has a copy constructor, then gpu_copy_construct must be true
-    static inline constexpr bool gpu_copy_construct = false;
-    static inline constexpr bool gpu_destruct = true;
-    static inline constexpr bool gpu_copy_assign = false;
-    static inline constexpr bool gpu_move_construct = true;
-    static inline constexpr bool gpu_move_assign = true;
-  };
-}
-
 using NotGPUCopyableNoTypeFeature = NotGPUCopyable<false>;
 using NotGPUCopyableTypeFeature = NotGPUCopyable<true>;
 
@@ -120,7 +104,7 @@ void test_mm_vector_nocopy( onika::memory::CudaMMVector<T> & vec1 , onika::memor
     vec2.resize( random_size() );
     vec1.resize( random_size() );
     if( random_size() < 300 ) vec1.clear();
-    vec1.assign(random_size() /* ,T{} */ ); // uses only default constructor and not copy constructor
+    vec1.assign(random_size() /* , T{} */ ); // instead of copy constructing with a default constructed parameter, calls default constructor on each new element
     vec1 = std::move(vec2);
   }
 }

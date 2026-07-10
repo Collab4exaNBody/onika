@@ -9,7 +9,8 @@
 
 namespace onika
 {
-  using Plot1D = onika::memory::CudaMMVector< onika::cuda::pair<double,double> >;
+  using PlotSample = onika::cuda::pair<double,double>;
+  using Plot1D = onika::memory::CudaMMVector< PlotSample >;
 
   struct Plot1DSet
   {

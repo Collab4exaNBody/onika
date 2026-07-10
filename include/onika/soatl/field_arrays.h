@@ -30,7 +30,6 @@ under the License.
 
 #include <utility>
 #include <type_traits>
-#include <onika/type_features.h>
 		
 namespace onika
 {
@@ -608,18 +607,5 @@ namespace onika
     struct IsFieldArrays< FieldArraysWithAllocator<A,C,Al,N,Ids...> >  : public std::true_type {};
 
   } // namespace soatl
-
-
-  template<size_t _Alignment, size_t _ChunkSize, typename _DefaultAllocator, size_t _NbStoredPointers, typename... ids >
-  struct supported_features< soatl::FieldArraysWithAllocator<_Alignment,_ChunkSize,_DefaultAllocator,_NbStoredPointers,ids...> >
-  {
-    static inline constexpr bool gpu_default_construct = true;
-    static inline constexpr bool gpu_non_default_construct = false; // if this is true and T has a copy constructor, then gpu_copy_construct must be true
-    static inline constexpr bool gpu_copy_construct = false;
-    static inline constexpr bool gpu_destruct = true;
-    static inline constexpr bool gpu_copy_assign = false;
-    static inline constexpr bool gpu_move_construct = true;
-    static inline constexpr bool gpu_move_assign = true;
-  };
 
 }
