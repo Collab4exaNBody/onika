@@ -195,8 +195,19 @@ namespace memory
     inline void resize(size_t sz , const CtorArgs& ... init_val_ctor)
     {
       if( sz > m_capacity ) realloc( (m_capacity*2>=sz) ? (m_capacity*2) : sz );
-      for(;m_size<sz;m_size++) new(m_data_pointer+m_size) T ( init_val_ctor ... );
-      for(;m_size>sz;m_size--) (m_data_pointer+m_size) -> T::~T();
+      
+      if constexpr ( ! std::is_trivially_destructible_v<T> || sizeof...(CtorArgs)>0 )
+      {
+        for(;m_size<sz;m_size++) new(m_data_pointer+m_size) T ( init_val_ctor ... );      
+      }
+      else m_size = std::max(sz,m_size);
+      
+      if constexpr ( ! std::is_trivially_destructible_v<T> )
+      {
+        for(;m_size>sz;m_size--) (m_data_pointer+m_size) -> T::~T();
+      }
+      else m_size = std::min( m_size, sz );
+      
       assert( m_size == sz );
     }
 
