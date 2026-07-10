@@ -75,6 +75,12 @@ namespace onika
 
     template<class T>
     ONIKA_HOST_DEVICE_FUNC inline T * vector_data( onika::cuda::span<T> v ) { return v.data(); }
+
+    template<class T, class U>
+    inline const T * vector_data( const std::vector<T,U> & v ) { return v.data(); }
+
+    template<class T, class U>
+    inline T * vector_data( std::vector<T,U> & v ) { return v.data(); }
     
     template<class T>
     ONIKA_HOST_DEVICE_FUNC inline size_t vector_size( const onika::memory::CudaMMVector<T> & v ) { return v.size(); }

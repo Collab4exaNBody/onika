@@ -183,7 +183,7 @@ namespace onika
     /**************************************
      *** Packed field arrays allocators ***
      **************************************/
-
+/*
     class PackedFieldArraysAllocator
     {
     public:
@@ -194,9 +194,9 @@ namespace onika
       virtual bool allocates_gpu_addressable() const =0;
       virtual void set_gpu_addressable_allocation(bool) =0;
     };
-
+*/
     template<class BaseAllocT, size_t Alignment, size_t ChunkSize, class... ids>
-    class PackedFieldArraysAllocatorImpl : public PackedFieldArraysAllocator
+    class PackedFieldArraysAllocatorImpl /* : public PackedFieldArraysAllocator */
     {
     public:
       // allocator that doesn't allocate anything. it's usefull to free pointers about which we don't known allocated size
@@ -204,37 +204,36 @@ namespace onika
   //    using NullAllocator = PackedFieldArraysAllocatorImpl<BaseAllocT,Alignment,ChunkSize>;
       
       PackedFieldArraysAllocatorImpl() = default;
-      virtual ~PackedFieldArraysAllocatorImpl() = default;
+      /* virtual */ ~PackedFieldArraysAllocatorImpl() = default;
 
       inline PackedFieldArraysAllocatorImpl(const BaseAllocT& base_alloc) : m_alloc( base_alloc ) {}
       
-      inline size_t allocation_bytes(size_t n_elements) const override final
+      inline size_t allocation_bytes(size_t n_elements) const // override final
       {
         return pfa_storage_size<Alignment,ChunkSize,FieldIds<ids...> >( n_elements );
       }
-      inline void* allocate(size_t n_elements) const override final
+      inline void* allocate(size_t n_elements) const // override final
       {
         return m_alloc.allocate( allocation_bytes(n_elements) , Alignment );
       }
-      inline void deallocate(void* ptr, size_t n_elements) const override final
+      inline void deallocate(void* ptr, size_t n_elements) const // override final
       {
         m_alloc.deallocate( ptr , allocation_bytes(n_elements) );
       }
-      inline bool is_gpu_addressable(void* ptr, size_t n_elements) const override final
+      inline bool is_gpu_addressable(void* ptr, size_t n_elements) const //override final
       {
         return m_alloc.is_gpu_addressable( ptr , allocation_bytes(n_elements) );
       }
-      inline bool allocates_gpu_addressable() const override final
+      inline bool allocates_gpu_addressable() const // override final
       {
         return m_alloc.allocates_gpu_addressable();
       }
-      inline void set_gpu_addressable_allocation(bool yn) override final
+      inline void set_gpu_addressable_allocation(bool yn) // override final
       {
         m_alloc.set_gpu_addressable_allocation( yn );
       }
-
       inline BaseAllocT& base_allocator() { return m_alloc; }
-    private:
+
       BaseAllocT m_alloc;
     };
 

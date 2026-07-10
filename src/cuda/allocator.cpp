@@ -68,72 +68,6 @@ namespace onika
     {
       m_alloc_policy = ( yn ? HostAllocationPolicy::CUDA_HOST : HostAllocationPolicy::MALLOC );
     }
-
-
-    MemoryChunkInfo GenericHostAllocator::memory_info( void* ptr , size_t s ) const
-    {
-      MemoryChunkInfo info;
-      info.alloc_base = ptr;
-      info.alloc_size = * reinterpret_cast<size_t*>( reinterpret_cast<uint8_t*>(ptr) + s );
-      if( s != info.alloc_size )
-      {
-        std::cerr<<"Corrupted allocation trailer ("<<s<<"!="<<info.alloc_size<<")\n"<<std::flush;
-        std::abort();
-      }
-      info.alloc_flags = * reinterpret_cast<uint32_t*>( reinterpret_cast<uint8_t*>(ptr) + s + sizeof(size_t) );
-
-      auto mem_type = info.mem_type();
-      unsigned int a = info.alignment();
-      unsigned int a2=1; while(a2<a) a2*=2;
-      bool flags_ok = ( mem_type==HostAllocationPolicy::CUDA_HOST || mem_type==HostAllocationPolicy::MALLOC ) && (a2==a) ;
-      if( ! flags_ok )
-      {
-        std::cerr<<"GenericHostAllocator: memory chunk corrupted\n"<<std::flush;
-        std::abort();
-      }
-
-      return info;
-    }
-
-    bool GenericHostAllocator::is_gpu_addressable( void* ptr , size_t s ) const
-    {
-      if( ptr == nullptr ) { return true; }
-      auto mem_type = memory_info(ptr,s).mem_type();
-      return (mem_type  == HostAllocationPolicy::CUDA_HOST );
-    }
-
-    void GenericHostAllocator::deallocate( void* ptr , size_t s ) const
-    {
-      if( ptr == nullptr )
-      {
-        assert( s == 0 );
-        return;
-      }
-      assert( s > 0 );
-      
-      // general case, allocated size is known
-      auto info = memory_info(ptr,s);
-      switch( info.mem_type() )
-      {
-        case HostAllocationPolicy::MALLOC :
-          if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"MALLOC: free "<<info.size()<<" bytes @"<<info.base_ptr()<<" align="<<info.alignment()<<std::endl; }
-          free(info.alloc_base);
-          break;
-        case HostAllocationPolicy::CUDA_HOST :
-          if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"CUDA: free "<<info.size()<<" bytes @"<<info.base_ptr()<<" align="<<info.alignment()<<std::endl; }
-#         ifdef ONIKA_CUDA_VERSION
-          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE(info.alloc_base) );
-#         else
-          std::cerr << "Free memory with type CUDA_HOST but cuda is not available" << std::endl;
-          std::abort();
-#         endif
-          break;
-        default:
-          std::cerr << "Corrupted memory flags (mem_type="<<(int)info.mem_type()<<")"<< std::endl;
-          std::abort();
-          break;
-      }      
-    }
   
     void* GenericHostAllocator::allocate(size_t s, size_t a) const
     {
@@ -202,6 +136,38 @@ namespace onika
       }
       
       return ptr;
+    }
+
+    void GenericHostAllocator::deallocate( void* ptr , size_t s ) const
+    {
+      if( ptr == nullptr )
+      {
+        assert( s == 0 );
+        return;
+      }
+      assert( s > 0 );
+      // general case, allocated size is known
+      auto info = memory_info(ptr,s);
+      switch( info.mem_type() )
+      {
+        case HostAllocationPolicy::MALLOC :
+          if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") printf("MALLOC: free %ld bytes @%p align=%d\n",long(info.size()),info.base_ptr(),int(info.alignment())); }
+          free(info.alloc_base);
+          break;
+        case HostAllocationPolicy::CUDA_HOST :
+          if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") printf("CUDA: free %ld bytes @%p align=%d\n",long(info.size()),info.base_ptr(),int(info.alignment())); }
+#         ifdef ONIKA_CUDA_VERSION
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE(info.alloc_base) );
+#         else
+          printf("Free memory with type CUDA_HOST but cuda is not available\n");
+          ONIKA_CU_ABORT();
+#         endif
+          break;
+        default:
+          printf("Corrupted memory flags (mem_type=%d)\n",(int)info.mem_type());
+          ONIKA_CU_ABORT();
+          break;
+      }
     }
 
 

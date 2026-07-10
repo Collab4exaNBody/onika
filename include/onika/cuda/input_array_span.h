@@ -20,6 +20,7 @@ under the License.
 
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/uninitialized_place_holder.h>
+#include <onika/memory/mm_vector.h>
 #include <ranges>
 #include <type_traits>
 
@@ -104,6 +105,12 @@ namespace onika
     inline InputArraySpan< typename T::value_type , N > make_input_array_span( const T& r , std::integral_constant<size_t,N> = {} )
     {
       return InputArraySpan< typename T::value_type , N > ( r );
+    }
+
+    template< class T , size_t N=1>
+    inline InputArraySpan< T , N > make_input_array_span( const onika::memory::CudaMMVector<T>& r , std::integral_constant<size_t,N> = {} )
+    {
+      return InputArraySpan< T , N > ( r.const_span() );
     }
 
   }

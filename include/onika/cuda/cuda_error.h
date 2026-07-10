@@ -32,12 +32,13 @@ namespace onika
 {
   namespace cuda
   {
+    ONIKA_HOST_DEVICE_FUNC
     inline void assertSuccess(onikaError_t code, const char *file, int line, bool abort_on_failure=true)
     {
        if( code != onikaSuccess ) 
        {
-          std::cerr << ONIKA_CU_NAME_STR << " error : " << ONIKA_CU_GET_ERROR_STRING(code) <<"\n"<< file << ":"<< line << "\n";
-          if( abort_on_failure ) std::abort();
+          printf( "%s error at %s:%d\n%s\n",ONIKA_CU_NAME_STR,file,int(line),ONIKA_CU_GET_ERROR_STRING(code));
+          if( abort_on_failure ) { ONIKA_CU_ABORT(); }
        }
     }
   } 

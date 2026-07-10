@@ -93,9 +93,15 @@ namespace onika
 using NotGPUCopyableNoTypeFeature = NotGPUCopyable<false>;
 using NotGPUCopyableTypeFeature = NotGPUCopyable<true>;
 
+template< std::ranges::contiguous_range R > bool check_contiguous_range_compatibility(const R& r)
+{
+  return true;
+}
+ 
 template<class T>
 void test_mm_vector( onika::memory::CudaMMVector<T> & vec1 , const onika::memory::CudaMMVector<T> & vec2 )
 {
+  check_contiguous_range_compatibility(vec1);
   for(int i=0;i<10;i++)
   {
     vec1.resize( random_size() );
@@ -108,6 +114,7 @@ void test_mm_vector( onika::memory::CudaMMVector<T> & vec1 , const onika::memory
 template<class T>
 void test_mm_vector_nocopy( onika::memory::CudaMMVector<T> & vec1 , onika::memory::CudaMMVector<T> && vec2 )
 {
+  check_contiguous_range_compatibility(vec1);
   for(int i=0;i<10;i++)
   {
     vec2.resize( random_size() );
@@ -137,22 +144,25 @@ int main(int argc, char* argv[])
   }
 
   {
-   onika::memory::CudaMMVector<NotGPUCopyableNoTypeFeature> vec1;
-   onika::memory::CudaMMVector<NotGPUCopyableNoTypeFeature> vec2(5);
-   test_mm_vector_nocopy(vec1, std::move(vec2) );
+    onika::memory::CudaMMVector<NotGPUCopyableNoTypeFeature> vec1;
+    onika::memory::CudaMMVector<NotGPUCopyableNoTypeFeature> vec2(5);
+    test_mm_vector_nocopy(vec1, std::move(vec2) );
   }
 
   {
-   onika::memory::CudaMMVector<NotGPUCopyableTypeFeature> vec1;
-   onika::memory::CudaMMVector<NotGPUCopyableTypeFeature> vec2(5);
-   test_mm_vector(vec1, vec2 );
+    onika::memory::CudaMMVector<NotGPUCopyableTypeFeature> vec1;
+    onika::memory::CudaMMVector<NotGPUCopyableTypeFeature> vec2(5);
+    test_mm_vector(vec1, vec2 );
   }
   
   {
     static constexpr size_t ALIGN = 64;
     static constexpr size_t CHUNK = 8;
-    using AllocatorT = onika::soatl::PackedFieldArraysAllocatorImpl< onika::memory::DefaultAllocator, ALIGN, CHUNK, field::_rx,field::_ry,field::_rz, particle_field_ids... > ;
-    using FArraysT = onika::soatl::FieldArraysWithAllocator< ALIGN, CHUNK, AllocatorT, StoredPointerCount , __particle_rx, __particle_ry, __particle_rz, __particle_e, __particle_atype >;
+    using AllocatorT = onika::soatl::PackedFieldArraysAllocatorImpl< onika::memory::DefaultAllocator, ALIGN, CHUNK, __particle_rx, __particle_ry, __particle_rz, __particle_e, __particle_atype > ;
+    using FieldArraysT = onika::soatl::FieldArraysWithAllocator< ALIGN, CHUNK, AllocatorT, 1 , __particle_rx, __particle_ry, __particle_rz, __particle_e, __particle_atype >;
+    onika::memory::CudaMMVector<FieldArraysT> vec1;
+    onika::memory::CudaMMVector<FieldArraysT> vec2(5);
+    test_mm_vector_nocopy(vec1, std::move(vec2) );
   }
   
   return 0;

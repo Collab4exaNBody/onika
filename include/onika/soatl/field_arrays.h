@@ -254,6 +254,7 @@ namespace onika
 	    
 	    // resize to 0 and free all resources.
       template<class Allocator = DefaultAllocator>
+      ONIKA_HOST_DEVICE_FUNC
       inline void clear( const Allocator& alloc = Allocator{} ) { resize(0,alloc); }
 
 	    static constexpr size_t alignment() { return Alignment; }
@@ -351,7 +352,19 @@ namespace onika
       ONIKA_HOST_DEVICE_FUNC
       inline FieldArraysWithAllocator& operator = ( FieldArraysWithAllocator && other )
       {
-        clear();
+        if( storage_ptr() != other.storage_ptr() && storage_ptr() != nullptr )
+        {
+          if constexpr ( ! gpu_device_execution() )
+          {
+            DefaultAllocator alloc;
+            alloc.deallocate( storage_ptr() , capacity() );
+            set_storage_ptr( nullptr );
+          }
+          else
+          {
+            assert( m_size==0 && storage_ptr()==nullptr );
+          }
+        }        
         m_size = other.m_size;
         m_capacity = other.m_capacity;
         m_field_arrays = other.m_field_arrays;
@@ -366,7 +379,9 @@ namespace onika
       }
 
       // access pointer from field index (index in the list of template parameter pack)
-      template<size_t i> ArrayTupleElement<i> & pointer_ref_at()
+      template<size_t i>
+      ONIKA_HOST_DEVICE_FUNC
+      ArrayTupleElement<i> & pointer_ref_at()
       {
         static_assert(i<NbStoredPointers,"cannot return a reference to non stored pointer");
         return * (ArrayTupleElement<i>*)(m_field_arrays.p+i);
@@ -475,6 +490,7 @@ namespace onika
 
       // given a pointer to a field and its type, returns the pointer to the next field
       template<class ElementType>
+      ONIKA_HOST_DEVICE_FUNC
       static inline void pfa_advance_field_ptr( size_t capacity, ElementType* __restrict__ &eptr , void* &ptr )
       {
         eptr = reinterpret_cast<ElementType*>( ptr );
@@ -485,10 +501,13 @@ namespace onika
       }
 
       template<size_t... StoredPtrIndex>
+      ONIKA_HOST_DEVICE_FUNC
       inline void _set_storage_ptr( void* ptr, std::integer_sequence<size_t,StoredPtrIndex...> )
       {
 		    ( ... , ( pfa_advance_field_ptr( capacity() , pointer_ref_at<StoredPtrIndex>() , ptr ) ) );    
       }
+      
+      ONIKA_HOST_DEVICE_FUNC
       inline void set_storage_ptr( void* ptr )
       {
         _set_storage_ptr( ptr , std::make_index_sequence<NbStoredPointers>() );

@@ -221,8 +221,10 @@ namespace memory
     ONIKA_HOST_DEVICE_FUNC inline T * begin() const { return m_data_pointer; }
     ONIKA_HOST_DEVICE_FUNC inline T * end() const { return m_data_pointer + m_size; }
 
-    operator onika::cuda::span<T> () const { return { data() , size() }; }
-    operator onika::cuda::span<const T> () const { return { data() , size() }; }
+    ONIKA_HOST_DEVICE_FUNC operator onika::cuda::span<T> () const { return { data() , size() }; }
+    ONIKA_HOST_DEVICE_FUNC operator onika::cuda::span<const T> () const { return { data() , size() }; }
+    ONIKA_HOST_DEVICE_FUNC onika::cuda::span<T> span() const { return { data() , size() }; }
+    ONIKA_HOST_DEVICE_FUNC onika::cuda::span<const T> const_span() const { return { data() , size() }; }
 
     inline void set_host_access_hint(bool h)
     {
@@ -348,7 +350,7 @@ namespace memory
       apply_init( 0, std::max(old_size,m_size), std::move(init_func) );
     }
 
-    inline void assign(size_t sz, const T & init_val )
+    inline void assign(size_t sz, const T & init_val ) requires( std::constructible_from<T, const T&> )
     {
       assign_ctor_args( sz, FlatTuple<T>{init_val} );
     }
@@ -386,8 +388,10 @@ namespace memory
     }
 
     template<SomeGPUDataInitFunctor InitFuncT>
+    ONIKA_HOST_DEVICE_FUNC
     inline void apply_init( size_t init_start, size_t init_end, InitFuncT && init_func )
     {
+#     ifndef ONIKA_GPU_DEVICE_COMPILE
       static constexpr bool gpu_compatible_operation =
         supported_features<T>::gpu_destruct
         && 
@@ -419,14 +423,35 @@ namespace memory
 #       pragma omp parallel for schedule(static)
         for(size_t i=init_start;i<init_end;i++) init_func(i);
       }
+#     else
+      for(size_t i=init_start;i<init_end;i++) init_func(i);
+#     endif
     }
 
-    inline void clear() { resize(0); }
+    ONIKA_HOST_DEVICE_FUNC
+    inline void clear()
+    {
+      if( ! empty() )
+      {
+        // calls destructor on the GPU if needed
+        GPUDataInitFunctor<T,false,false,false> deinit_func = { {}, m_data_pointer, 0, size(), 0 };
+        apply_init( 0, size(), std::move(deinit_func) );
+      }
+      m_size = 0;
+    }
     
+    ONIKA_HOST_DEVICE_FUNC
     inline ~CudaMMVector()
     {
       clear();
-      if( m_data_pointer != nullptr ) CudaManagedAllocator<T>::deallocate( m_data_pointer , m_capacity );
+      if( m_data_pointer != nullptr )
+      {
+#       ifndef ONIKA_GPU_DEVICE_COMPILE
+        CudaManagedAllocator<T>::deallocate( m_data_pointer , m_capacity );
+#       else
+        printf("WARNING: deallocation not supported on the GPU, %ld bytes of memory is definitely lost in ~CudaMMVector()\n",long(m_capacity*sizeof(T)));
+#       endif
+      }
       m_data_pointer = nullptr;
       m_capacity = 0;
     }

@@ -70,10 +70,10 @@ namespace memory
     size_t alloc_size = 0;
     uint32_t alloc_flags = 0;  
        
-    inline HostAllocationPolicy mem_type() const { return static_cast<HostAllocationPolicy>( alloc_flags & 0xFF ); }
-    inline unsigned int alignment() const { return alloc_flags >> 8; }
-    inline void * base_ptr() const { return alloc_base; }
-    inline size_t size() const { return alloc_size; }
+    ONIKA_HOST_DEVICE_FUNC inline HostAllocationPolicy mem_type() const { return static_cast<HostAllocationPolicy>( alloc_flags & 0xFF ); }
+    ONIKA_HOST_DEVICE_FUNC inline unsigned int alignment() const { return alloc_flags >> 8; }
+    ONIKA_HOST_DEVICE_FUNC inline void * base_ptr() const { return alloc_base; }
+    ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return alloc_size; }
   };
 
   /*
@@ -87,15 +87,19 @@ namespace memory
     static bool s_enable_debug_log;
     static void set_debug_log(bool b);
 
-    MemoryChunkInfo memory_info( void* ptr , size_t s ) const;
-    void* allocate( size_t s , size_t a ) const;
+    // CPU/GPU compatible methods
+    ONIKA_HOST_DEVICE_FUNC static inline MemoryChunkInfo memory_info( void* ptr , size_t s );
+    ONIKA_HOST_DEVICE_FUNC static inline bool is_gpu_addressable( void* ptr , size_t s );
+    
+    // CPU only methods
     void deallocate( void* ptr , size_t s ) const;
-    bool is_gpu_addressable( void* ptr , size_t s ) const;
+    void* allocate( size_t s , size_t a ) const;
     bool operator == (const GenericHostAllocator& other) const;
     HostAllocationPolicy get_policy() const;
     bool allocates_gpu_addressable() const;
     void set_gpu_addressable_allocation(bool yn );
     
+    // members
     HostAllocationPolicy m_alloc_policy = HostAllocationPolicy::MALLOC;
 
 #   ifdef ONIKA_CUDA_VERSION
@@ -146,6 +150,42 @@ namespace memory
 
     template<class U> ONIKA_HOST_DEVICE_FUNC inline bool operator != (const U& other) const { return ! (*this == other); }    
   };
+
+  // ========= inline implementations for device compatible functions =================
+  ONIKA_HOST_DEVICE_FUNC
+  inline bool GenericHostAllocator::is_gpu_addressable( void* ptr , size_t s )
+  {
+    if( ptr == nullptr ) { return true; }
+    auto mem_type = memory_info(ptr,s).mem_type();
+    return (mem_type  == HostAllocationPolicy::CUDA_HOST );
+  }
+
+  ONIKA_HOST_DEVICE_FUNC
+  inline MemoryChunkInfo GenericHostAllocator::memory_info( void* ptr , size_t s )
+  {
+    MemoryChunkInfo info;
+    info.alloc_base = ptr;
+    info.alloc_size = * reinterpret_cast<size_t*>( reinterpret_cast<uint8_t*>(ptr) + s );
+    if( s != info.alloc_size )
+    {
+      printf("Corrupted allocation trailer (%ld!=%ld)\n",long(s),long(info.alloc_size));
+      ONIKA_CU_ABORT();
+    }
+    info.alloc_flags = * reinterpret_cast<uint32_t*>( reinterpret_cast<uint8_t*>(ptr) + s + sizeof(size_t) );
+
+    auto mem_type = info.mem_type();
+    unsigned int a = info.alignment();
+    unsigned int a2=1; while(a2<a) a2*=2;
+    bool flags_ok = ( mem_type==HostAllocationPolicy::CUDA_HOST || mem_type==HostAllocationPolicy::MALLOC ) && (a2==a) ;
+    if( ! flags_ok )
+    {
+      printf("GenericHostAllocator: memory chunk corrupted\n");
+      ONIKA_CU_ABORT();
+    }
+
+    return info;
+  }
+  // ==============================================================================
 
   // useful macro to indicate the compiler a pointer is aligned
 # ifndef __CUDACC__
