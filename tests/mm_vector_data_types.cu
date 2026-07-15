@@ -81,7 +81,35 @@ template< std::ranges::contiguous_range R > bool check_contiguous_range_compatib
 {
   return true;
 }
- 
+
+struct TriviallityTest1
+{
+  int x = 3;
+  int y = 0;
+};
+
+struct TriviallityTest2
+{
+  int x;
+  int y;
+  int * ptr;
+};
+
+struct TriviallityTest3
+{
+  int x;
+  int y;
+  std::shared_ptr<int> ptr;
+};
+
+struct TriviallityTest4
+{
+  int x=0;
+  int y=0;
+  int * ptr=nullptr;
+};
+
+
 template<class T>
 void test_mm_vector( onika::memory::CudaMMVector<T> & vec1 , const onika::memory::CudaMMVector<T> & vec2 )
 {
@@ -109,12 +137,24 @@ void test_mm_vector_nocopy( onika::memory::CudaMMVector<T> & vec1 , onika::memor
   }
 }
 
+static int triv_test_CNT = 1;
+template<class T>
+void triviallity_test()
+{
+  std::cout << "Triviallity test "<< triv_test_CNT++ <<" : triv. construct. = "<<std::boolalpha<< std::is_trivially_constructible_v<T> <<" , triv. destruct. = "<< std::is_trivially_destructible_v<T> << std::endl;
+}
+
 int main(int argc, char* argv[])
 { 
   long seed = 26101976;
   if(argc>1) seed = std::atol( argv[1] );
   rng.seed( seed );
-  
+
+  triviallity_test<TriviallityTest1>();
+  triviallity_test<TriviallityTest2>();
+  triviallity_test<TriviallityTest3>();
+  triviallity_test<TriviallityTest4>();
+
   {
     onika::memory::CudaMMVector<TrivialAggregateWithInitializedMembers> vec1;
     onika::memory::CudaMMVector<TrivialAggregateWithInitializedMembers> vec2(5);

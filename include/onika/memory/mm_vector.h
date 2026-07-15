@@ -45,7 +45,7 @@ namespace memory
     
     ONIKA_HOST_DEVICE_FUNC inline CudaMMVector() {}
     
-    ONIKA_HOST_DEVICE_FUNC inline CudaMMVector(CudaMMVector && other)
+    inline CudaMMVector(CudaMMVector && other)
     {
       move_from( std::move(other) );
     }
@@ -94,7 +94,7 @@ namespace memory
       return *this;
     }
 
-    ONIKA_HOST_DEVICE_FUNC inline CudaMMVector& operator = (CudaMMVector&& other)
+    inline CudaMMVector& operator = (CudaMMVector&& other)
     {
       move_from( std::move(other) );
       return *this;
@@ -132,8 +132,15 @@ namespace memory
       resize( size()+1 , item );
     }
 
-    ONIKA_HOST_DEVICE_FUNC inline void move_from(CudaMMVector && other)
+    inline void move_from(CudaMMVector && other)
     {
+      if( m_capacity>0 && m_data_pointer!=nullptr )
+      {
+        CudaManagedAllocator<T>::deallocate( m_data_pointer , m_capacity );
+        m_capacity = 0;
+        m_data_pointer = nullptr;
+      }
+      assert( m_capacity == 0 && m_data_pointer == nullptr );
       m_data_pointer = other.m_data_pointer;
       m_size = other.m_size;
       m_capacity = other.m_capacity;
@@ -188,6 +195,13 @@ namespace memory
     inline void resizeNoInit(size_t sz)
     {
       if( sz > m_capacity ) realloc( (m_capacity*2>=sz) ? (m_capacity*2) : sz );
+      m_size = sz;
+    }
+
+    inline void resizeZeroInit(size_t sz)
+    {
+      if( sz > m_capacity ) realloc( (m_capacity*2>=sz) ? (m_capacity*2) : sz );
+      if( sz > m_size ) { ONIKA_CU_MEMSET( m_data_pointer + m_size , 0 , (sz-m_size)*sizeof(T) ); }
       m_size = sz;
     }
 
