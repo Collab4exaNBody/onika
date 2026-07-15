@@ -39,7 +39,7 @@ namespace memory
   template<class T>
   struct alignas(32) CudaMMVector
   {    
-    T * __restrict__ m_data_pointer = nullptr;
+    T * m_data_pointer = nullptr;
     size_t m_size = 0;
     size_t m_capacity = 0;
     
@@ -182,8 +182,15 @@ namespace memory
       if( old_ptr != m_data_pointer )
       {
         const size_t elements_to_copy = std::min( m_size , m_capacity );
-        if( elements_to_copy > 0 ) ONIKA_CU_MEMCPY( m_data_pointer , old_ptr , elements_to_copy * sizeof(T) );
-        if( old_ptr != nullptr ) CudaManagedAllocator<T>::deallocate( old_ptr , old_capacity );
+        if( elements_to_copy > 0 )
+        {
+          ONIKA_CU_MEMCPY( m_data_pointer , old_ptr , elements_to_copy * sizeof(T) );
+          ONIKA_CU_DEVICE_SYNCHRONIZE();
+        }
+        if( old_ptr != nullptr )
+        {
+          CudaManagedAllocator<T>::deallocate( old_ptr , old_capacity );
+        }
       }
     }
 
@@ -208,20 +215,20 @@ namespace memory
     template<class... CtorArgs>
     inline void resize(size_t sz , const CtorArgs& ... init_val_ctor)
     {
+      if constexpr ( ! std::is_trivially_destructible_v<T> )
+      {
+        for(size_t i=sz ; i<m_size ; i++ ) (m_data_pointer+i) -> T::~T();
+      }
+      m_size = std::min(sz,m_size);
+
       if( sz > m_capacity ) realloc( (m_capacity*2>=sz) ? (m_capacity*2) : sz );
       
       if constexpr ( !std::is_trivially_constructible_v<T> || sizeof...(CtorArgs)>0 )
       {
         for(;m_size<sz;m_size++) new(m_data_pointer+m_size) T ( init_val_ctor ... );      
       }
-      else m_size = std::max(sz,m_size);
-      
-      if constexpr ( ! std::is_trivially_destructible_v<T> )
-      {
-        for(;m_size>sz;m_size--) (m_data_pointer+m_size) -> T::~T();
-      }
-      else m_size = std::min( m_size, sz );
-      
+      m_size = std::max(sz,m_size);
+            
       assert( m_size == sz );
     }
 
