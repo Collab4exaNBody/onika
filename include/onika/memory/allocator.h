@@ -35,8 +35,8 @@ namespace memory
   */
   enum class HostAllocationPolicy
   {
-    MALLOC    = 0 ,
-    CUDA_HOST = 1
+    MALLOC    = 0x00 ,
+    CUDA_HOST = 0x01
   };
 
 # ifdef ONIKA_CUDA_VERSION
@@ -66,14 +66,74 @@ namespace memory
 
   struct MemoryChunkInfo
   {
-    void * alloc_base = nullptr;
-    size_t alloc_size = 0;
-    uint32_t alloc_flags = 0;  
-       
-    ONIKA_HOST_DEVICE_FUNC inline HostAllocationPolicy mem_type() const { return static_cast<HostAllocationPolicy>( alloc_flags & 0xFF ); }
-    ONIKA_HOST_DEVICE_FUNC inline unsigned int alignment() const { return alloc_flags >> 8; }
-    ONIKA_HOST_DEVICE_FUNC inline void * base_ptr() const { return alloc_base; }
-    ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return alloc_size; }
+    static inline constexpr uint32_t MEM_FLAG_NONE = 0x00;
+    static inline constexpr uint32_t MEM_FLAG_PENDING_DEALLOCATE = 0x01;
+    static inline constexpr uint32_t MEM_FLAG_PENDING_DEVICE_TO_MANAGED = 0x01;
+    static inline constexpr uint32_t MEM_FLAG_ZERO_INITIALIZED = 0x04;
+    static inline constexpr uint64_t MEM_INFO_VALUE16_MASK = (1ull << 16) - 1ull;
+    
+    void * m_alloc_base = nullptr;
+    uint64_t m_alloc_size = 0;
+    uint64_t m_info = 0;
+
+    ONIKA_HOST_DEVICE_FUNC inline void * base_ptr() const { return m_alloc_base; }
+    ONIKA_HOST_DEVICE_FUNC inline uint64_t size() const { return m_alloc_size; }
+
+    ONIKA_HOST_DEVICE_FUNC inline uint16_t alignment() const { return m_info & MEM_INFO_VALUE16_MASK; } // bits 0-15
+    ONIKA_HOST_DEVICE_FUNC inline HostAllocationPolicy mem_type() const { return static_cast<HostAllocationPolicy>( (m_info>>16) & MEM_INFO_VALUE16_MASK ); } // bits 16-31
+    ONIKA_HOST_DEVICE_FUNC inline uint16_t flags() const { return (m_info>>32) & MEM_INFO_VALUE16_MASK; } // bits 32-47
+    ONIKA_HOST_DEVICE_FUNC inline uint16_t reserved() const { return (m_info>>48) & MEM_INFO_VALUE16_MASK; } // bits 47-63, must be zero
+    
+    static inline MemoryChunkInfo make(void* ptr, uint64_t sz, uint64_t alignment, HostAllocationPolicy mem_type_e, uint64_t flags=0 )
+    {
+      uint64_t mem_type = uint64_t(mem_type_e);
+      return { ptr , sz, ( alignment & MEM_INFO_VALUE16_MASK ) | ( ( mem_type & MEM_INFO_VALUE16_MASK ) << 16 ) | ( ( flags & MEM_INFO_VALUE16_MASK ) << 32 ) };
+    }
+
+    ONIKA_HOST_DEVICE_FUNC static inline constexpr size_t allocation_effective_alignment(size_t a)
+    {
+      constexpr size_t mem_info_al = alignof(MemoryChunkInfo);
+      if( mem_info_al > a ) a = mem_info_al;
+      if( sizeof(void*) > a ) a = sizeof(void*); // mandatory for posix_memalign
+      return a;
+    }
+
+    ONIKA_HOST_DEVICE_FUNC static inline constexpr size_t allocation_size_for_payload(size_t s)
+    {
+      constexpr size_t mem_info_al = alignof(MemoryChunkInfo);
+      const size_t al_sz = (s+mem_info_al-1) & ( ~ (mem_info_al-1) );
+      const size_t tot_sz = al_sz + sizeof(MemoryChunkInfo);
+      return tot_sz;
+    }
+
+    ONIKA_HOST_DEVICE_FUNC inline void read(void* ptr, size_t s)
+    {
+      constexpr size_t mem_info_al = alignof(MemoryChunkInfo);
+      const size_t al_sz = (s+mem_info_al-1) & ( ~ (mem_info_al-1) );
+      MemoryChunkInfo * mem_info_ptr = reinterpret_cast<MemoryChunkInfo*>( reinterpret_cast<uint8_t*>(ptr) + al_sz );
+      assert( ptr == mem_info_ptr->m_alloc_base );
+      m_alloc_base = mem_info_ptr->m_alloc_base;
+      m_alloc_size = mem_info_ptr->m_alloc_size;
+      m_info = mem_info_ptr->m_info;
+    }
+
+    ONIKA_HOST_DEVICE_FUNC inline void write() const
+    {
+      constexpr size_t mem_info_al = alignof(MemoryChunkInfo);
+      const size_t al_sz = (m_alloc_size+mem_info_al-1) & ( ~ (mem_info_al-1) );
+      MemoryChunkInfo * mem_info_ptr = reinterpret_cast<MemoryChunkInfo*>( reinterpret_cast<uint8_t*>(m_alloc_base) + al_sz );
+      mem_info_ptr->m_alloc_base = m_alloc_base;
+      mem_info_ptr->m_alloc_size = m_alloc_size;
+      mem_info_ptr->m_info = m_info;
+    }
+    
+    ONIKA_HOST_DEVICE_FUNC inline bool check_consistency(void* ptr, size_t expected_size) const
+    {
+      unsigned int al = alignment();
+      if( al == 0 ) return false;
+      const uint64_t ar = ( ( (const uint8_t*)m_alloc_base ) - ( (const uint8_t*)nullptr ) ) % al;
+      return ptr==base_ptr() && size()==expected_size && ar==0 && ( mem_type()==HostAllocationPolicy::MALLOC || mem_type()==HostAllocationPolicy::CUDA_HOST ) && reserved()==0 ;
+    }
   };
 
   /*
@@ -82,7 +142,6 @@ namespace memory
   struct GenericHostAllocator
   {
     static inline constexpr size_t DefaultAlignBytes = std::max( MINIMUM_CUDA_ALIGNMENT , DEFAULT_ALIGNMENT );
-    static inline constexpr size_t add_info_size = sizeof(size_t) + sizeof(uint32_t);
     
     static bool s_enable_debug_log;
     static void set_debug_log(bool b);
@@ -90,6 +149,7 @@ namespace memory
     // CPU/GPU compatible methods
     ONIKA_HOST_DEVICE_FUNC static inline MemoryChunkInfo memory_info( void* ptr , size_t s );
     ONIKA_HOST_DEVICE_FUNC static inline bool is_gpu_addressable( void* ptr , size_t s );
+    ONIKA_HOST_DEVICE_FUNC void deallocate_async( void* ptr , size_t s ) const;
     
     // CPU only methods
     void deallocate( void* ptr , size_t s ) const;
@@ -163,26 +223,15 @@ namespace memory
   ONIKA_HOST_DEVICE_FUNC
   inline MemoryChunkInfo GenericHostAllocator::memory_info( void* ptr , size_t s )
   {
-    MemoryChunkInfo info;
-    info.alloc_base = ptr;
-    info.alloc_size = * reinterpret_cast<size_t*>( reinterpret_cast<uint8_t*>(ptr) + s );
-    if( s != info.alloc_size )
+    MemoryChunkInfo info = { nullptr, 0, 0 };
+    info.read(ptr,s);
+#   ifndef NDEBUG
+    if( ! info.check_consistency(ptr,s) )
     {
-      printf("Corrupted allocation trailer (%ld!=%ld)\n",long(s),long(info.alloc_size));
+      printf("Corrupted memory allocation : size=%ld/%ld alignment=%d type=%d flags=%04X reserved=%d\n", long(s), long(info.size()), int(info.alignment()), int(info.mem_type()), int(info.flags()), int(info.reserved()) );
       ONIKA_CU_ABORT();
     }
-    info.alloc_flags = * reinterpret_cast<uint32_t*>( reinterpret_cast<uint8_t*>(ptr) + s + sizeof(size_t) );
-
-    auto mem_type = info.mem_type();
-    unsigned int a = info.alignment();
-    unsigned int a2=1; while(a2<a) a2*=2;
-    bool flags_ok = ( mem_type==HostAllocationPolicy::CUDA_HOST || mem_type==HostAllocationPolicy::MALLOC ) && (a2==a) ;
-    if( ! flags_ok )
-    {
-      printf("GenericHostAllocator: memory chunk corrupted\n");
-      ONIKA_CU_ABORT();
-    }
-
+#   endif
     return info;
   }
   // ==============================================================================

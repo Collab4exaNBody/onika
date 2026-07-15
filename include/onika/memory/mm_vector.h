@@ -210,7 +210,7 @@ namespace memory
     {
       if( sz > m_capacity ) realloc( (m_capacity*2>=sz) ? (m_capacity*2) : sz );
       
-      if constexpr ( ! std::is_trivially_destructible_v<T> || sizeof...(CtorArgs)>0 )
+      if constexpr ( !std::is_trivially_constructible_v<T> || sizeof...(CtorArgs)>0 )
       {
         for(;m_size<sz;m_size++) new(m_data_pointer+m_size) T ( init_val_ctor ... );      
       }

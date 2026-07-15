@@ -72,69 +72,68 @@ namespace onika
     void* GenericHostAllocator::allocate(size_t s, size_t a) const
     {
       void* ptr = nullptr;
+
+      a = MemoryChunkInfo::allocation_effective_alignment(a);
+      const size_t alloc_size = MemoryChunkInfo::allocation_size_for_payload(s);
+
       auto alloc_pol = get_policy();
       switch( alloc_pol )
       {
         case HostAllocationPolicy::MALLOC :
         {
-          a = std::max( a , sizeof(void*) ); // this is required by posix_memalign.
-          int r = posix_memalign( &ptr, a, s + add_info_size );
-          if( r != 0 ) { std::cerr<<"Allocation failed. aborting.\n"; std::abort(); }
-          if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"MALLOC: alloc "<<s + add_info_size<<" ("<<s<<"+"<<add_info_size<<") bytes @"<<ptr<< " , align="<<a<<std::endl; }
+          int r = posix_memalign( & ptr, a, alloc_size );
+          if( r != 0 ) { printf("Allocation failed. aborting.\n"); ONIKA_CU_ABORT(); }
+          if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") printf("MALLOC: alloc %ld (payload=%ld) bytes @%p , align=%d\n",long(alloc_size),long(s),ptr,int(a)); }
         }
         break;
 
         case HostAllocationPolicy::CUDA_HOST :
         {
 #         if defined(ONIKA_CUDA_VERSION)
-          ptr = nullptr;
-          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MALLOC_MANAGED( &ptr, s + add_info_size ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MALLOC_MANAGED( & ptr, alloc_size ) );
           auto pa = reinterpret_cast<uint8_t*>(ptr) - (uint8_t*)nullptr;
           if( ( pa % a ) != 0 )
           {
-            std::cerr << "cudaMallocManaged returned a pointer that is not aligned on a "<<a<<" bytes boundary"<<std::endl;
-            std::abort();
+            printf("cudaMallocManaged returned a pointer that is not aligned on a %d bytes boundary\n",int(a));
+            ONIKA_CU_ABORT();
           }          
-          if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"CUDA: alloc "<<s + add_info_size<<" ("<<s<<"+"<<add_info_size<<") bytes @"<<ptr<< " , align="<<a<<std::endl; }
-          // lout << "cudaMallocManaged("<<s<<","<<a<<") -> @"<<ptr<<std::endl;
+          if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") printf("CUDA: alloc %ld (payload=%ld) bytes @%p , align=%d", long(alloc_size),long(s),ptr,int(a)); }
 #         else
-          std::cerr << "Cuda is disabled, no support for CUDA_HOST allocation policy"<<std::endl;
+          printf("Cuda is disabled, no support for CUDA_HOST allocation policy\n";
           ptr = nullptr;
-          std::abort();
+          ONIKA_CU_ABORT();
 #         endif
         }
         break;
         
         default:
         {
-          std::cerr << "Corrupted allocation flag (unknown value "<<static_cast<uint32_t>(alloc_pol)<<")"<<std::endl;
-          std::abort();
+          printf("Corrupted allocation mode (unknown value %d)\n",int(alloc_pol));
+          ONIKA_CU_ABORT();
         }
         break;
       }
 
       if( s>0 && ptr==nullptr )
       {
-        std::cerr<< "onika::memory::GenericHostAllocator::allocate("<<s<<","<<a<<") : Allocation failed (cuda_enabled="<<std::boolalpha<<cuda_enabled()<<")"<<std::endl<<std::flush;
-        std::abort();
+        printf("onika::memory::GenericHostAllocator::allocate(%ld,%d) : Allocation failed (cuda_enabled=%d)\n",long(s),int(a),int(cuda_enabled()));
+        ONIKA_CU_ABORT();
       }
 
 #     ifdef ONIKA_MEMORY_ZERO_ALLOC
-      if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"zero "<<s + add_info_size<<" ("<<s<<"+"<<add_info_size<<") bytes @" << ptr << std::endl; }
-      if( ptr != nullptr ) { std::memset( ptr , 0 , s + add_info_size ); }
+      MemoryChunkInfo mem_info = MemoryChunkInfo::make(ptr,s,a,alloc_pol,MemoryChunkInfo::MEM_FLAG_ZERO_INITIALIZED);
+      if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") printf("zero %ld (%ld+%ld) bytes @%p\n",long(alloc_size),long(s),mem_info.m_alloc_base); }
+      if( mem_info.m_alloc_base != nullptr ) { ONIKA_CU_MEMSET( mem_info.m_alloc_base , 0 , s ); }
+#     else
+      MemoryChunkInfo mem_info = MemoryChunkInfo::make(ptr,s,a,alloc_pol,MemoryChunkInfo::MEM_FLAG_NONE);
+#     endif
+      mem_info.write();
+
+#     ifndef NDEBUG
+      mem_info.read(ptr,s);
+      assert( mem_info.check_consistency(ptr,s) );
 #     endif
 
-      // final check of memory chunk with verification flags and size markers
-      uint32_t alloc_flags = static_cast<uint32_t>(alloc_pol) | ( static_cast<uint32_t>(a) << 8 );
-      * reinterpret_cast<size_t*>( reinterpret_cast<uint8_t*>(ptr) + s ) = s;
-      * reinterpret_cast<uint32_t*>( reinterpret_cast<uint8_t*>(ptr) + s + sizeof(size_t) ) = alloc_flags;
-      const auto minfo = memory_info(ptr,s);
-      if( minfo.alloc_size != s || minfo.alloc_flags != alloc_flags )
-      {
-        std::cerr<< "onika::memory::GenericHostAllocator::allocate("<<s<<","<<a<<") : Inernal error : created memory block is corrupted : alloc_size "<<minfo.alloc_size<<"/"<<s<<" , alloc_flags "<<minfo.alloc_flags<<"/"<<alloc_flags<<std::endl;
-        std::abort();
-      }
-      
       return ptr;
     }
 
@@ -148,16 +147,17 @@ namespace onika
       assert( s > 0 );
       // general case, allocated size is known
       auto info = memory_info(ptr,s);
+      assert( info.check_consistency(ptr,s) );
       switch( info.mem_type() )
       {
         case HostAllocationPolicy::MALLOC :
           if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") printf("MALLOC: free %ld bytes @%p align=%d\n",long(info.size()),info.base_ptr(),int(info.alignment())); }
-          free(info.alloc_base);
+          free(info.base_ptr());
           break;
         case HostAllocationPolicy::CUDA_HOST :
           if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") printf("CUDA: free %ld bytes @%p align=%d\n",long(info.size()),info.base_ptr(),int(info.alignment())); }
 #         ifdef ONIKA_CUDA_VERSION
-          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE(info.alloc_base) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE(info.base_ptr()) );
 #         else
           printf("Free memory with type CUDA_HOST but cuda is not available\n");
           ONIKA_CU_ABORT();
