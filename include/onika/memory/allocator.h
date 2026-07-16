@@ -30,6 +30,21 @@ namespace onika
 {
 namespace memory
 {
+    
+  struct UniquePointerPool
+  {
+    static inline constexpr size_t MAX_ARRAY_SIZE = 1024;
+    void ** m_unique_ptrs[MAX_ARRAY_SIZE] = { nullptr, };
+  };
+  
+  struct DelayedMemoryOperations
+  {
+    static inline constexpr size_t MAX_POOL_SIZE = 1024*1024;
+    static inline constexpr unsigned long long LOCKED_COUNTER_VALUE = ( 1ull << 32 ) - 1;
+    unsigned long long m_op_count = 0;
+    UniquePointerPool * m_delayed_operations[MAX_POOL_SIZE] = { nullptr, };
+  };
+
   /*
     Host allocation kinds
   */
@@ -68,7 +83,7 @@ namespace memory
   {
     static inline constexpr uint32_t MEM_FLAG_NONE = 0x00;
     static inline constexpr uint32_t MEM_FLAG_PENDING_DEALLOCATE = 0x01;
-    static inline constexpr uint32_t MEM_FLAG_PENDING_DEVICE_TO_MANAGED = 0x01;
+    static inline constexpr uint32_t MEM_FLAG_PENDING_DEVICE_TO_MANAGED = 0x02;
     static inline constexpr uint32_t MEM_FLAG_ZERO_INITIALIZED = 0x04;
     static inline constexpr uint64_t MEM_INFO_VALUE16_MASK = (1ull << 16) - 1ull;
     
@@ -161,6 +176,9 @@ namespace memory
     
     // members
     HostAllocationPolicy m_alloc_policy = HostAllocationPolicy::MALLOC;
+
+    static DelayedMemoryOperations * s_device_delayed_memory_operations;
+    static DelayedMemoryOperations s_host_delayed_memory_operations;
 
 #   ifdef ONIKA_CUDA_VERSION
     static bool s_enable_cuda;

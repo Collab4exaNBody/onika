@@ -32,7 +32,6 @@ std::default_random_engine rng;
 std::uniform_int_distribution<size_t> size_random_distribution(0,1000);
 size_t random_size() { return size_random_distribution(rng); }
 
-
 struct TrivialAggregateWithInitializedMembers
 {
   double * m_data = nullptr;
@@ -76,6 +75,12 @@ struct NotGPUCopyable
 
 using NotGPUCopyableNoTypeFeature = NotGPUCopyable<false>;
 using NotGPUCopyableTypeFeature = NotGPUCopyable<true>;
+
+namespace onika
+{
+  template<> struct is_gpu_constructible_t<NotGPUCopyableTypeFeature> : public std::false_type {};
+  template<> struct is_gpu_destructible_t<NotGPUCopyableTypeFeature> : public std::false_type {};
+}
 
 template< std::ranges::contiguous_range R > bool check_contiguous_range_compatibility(const R& r)
 {

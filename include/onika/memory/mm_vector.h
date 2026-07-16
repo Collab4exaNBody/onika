@@ -23,6 +23,8 @@ under the License.
 #include <onika/cuda/span.h>
 #include <onika/memory/allocator.h>
 #include <onika/cuda/cuda_context.h>
+#include <onika/flat_tuple.h>
+#include <onika/type_utils.h>
 #include <yaml-cpp/yaml.h>
 #include <cstdlib>
 
@@ -31,13 +33,43 @@ namespace onika
 
 namespace memory
 {
+
+#   if defined(ONIKA_CUDA_VERSION) && defined(ONIKA_CUDAMMVECTOR_GPU_OPERATIONS)
+
+    template<class T>
+    ONIKA_DEVICE_KERNEL_FUNC
+    ONIKA_STATIC_INLINE_KERNEL
+    void call_destructor_kernel( T * data_ptr , ONIKA_CU_GRID_CONSTANT const size_t el_start, ONIKA_CU_GRID_CONSTANT const size_t el_end )
+    {
+      const size_t i = el_start + ( ONIKA_CU_BLOCK_DIMS.x * ONIKA_CU_BLOCK_COORD.x ) + ONIKA_CU_THREAD_COORD.x;
+      if( i >= el_start && i < el_end ) ( data_ptr + i ) -> T::~T();
+    }
+
+    template<class T, class CTorArgsTupleT, size_t... Ints>
+    ONIKA_DEVICE_FUNC
+    void call_constructor_for_element( T * data_ptr , const size_t i, const CTorArgsTupleT& ctor_args_tuple, std::index_sequence<Ints...> IS )
+    {
+      new( data_ptr + i ) T ( ctor_args_tuple.get(onika::tuple_index<Ints>) ... );
+    }
+
+    template<class T, class CTorArgsTupleT>
+    ONIKA_DEVICE_KERNEL_FUNC
+    ONIKA_STATIC_INLINE_KERNEL
+    void call_constructor_kernel( T * data_ptr , ONIKA_CU_GRID_CONSTANT const size_t el_start, ONIKA_CU_GRID_CONSTANT const size_t el_end, ONIKA_CU_GRID_CONSTANT const CTorArgsTupleT ctor_args_tuple )
+    {
+      const size_t i = el_start + ( ONIKA_CU_BLOCK_DIMS.x * ONIKA_CU_BLOCK_COORD.x ) + ONIKA_CU_THREAD_COORD.x;
+      if( i >= el_start && i < el_end ) call_constructor_for_element( data_ptr, i, ctor_args_tuple, std::make_index_sequence< onika::tuple_size_const_v<CTorArgsTupleT> >{} );      
+    }
+
+#   endif
+
   /*
    * Simple array with managed memory allocation.
    * WARNING: this is not a std::vector, resize fully deallocates and reallocates memory at each call,
    * and elements are NOT conserved across resize
    */
   template<class T>
-  struct alignas(32) CudaMMVector
+  struct CudaMMVector
   {    
     T * m_data_pointer = nullptr;
     size_t m_size = 0;
@@ -207,21 +239,53 @@ namespace memory
 
     template<class... CtorArgs>
     inline void resize(size_t sz , const CtorArgs& ... init_val_ctor)
+#   if defined(ONIKA_CUDA_VERSION) && defined(ONIKA_CUDAMMVECTOR_GPU_OPERATIONS)
+      requires( ( std::is_trivially_destructible_v<T> && std::is_trivially_constructible_v<T> && sizeof...(CtorArgs)==0 ) || ( ! onika::is_gpu_destructible_v<T> && ! onika::is_gpu_constructible_v<T> ) || ONIKA_GPU_FRONTEND_COMPILER::value )
+#   endif
     {
-      if constexpr ( ! std::is_trivially_destructible_v<T> )
+      if constexpr ( ! std::is_trivially_destructible_v<T> ) if( sz < m_size )
       {
-        for(size_t i=sz ; i<m_size ; i++ ) (m_data_pointer+i) -> T::~T();
+        bool cpu_call_dtor = true;
+#       if defined(ONIKA_CUDA_VERSION) && defined(ONIKA_CUDAMMVECTOR_GPU_OPERATIONS)
+        if constexpr ( onika::is_gpu_destructible_v<T> ) if( onika::cuda::CudaContext::default_cuda_ctx()!=nullptr && onika::cuda::CudaContext::global_gpu_enable() )
+        {
+          static constexpr size_t BLOCK_SIZE = 64;
+          const size_t N = m_size - sz;
+          ONIKA_CU_LAUNCH_KERNEL(N,BLOCK_SIZE,0,0, call_destructor_kernel, m_data_pointer, sz, m_size );
+          cpu_call_dtor = false;
+        }
+#       endif
+        if( cpu_call_dtor )
+        {
+//#       pragma omp parallel for schedule(static)
+          for(size_t i=sz ; i<m_size ; i++) (m_data_pointer+i) -> T::~T();
+        }        
       }
       m_size = std::min(sz,m_size);
 
       if( sz > m_capacity ) realloc( (m_capacity*2>=sz) ? (m_capacity*2) : sz );
       
-      if constexpr ( !std::is_trivially_constructible_v<T> || sizeof...(CtorArgs)>0 )
+      if constexpr ( !std::is_trivially_constructible_v<T> || sizeof...(CtorArgs)>0 ) if( sz > m_size )
       {
-        for(;m_size<sz;m_size++) new(m_data_pointer+m_size) T ( init_val_ctor ... );      
+        bool cpu_call_ctor = true;
+#       if defined(ONIKA_CUDA_VERSION) && defined(ONIKA_CUDAMMVECTOR_GPU_OPERATIONS)
+        if constexpr ( onika::is_gpu_constructible_v<T> ) if( onika::cuda::CudaContext::default_cuda_ctx()!=nullptr && onika::cuda::CudaContext::global_gpu_enable() )
+        {
+          static constexpr size_t BLOCK_SIZE = 64;
+          const size_t N = sz - m_size;
+          const onika::FlatTuple<CtorArgs...> ctor_args {init_val_ctor...};
+          ONIKA_CU_LAUNCH_KERNEL(N,BLOCK_SIZE,0,0, call_constructor_kernel, m_data_pointer, m_size, sz, ctor_args );
+          cpu_call_ctor = false;
+        }
+#       endif
+        if( cpu_call_ctor )
+        {
+//#       pragma omp parallel for schedule(static)
+          for(size_t i=m_size ; i<sz ; i++) new(m_data_pointer+i) T ( init_val_ctor ... );
+        }
       }
       m_size = std::max(sz,m_size);
-            
+
       assert( m_size == sz );
     }
 
@@ -239,9 +303,23 @@ namespace memory
 
     inline void clear() { resize(0); }
     
+    ONIKA_HOST_DEVICE_FUNC
     inline ~CudaMMVector()
     {
-      realloc(0);
+      if constexpr ( gpu_device_execution() )
+      {
+        //assert( m_capacity == 0 && m_data_pointer == nullptr );
+        if( m_capacity>0 && m_data_pointer!=nullptr )
+        {
+          printf("GPU: call to ~CudaMMVector() with non empty capacity => %ldx%ld bytes leaked\n",long(m_capacity),long(sizeof(T)));
+        }
+      }
+      else
+      {
+        clear();
+        realloc(0);
+      }
+      m_size = 0;
       m_data_pointer = nullptr;
       m_capacity = 0;
     }

@@ -33,7 +33,7 @@ namespace onika
 {
   namespace memory
   {
-  
+
 #   ifdef ONIKA_CUDA_VERSION
     bool GenericHostAllocator::s_enable_cuda = true;
     bool GenericHostAllocator::cuda_enabled()
@@ -171,6 +171,21 @@ namespace onika
     }
 
 
+    static DelayedMemoryOperations * make_delayed_memory_operations()
+    {
+      DelayedMemoryOperations * mem_ops = nullptr;
+#   ifdef ONIKA_CUDA_VERSION
+      if( onika::cuda::get_default_cuda_ctx() != nullptr && onika::cuda::get_global_gpu_enable() )
+      {
+        ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MALLOC( & mem_ops, sizeof(DelayedMemoryOperations) ) );
+        ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMSET( mem_ops , 0 , sizeof(DelayedMemoryOperations) ) );
+      }
+#   endif
+      return mem_ops;
+    }
+
+    DelayedMemoryOperations * GenericHostAllocator::s_device_delayed_memory_operations = make_delayed_memory_operations();
+    DelayedMemoryOperations GenericHostAllocator::s_host_delayed_memory_operations = {};
   }
 }
 
