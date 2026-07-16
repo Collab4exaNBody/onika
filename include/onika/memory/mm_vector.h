@@ -182,15 +182,8 @@ namespace memory
       if( old_ptr != m_data_pointer )
       {
         const size_t elements_to_copy = std::min( m_size , m_capacity );
-        if( elements_to_copy > 0 )
-        {
-          ONIKA_CU_MEMCPY( m_data_pointer , old_ptr , elements_to_copy * sizeof(T) );
-          ONIKA_CU_DEVICE_SYNCHRONIZE();
-        }
-        if( old_ptr != nullptr )
-        {
-          CudaManagedAllocator<T>::deallocate( old_ptr , old_capacity );
-        }
+        if( elements_to_copy > 0 ) { ONIKA_CU_MEMCPY( m_data_pointer , old_ptr , elements_to_copy * sizeof(T) ); }
+        if( old_ptr != nullptr ) { CudaManagedAllocator<T>::deallocate( old_ptr , old_capacity ); }
       }
     }
 
