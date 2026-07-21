@@ -257,7 +257,7 @@ namespace memory
 #       endif
         if( cpu_call_dtor )
         {
-//#       pragma omp parallel for schedule(static)
+#         pragma omp parallel for schedule(static)
           for(size_t i=sz ; i<m_size ; i++) (m_data_pointer+i) -> T::~T();
         }        
       }
@@ -280,7 +280,7 @@ namespace memory
 #       endif
         if( cpu_call_ctor )
         {
-//#       pragma omp parallel for schedule(static)
+#         pragma omp parallel for schedule(static)
           for(size_t i=m_size ; i<sz ; i++) new(m_data_pointer+i) T ( init_val_ctor ... );
         }
       }
