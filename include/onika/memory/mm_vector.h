@@ -25,8 +25,9 @@ under the License.
 #include <onika/cuda/cuda_context.h>
 #include <onika/flat_tuple.h>
 #include <onika/type_utils.h>
-#include <yaml-cpp/yaml.h>
 #include <cstdlib>
+#include <vector>
+#include <iterator>
 
 namespace onika
 {
@@ -163,6 +164,10 @@ namespace memory
     {
       resize( size()+1 , item );
     }
+    inline void emplace_back(T && item)
+    {
+      resize( size()+1 , item );
+    }
 
     inline void move_from(CudaMMVector && other)
     {
@@ -187,6 +192,15 @@ namespace memory
       const size_t sz = std::distance( other_begin , other_end );
       assign( onika::cuda::span<const T> { data_ptr, sz} );
     }
+    
+    template< class InputIteratorT >
+    inline void assign( InputIteratorT other_begin, InputIteratorT other_end )
+    requires( std::input_iterator<InputIteratorT> && !std::is_convertible_v<InputIteratorT,typename std::vector<T>::const_iterator> && std::is_convertible_v<std::iter_value_t<InputIteratorT>,T> )
+    {
+      std::vector<T> tmp_array( other_begin, other_end );
+      assign( onika::cuda::span<const T> { tmp_array.data(), tmp_array.size() } );
+    }
+    
 
     inline void assign(onika::cuda::span<const T> other)
     {
@@ -331,18 +345,22 @@ namespace memory
 
 } // onika
 
-namespace YAML
-{
+#include <yaml-cpp/yaml.h>
 
-  template<class T> struct convert< ::onika::memory::CudaMMVector<T> >
+namespace onika
+{
+  namespace memory
   {
-    static inline Node encode(const ::onika::memory::CudaMMVector<T>& v)
+    template<class T>
+    static inline YAML::Node yaml_encode(const ::onika::memory::CudaMMVector<T>& v)
     {
-      Node node;
+      YAML::Node node;
       for(const auto & x : v) node.push_back(x);
       return node;
     }
-    static inline bool decode(const Node& node, ::onika::memory::CudaMMVector<T>& v)
+    
+    template<class T>
+    static inline bool yaml_decode(const YAML::Node& node, ::onika::memory::CudaMMVector<T>& v)
     {
       if( ! node.IsSequence() ) { return false; }
       const size_t sz = node.size();
@@ -351,7 +369,16 @@ namespace YAML
       for(size_t i=0;i<sz;i++) v.push_back( node[i].as<T>() );
       return true;
     }
-  };
+  } // onika::memory
+} // onika
 
+
+namespace YAML
+{
+  template<> struct convert< ::onika::memory::CudaMMVector<double> >
+  {
+    static inline Node encode(const ::onika::memory::CudaMMVector<double>& v) { return yaml_encode(v); }
+    static inline bool decode(const Node& node, ::onika::memory::CudaMMVector<double>& v) { return yaml_decode(node,v); }
+  };
 }
 

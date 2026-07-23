@@ -21,10 +21,7 @@ under the License.
 
 #include <onika/memory/simd.h>
 #include <onika/cuda/cuda.h>
-#include <yaml-cpp/yaml.h>
 #include <cstdlib>
-#include <vector>
-#include <algorithm>
 
 namespace onika
 {
