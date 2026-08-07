@@ -215,6 +215,55 @@ namespace memory
       ONIKA_CU_MEMCPY( m_data_pointer , other.data() , m_size * sizeof(T) );
     }
 
+    inline auto insert( T * insertion_point , std::vector<T>::const_iterator other_begin, std::vector<T>::const_iterator other_end )
+    {
+      auto pos = insertion_point - m_data_pointer;
+      if( pos < 0 ) pos = 0;
+      if( pos > size() ) pos = size();
+      const auto count = std::distance( other_begin , other_end );
+      resize( pos );
+      resizeNoInit( pos + count );
+      ONIKA_CU_MEMCPY( m_data_pointer + pos , & *(other_begin) , count * sizeof(T) );
+    }
+
+    inline auto erase( T * erase_begin , T * erase_end )
+    {
+      auto begin_pos = erase_begin - m_data_pointer;
+      if( begin_pos < 0 ) begin_pos = 0;
+      if( begin_pos > size() ) begin_pos = size();
+
+      auto end_pos = erase_end - m_data_pointer;
+      if( end_pos < 0 ) end_pos = 0;
+      if( end_pos > size() ) end_pos = size();
+      if( end_pos < begin_pos ) end_pos = begin_pos;
+
+      erase_begin = m_data_pointer + begin_pos;
+      erase_end = m_data_pointer + end_pos;
+            
+      if( end_pos < size() )
+      {
+        const auto move_count = size() - end_pos;
+        ONIKA_CU_MEMCPY( m_data_pointer + begin_pos ,  m_data_pointer + end_pos , move_count * sizeof(T) );
+      }
+      resizeNoInit( end_pos );
+    }
+
+    template<class Pred>
+    inline size_t erase_if( Pred pred )
+    {
+      const size_t N = m_size;
+      m_size = 0;
+      for(size_t i=0; i<N; i++)
+      {
+        if( ! pred(i) )
+        {
+          if( i != m_size ) m_data_pointer[m_size] = std::move( m_data_pointer[i] );
+          ++ m_size;
+        }
+      }
+      return N - m_size;
+    }
+
     inline void realloc(size_t new_capacity)
     {
       T * const old_ptr = m_data_pointer;
@@ -344,6 +393,14 @@ namespace memory
 } // onika::memory
 
 } // onika
+
+namespace std
+{
+  template< class T, class Pred > auto erase_if( ::onika::memory::CudaMMVector<T>& c, Pred pred )
+  {
+    return c.erase_if( std::move(pred) );
+  }
+}
 
 #include <yaml-cpp/yaml.h>
 
