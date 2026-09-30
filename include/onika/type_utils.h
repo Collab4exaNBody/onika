@@ -125,5 +125,11 @@ namespace onika
   template<class T> static inline constexpr bool is_span_v = is_span_t<T>::value;
   
   template<typename T> concept SpanCompatible = is_span_v<T>;
+
+  // various type traits for GPU device code compatibility features
+  template<class T> struct is_gpu_constructible_t : public std::true_type {};
+  template<class T> struct is_gpu_destructible_t : public std::true_type {};
+  template<class T> static inline constexpr bool is_gpu_constructible_v = is_gpu_constructible_t<T>::value ;
+  template<class T> static inline constexpr bool is_gpu_destructible_v = is_gpu_destructible_t<T>::value ;
 }
 

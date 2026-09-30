@@ -67,7 +67,7 @@ namespace onika
     auto it = g_thread_index_map.find( tid );
     if( it == g_thread_index_map.end() )
     {
-      std::scoped_lock{ g_thread_index_mutex };
+      const std::lock_guard scope_lk( g_thread_index_mutex );
       it = g_dynamic_thread_index_map.find( tid );
       if( it == g_dynamic_thread_index_map.end() )
       {

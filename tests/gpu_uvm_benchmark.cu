@@ -58,11 +58,13 @@ void cpu_compute( double * __restrict__ data )
 
 ONIKA_DEVICE_KERNEL_FUNC void gpu_compute( double * __restrict__ data )
 {
+# ifdef ONIKA_GPU_DEVICE_COMPILE
   const int i = ONIKA_CU_THREAD_IDX + ONIKA_CU_BLOCK_IDX * ONIKA_CU_BLOCK_SIZE;
   for(int j = 0; j < M; j++)
   {
     data[i] = data[i] * data[i] - 0.25;
   }
+# endif
 }
 
 int main()
@@ -94,7 +96,7 @@ int main()
 
   if( uvm )
   {
-    ONIKA_CU_MALLOC_MANAGED( & h_data , N * sizeof(double) );
+    ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MALLOC_MANAGED( & h_data , N * sizeof(double) ) );
     d_data = h_data;
   }
   else
@@ -106,8 +108,8 @@ int main()
 
   if( ! uvm )
   {
-    ONIKA_CU_MALLOC( & d_data, N * sizeof(double));
-    ONIKA_CU_MEMCPY( d_data, h_data, N * sizeof(double) /*, onikaMemcpyHostToDevice */ );
+    ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MALLOC( & d_data, N * sizeof(double)) );
+    ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( d_data, h_data, N * sizeof(double) /*, onikaMemcpyHostToDevice */ ) );
   }
 
   const auto T0 = std::chrono::high_resolution_clock::now();
@@ -119,8 +121,8 @@ int main()
   ONIKA_CU_LAUNCH_KERNEL(N/256,256,0,0,gpu_compute,d_data);
   const auto T2 = std::chrono::high_resolution_clock::now();
 
-  if( ! uvm ) ONIKA_CU_MEMCPY( h_data, d_data, N * sizeof(double) /*, onikaMemcpyDeviceToHost */ );
-  ONIKA_CU_DEVICE_SYNCHRONIZE();
+  if( ! uvm ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( h_data, d_data, N * sizeof(double) /*, onikaMemcpyDeviceToHost */ ) ); }
+  ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DEVICE_SYNCHRONIZE() );
   const double vcuda = h_data[idx];
   const auto T3 = std::chrono::high_resolution_clock::now();
 
@@ -129,7 +131,7 @@ int main()
   std::cout << "cuda time = "<< (T2-T1).count() / 1000000.0 << " + "<< (T3-T2).count() / 1000000.0 << " = "<< (T3-T1).count() / 1000000.0 <<std::endl;
   if(run_host) std::cout << "ratio = "<< (T1-T0).count() * 1.0 / (T3-T1).count()  << std::endl;
 
-  if( ! uvm ) ONIKA_CU_FREE(d_data);
+  if( ! uvm ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE(d_data) ); }
 
   return 0;
 }

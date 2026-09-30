@@ -1,0 +1,79 @@
+configuration:
+  logging:
+    debug: true
+  debug:
+    filter: [ ".*egl.*" ]
+
+global:
+  sim_continue: true
+  timestep: 0
+  physicial_time: 0.0
+  dt: 1.0
+
+init:
+  - message: "init"
+  - egl_init
+  - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
+  - egl_make_current: { surface: "onika-egl-window" }
+  - egl_check_cu_graphics: { surface: "onika-egl-window" }
+  - egl_create_shader_program:
+      shader_program: "shader"
+      gl_enable:
+        - GL_PROGRAM_POINT_SIZE
+        - GL_DEPTH_TEST
+      gl_disable:
+        - GL_BLEND
+        - GL_ALPHA_TEST
+        - GL_STENCIL_TEST
+      vertex_shader: |
+        #version 330 core
+        layout (location = 0) in vec4 aPos;
+        layout (location = 1) in float aAngle;
+        out float geomAngle;
+        void main() {
+          gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+          geomAngle = aAngle;
+        }
+
+      geometry_shader: |
+        #version 330 core
+        layout (points) in;
+        layout (triangle_strip, max_vertices=3) out;
+        in float geomAngle[];
+        out vec4 aColor;
+        void main() {
+          vec4 aPos = gl_in[0].gl_Position;
+          aColor = vec4( clamp(aPos.x,0.0f,1.0f), clamp(aPos.y,0.0f,1.0f), clamp(aPos.x+aPos.y,0.0f,1.0f), 1.0f );
+          for(int i=0;i<3;i++)
+          {
+            gl_Position = gl_in[0].gl_Position + vec4( cos(geomAngle[0]+i*2*3.14159/3)*0.1 , sin(geomAngle[0]+i*2*3.14159/3)*0.1, 0.0 , 0.0 );
+            EmitVertex();
+          }
+          EndPrimitive();
+        }
+
+      fragment_shader: |
+        #version 330 core
+        in vec4 aColor;
+        out vec4 FragColor;
+        void main() {
+          FragColor = aColor;
+        }
+
+#  - egl_create_vertex_buffer:
+#      vertex_buffer: "vertices"
+#      vertex_attribs: [ GL_FLOAT , 3 , GL_FLOAT , 1 ]
+
+run:
+  loop: true
+  condition: sim_continue
+  body:
+    - print_log:
+        rebind: { value: timestep }
+        body:
+          - print_int: { prefix: "Simulation running, timstep = " , suffix: "\n" }
+    - egl_make_current: { surface: "onika-egl-window" }
+    - egl_simple_vertex_generator: { vertex_buffer: "vertices" , number_of_vertices: 10 }
+    - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "vertices" , shader_program: "shader" }
+    - next_time_step
+

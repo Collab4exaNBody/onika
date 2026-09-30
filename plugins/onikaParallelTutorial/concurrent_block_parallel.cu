@@ -3,12 +3,13 @@
 #include <onika/scg/operator_factory.h>
 #include <onika/parallel/block_parallel_for.h>
 
-#include "array2d.h"
-#include "block_parallel_value_add_functor.h"
+#include <onika/extras/array2d.h>
+#include <onika/extras/block_parallel_value_add_functor.h>
 
 namespace onika
 {
   using namespace scg;
+  using namespace extras;
 
   namespace tutorial
   {
@@ -65,14 +66,16 @@ namespace onika
         lout << "Enqueue parallel operations ..." << std::endl;
         parallel_execution_queue() << onika::parallel::set_lane(0) << std::move(array1_par_op1) << std::move(array1_par_op2)
                                    << onika::parallel::set_lane(1) << std::move(array2_par_op1) << std::move(array2_par_op2);
-
+                                           
         lout << "schedule for execution ..." << std::endl;
         parallel_execution_queue() << onika::parallel::flush;
 
-        lout << "Parallel operations are executing..." << std::endl;
-        parallel_execution_queue().wait( 1 ); // wait for all operations in stream queue #1 to complete
-        parallel_execution_queue().wait( 0 ); // wait for all operations in stream queue #0 to complete
-        lout << "All parallel operations have terminated !" << std::endl;
+        //parallel_execution_queue().wait(1); // wait for all operations in stream #1 to complete
+        //parallel_execution_queue().wait(0); // wait for all operations in stream #0 to complete
+        // parallel_execution_queue().wait(); // wait for all opeartions in all streams to complete
+        parallel_execution_queue() << onika::parallel::synchronize ; // the same as above
+        
+        lout << "All operations have terminated !" << std::endl;
       }
     };
 

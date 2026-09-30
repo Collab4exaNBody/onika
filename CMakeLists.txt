@@ -69,8 +69,14 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debu
 # OpenMP with task and ompt support is appreciated
 # packages and tools
 find_package(OpenMP REQUIRED)
+
+if(OpenMP_CXX_FLAGS MATCHES "-fopenmp=.*")
+  set(OpenMP_CXX_FLAGS -fopenmp)
+endif()
 list(APPEND ONIKA_LIBRARIES ${OpenMP_CXX_LIBRARIES})
 list(APPEND ONIKA_COMPILE_OPTIONS ${OpenMP_CXX_FLAGS})
+message(STATUS "OpenMP_CXX_LIBRARIES=${OpenMP_CXX_LIBRARIES} , OpenMP_CXX_FLAGS=${OpenMP_CXX_FLAGS}")
+#list(APPEND ONIKA_LIBRARIES OpenMP::OpenMP_CXX)
 
 # for export to onika-config file
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "find_package(OpenMP REQUIRED)\n")
@@ -105,6 +111,15 @@ endif()
 if(ONIKA_HAVE_OPENMP_DETACH)
   message(STATUS "OpenMP detach enabled")
   list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_HAVE_OPENMP_DETACH=1)
+endif()
+
+
+# ======================================================
+# === Onika specific debug and optimization features ===
+# ======================================================
+set(ONIKA_ENABLE_KERNEL_DEBUG_INFO OFF CACHE BOOL "Enable parallel kernel debug info")
+if(ONIKA_ENABLE_KERNEL_DEBUG_INFO)
+  list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_ENABLE_KERNEL_DEBUG_INFO=1)
 endif()
 
 # configure maximum number of openmp task dependences
@@ -160,6 +175,7 @@ if(ONIKA_ENABLE_HIP)
       set(ROCM_INSTALL_ROOT "/opt/rocm")
     endif()
     list(APPEND CMAKE_MODULE_PATH "${ROCM_INSTALL_ROOT}/share/rocm/cmake")
+    message(STATUS "CMAKE_MODULE_PATH=${CMAKE_MODULE_PATH}")
     find_package(ROCM REQUIRED)
     enable_language(HIP)
     file(REAL_PATH "${ROCM_INSTALL_ROOT}" XNB_ROCM_ROOT)
@@ -173,7 +189,9 @@ if(ONIKA_ENABLE_HIP)
     # common compile definitions and features
     set(ONIKA_GPU_COMPILE_DEFINITIONS ONIKA_CUDA_VERSION=${CMAKE_HIP_COMPILER_VERSION} ONIKA_HIP_VERSION=${ONIKA_HIP_VERSION})
     set(ONIKA_GPU_COMPILE_FEATURES hip_std_20)
-    set(ONIKA_GPU_LIBRARIES roctx64)
+    set(ONIKA_GPU_LIBRARY_DIRS ${ROCM_INSTALL_ROOT}/lib)
+    set(ONIKA_GPU_LIBRARIES amdhip64 roctx64)
+    set(ONIKA_GPU_INCLUDE_DIRS ${ROCM_INSTALL_ROOT}/include)
 
     # HIP specific compile options
     set(ONIKA_HIP_COMPILE_FLAGS "-Werror=return-local-addr;-Werror=return-stack-address;-Werror=return-type" CACHE STRING "HIP extra flags")
@@ -573,6 +591,11 @@ endforeach()
 # compile contributed plugins
 add_subdirectory(plugins)
 
+option(ONIKA_BUILD_CONTRIBS "Build  contribs" OFF)
+if(ONIKA_BUILD_CONTRIBS)
+  add_subdirectory(contribs)
+endif()
+
 # install other files and directories directly copied from sources
 install(DIRECTORY cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(DIRECTORY include/onika DESTINATION include)
@@ -598,12 +621,16 @@ if(ONIKA_ENABLE_TESTS)
     get_filename_component(SRCEXT ${TESTSRC} LAST_EXT)
     message(STATUS "Found test ${TESTNAME}")
     add_executable(${TESTNAME} tests/${SRCNAME})
-    if(ONIKA_USE_HIP)
-      set_source_files_properties(tests/${SRCNAME} PROPERTIES LANGUAGE HIP)
+    if(SRCEXT STREQUAL ".cu")
+      if(ONIKA_BUILD_CUDA)
+        if(ONIKA_USE_HIP)
+          set_source_files_properties(tests/${SRCNAME} PROPERTIES LANGUAGE HIP)
+        endif()
+      else()
+        set_source_files_properties(tests/${SRCNAME} PROPERTIES LANGUAGE CXX)
+      endif()
     endif()
-    if(SRCEXT STREQUAL ".cu" AND NOT ONIKA_BUILD_CUDA)
-      set_source_files_properties(tests/${SRCNAME} PROPERTIES LANGUAGE CXX)
-    endif()
+    target_link_options(${TESTNAME} PRIVATE ${OpenMP_CXX_FLAGS})
     target_link_libraries(${TESTNAME} PRIVATE onika)
   endforeach()
 

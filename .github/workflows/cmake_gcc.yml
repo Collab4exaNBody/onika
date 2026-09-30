@@ -1,4 +1,4 @@
-name: Check CMake Installation and tests
+name: CMake GCC
 on:
   push:
     branches:

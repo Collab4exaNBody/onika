@@ -23,12 +23,12 @@ under the License.
 #include <onika/cuda/cuda_math.h>
 #include <onika/math/basic_types_def.h>
 #include <onika/math/basic_types_constructors.h>
-#include <onika/math/bit_rotl.h> // optional replacement for C++20's std::rotl
 
 #include <algorithm>
 #include <cmath>
 #include <array>
-#include <functional>
+
+#include <onika/hash_utils.h>
 
 namespace onika { namespace math
 {
@@ -675,22 +675,34 @@ namespace onika { namespace math
 
 } } // end of onika::math namespace
 
+namespace onika
+{
+  template<> struct IsHashedValueIgnored<math::FakeMat3d> : public std::true_type {};  
+}
 
-// define hash function for IJK triplets
 namespace std
 {
   template<> struct hash< onika::math::IJK >
   {
-    size_t operator () ( const onika::math::IJK& v ) const
-    {
-      //std::hash<ssize_t> H{};
-      return std::hash<ssize_t>{} ( v.i ^ onika::math::bit_rotl(v.j,16) ^ onika::math::bit_rotl(v.k,32) );
-      // return H(v.i) ^ H(v.j) ^ H(v.k);
-    }
+    inline size_t operator () ( const onika::math::IJK & v ) const { return onika::multi_hash( v.i , v.j , v.k ); }
+  };
+
+  template<> struct hash< onika::math::Vec3d >
+  {
+    inline size_t operator () ( const onika::math::Vec3d & v ) const { return onika::multi_hash( v.x , v.y , v.z ); }
+  };
+
+  template<> struct hash< onika::math::GridBlock >
+  {
+    inline size_t operator () ( const onika::math::GridBlock & v ) const { return onika::multi_hash( v.start , v.end ); }
+  };
+
+  template<> struct hash< onika::math::AABB >
+  {
+    inline size_t operator () ( const onika::math::AABB & v ) const { return onika::multi_hash( v.bmin , v.bmax ); }
   };
 
 }
-
 
 #ifdef ONIKA_MATH_EXPORT_NAMESPACE
 namespace ONIKA_MATH_EXPORT_NAMESPACE
