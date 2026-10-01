@@ -3,9 +3,10 @@ on:
   push:
     branches:
       - main
-    pull_request:
+  pull_request:
+    branches:
       - main
-  
+
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
@@ -46,6 +47,16 @@ jobs:
         apt-get install -y cmake
         cmake --version
 
+    # HIP clang does not use g++'s libstdc++ by default: it picks whatever GCC
+    # install it detects, which may be too old for C++20 headers such as
+    # <compare>. Pin it to the same GCC as the C++ compiler.
+    - name: Pin HIP clang to g++'s GCC installation
+      run: |
+        GCC_INSTALL_DIR=$(dirname $(g++ -print-libgcc-file-name))
+        test -d "${GCC_INSTALL_DIR}"
+        echo "GCC_INSTALL_DIR=${GCC_INSTALL_DIR}"
+        echo "HIP_GCC_FLAGS=--gcc-install-dir=${GCC_INSTALL_DIR}" >> $GITHUB_ENV
+
     - name: Configure Onika (HIP enabled, target gfx90a)
       run: |
         cmake -B ${{github.workspace}}/build \
@@ -54,7 +65,18 @@ jobs:
               -DONIKA_BUILD_CUDA=ON \
               -DONIKA_ENABLE_HIP=ON \
               -DCMAKE_HIP_ARCHITECTURES=${{env.HIP_ARCH}} \
+              -DCMAKE_HIP_FLAGS="${HIP_GCC_FLAGS}" \
               -DONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE=ON
 
     - name: Build Onika
       run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
+
+    # CMake silently drops sources whose language is not enabled, so a green
+    # build does not prove the .cu files were compiled as HIP. Check it, and
+    # check that downstream projects (exaNBody, ...) will see ONIKA_USE_HIP.
+    - name: Check HIP sources were compiled and HIP mode is exported
+      run: |
+        for t in gpu_reduce_min_fp64 gpu_uvm_benchmark parallel_queue_lane; do
+          test -f ${{github.workspace}}/build/CMakeFiles/${t}.dir/tests/${t}.cu.o || { echo "::error::${t}.cu was not compiled"; exit 1; }
+        done
+        grep -q "set(ONIKA_USE_HIP ON)" ${{github.workspace}}/install/onika-config.cmake || { echo "::error::onika-config.cmake does not export ONIKA_USE_HIP ON"; exit 1; }

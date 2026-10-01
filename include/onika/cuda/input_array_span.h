@@ -88,10 +88,8 @@ namespace onika
         reset();
       }
       
-      ONIKA_HOST_DEVICE_FUNC inline       value_type * data()       { return ( m_size <= InternalArraySize ) ? m_internal_copy.get_array() : m_data_pointer; }
+      // read only span : no non-const accessors, m_data_pointer points to const data
       ONIKA_HOST_DEVICE_FUNC inline const value_type * data() const { return ( m_size <= InternalArraySize ) ? m_internal_copy.get_array() : m_data_pointer; }
-
-      ONIKA_HOST_DEVICE_FUNC inline       value_type& operator [] (size_t i)       { return data()[i]; }
       ONIKA_HOST_DEVICE_FUNC inline const value_type& operator [] (size_t i) const { return data()[i]; }
       
       ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
