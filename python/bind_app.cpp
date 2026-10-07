@@ -19,7 +19,7 @@ void bind_app(py::module_& m)
     .def_readonly("cpucount",   &onika::app::ApplicationContext::m_cpucount)
     .def_property_readonly("error_code", &onika::app::ApplicationContext::get_error_code)
     .def("node", &onika::app::ApplicationContext::node,
-         py::return_value_policy::reference, py::arg("path"))
+         py::return_value_policy::reference, py::keep_alive<0, 1>(), py::arg("path"))
     .def("set_multiple_run", &onika::app::ApplicationContext::set_multiple_run,
          py::arg("enabled"));
 
