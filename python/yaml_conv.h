@@ -39,7 +39,8 @@ inline YAML::Node py_to_yaml(py::handle obj)
       node[kv.first.cast<std::string>()] = py_to_yaml(kv.second);
     return node;
   }
-  if (py::isinstance<py::list>(obj) || py::isinstance<py::tuple>(obj)) {
+  // any sequence (list, tuple, numpy array, ...) except str/bytes, handled above or below
+  if (py::isinstance<py::sequence>(obj) && !py::isinstance<py::bytes>(obj)) {
     YAML::Node node(YAML::NodeType::Sequence);
     for (auto item : obj)
       node.push_back(py_to_yaml(item));
