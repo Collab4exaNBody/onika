@@ -22,6 +22,10 @@ under the License.
 #include <chrono>
 #include <thread>
 #include <unistd.h>
+#include <exception>
+#include <stdexcept>
+#include <omp.h>
+#include <mpi.h>
 
 #include <onika/log.h>
 #include <onika/string_utils.h>
@@ -206,7 +210,18 @@ namespace onika
       lerr_stream() << m_oss.str() << "*****************************************" << std::endl << std::flush;
       if( s_fatal_error_python_mode )
       {
-        throw std::runtime_error( m_oss.str() );
+        // Throwing is only safe outside of OpenMP parallel regions, when no other exception is
+        // in flight, and when a single MPI process runs (otherwise other ranks would hang).
+        bool can_throw = std::uncaught_exceptions() == 0 && ! omp_in_parallel();
+        int mpi_init=0, mpi_fin=0, nprocs=1;
+        MPI_Initialized( &mpi_init );
+        MPI_Finalized( &mpi_fin );
+        if( mpi_init && !mpi_fin ) MPI_Comm_size( MPI_COMM_WORLD , &nprocs );
+        if( can_throw && nprocs == 1 )
+        {
+          throw std::runtime_error( m_oss.str() );
+        }
+        if( nprocs > 1 ) MPI_Abort( MPI_COMM_WORLD , 1 );
       }
       using namespace std::chrono_literals;
       std::this_thread::sleep_for(500ms);
