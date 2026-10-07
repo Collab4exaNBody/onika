@@ -23,3 +23,15 @@ set_target_properties(pyonika PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
 )
 install(TARGETS pyonika DESTINATION lib)
+
+if(ONIKA_ENABLE_TESTS)
+  set(PYONIKA_TEST_ENV
+    "PYTHONPATH=${PROJECT_BINARY_DIR}/lib:$ENV{PYTHONPATH}"
+    "ONIKA_CONFIG_PATH=${PROJECT_SOURCE_DIR}/data/config"
+    "ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins")
+  add_test(NAME pyonika_import
+           COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/exemples/pyonika_dryrun_test_import_pyonika.py)
+  add_test(NAME pyonika_run_simulation
+           COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/exemples/pyonika_run_simulation.py)
+  set_tests_properties(pyonika_import pyonika_run_simulation PROPERTIES ENVIRONMENT "${PYONIKA_TEST_ENV}")
+endif()
