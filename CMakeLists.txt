@@ -601,6 +601,8 @@ install(DIRECTORY cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(DIRECTORY include/onika DESTINATION include)
 install(DIRECTORY data DESTINATION ${CMAKE_INSTALL_PREFIX})
 
+option(ONIKA_ENABLE_TESTS "ONIKA enable tests" ON)
+
 # ===========================
 # === Python bindings     ===
 # ===========================
@@ -611,7 +613,6 @@ endif()
 # ==================
 # === test suite ===
 # ==================
-option(ONIKA_ENABLE_TESTS "ONIKA enable tests" ON)
 if(ONIKA_ENABLE_TESTS)
 
   file(GLOB test_sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/tests ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cu)
@@ -698,7 +699,7 @@ if(ONIKA_ENABLE_TESTS)
 
 
   ###### xs data move algorithm tests ########
-  set(NUMPROCS_LIST 1 2 3 4 )
+  set(NUMPROCS_LIST 1 7 8)
   set(IDROTATION_LIST 0 1 77)
   set(IDSTART_LIST 0 1 1023)
   set(IDCOUNT_LIST 10 110 100000)
