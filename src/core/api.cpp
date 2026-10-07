@@ -20,6 +20,7 @@ under the License.
 #include <onika/app/api.h>
 #include <filesystem>
 #include <fenv.h>
+#include <cstdlib>
 
 #include "tinyexpr.h" // for te_random_seed function
 
@@ -32,6 +33,13 @@ namespace onika
 {
   namespace app
   {
+
+    static bool s_deferred_mpi_finalize = false;
+
+    void set_deferred_mpi_finalize(bool yn)
+    {
+      s_deferred_mpi_finalize = yn;
+    }
 
     int ApplicationContext::get_error_code() const
     {
@@ -226,7 +234,9 @@ namespace onika
       simulation_graph->apply_graph( [](OperatorNode* op){ op->free_all_resources(); } );
       simulation_graph = nullptr;
 
-      if( ! external_mpi_init ) MPI_Finalize();
+      // in deferred mode (e.g. Python), MPI_Finalize is called by an atexit handler registered
+      // in initialize_mpi, so that multiple init/end cycles in a single process work.
+      if( ! external_mpi_init && ! s_deferred_mpi_finalize ) MPI_Finalize();
     }
 
     std::pair< std::vector<std::string> , YAML::Node >
@@ -503,7 +513,14 @@ namespace onika
       int rank=0, nb_procs=0;
       int mt_support = 0;
       int external_mpi_init = 0;
+      int mpi_finalized = 0;
       MPI_Initialized( &external_mpi_init );
+      MPI_Finalized( &mpi_finalized );
+
+      if( mpi_finalized )
+      {
+        fatal_error() << "MPI has already been finalized, it cannot be initialized again" << std::endl;
+      }
 
       if( external_mpi_init )
       {
@@ -518,6 +535,12 @@ namespace onika
         else
         {
           MPI_Init(&argc, &argv);
+        }
+        static bool s_mpi_atexit_registered = false;
+        if( s_deferred_mpi_finalize && !s_mpi_atexit_registered )
+        {
+          std::atexit( []{ int fin=0; MPI_Finalized(&fin); if(!fin) MPI_Finalize(); } );
+          s_mpi_atexit_registered = true;
         }
       }
       for(int a=0;a<argc;a++) free( argv[a] );

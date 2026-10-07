@@ -188,9 +188,14 @@ namespace onika
       return *this;
     }
     FatalErrorLogStream& operator << ( std::ostream& (*manip)(std::ostream&) );
-    ~FatalErrorLogStream();
+    // noexcept(false) allows Python mode to throw instead of abort.
+    ~FatalErrorLogStream() noexcept(false);
+
+    // When enabled, the destructor throws std::runtime_error instead of
+    // calling std::abort(). Call once at Python module initialisation.
+    static void enable_python_mode(bool on = true);
   };
-  
+
   inline FatalErrorLogStream fatal_error() { return {}; }
 }
 

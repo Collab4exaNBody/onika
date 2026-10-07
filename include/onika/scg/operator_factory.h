@@ -66,6 +66,7 @@ namespace onika { namespace scg
     std::shared_ptr<OperatorNode> make_operator( const std::string& name, YAML::Node node = YAML::Node(), const OperatorNodeFlavor& flavor = OperatorNodeFlavor() );
     std::string resolve_operator_name(const std::string& proto);
     void set_operator_defaults(YAML::Node node);
+    YAML::Node get_operator_defaults() const { return m_operator_defaults; }
     std::set<std::string> available_operators();
 
     void enable_registration();

@@ -459,6 +459,8 @@ if(ONIKA_FUTURE_DEPRECATION)
   list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_FUTURE_DEPRECATION=1)
 endif()
 
+option(ONIKA_BUILD_PYTHON "Build Python (PyBind11) bindings" OFF)
+
 # finally, add overall invariant compile options and dependent libraries
 list(APPEND ONIKA_LIBRARIES dl)
 list(APPEND ONIKA_COMPILE_OPTIONS -Wall)
@@ -531,6 +533,13 @@ set(ONIKA_RUN ${PROJECT_BINARY_DIR}/onikarun)
 
 # generate helper script to setup environment from installed location
 set(ONIKA_SETUP_ENV_COMMANDS "${ONIKA_SETUP_ENV_COMMANDS}" CACHE STRING "Environment setup commands")
+if(ONIKA_BUILD_PYTHON)
+  set(ONIKA_INSTALL_PYTHON_ENV "export PYTHONPATH=${CMAKE_INSTALL_PREFIX}/lib:\$PYTHONPATH\n")
+  set(ONIKA_BUILD_PYTHON_ENV "export PYTHONPATH=${PROJECT_BINARY_DIR}/lib:\$PYTHONPATH\n")
+else()
+  set(ONIKA_INSTALL_PYTHON_ENV "")
+  set(ONIKA_BUILD_PYTHON_ENV "")
+endif()
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
   "# Onika environment configuration\n"
   "${ONIKA_SETUP_ENV_COMMANDS}\n"
@@ -541,6 +550,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
   "export ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config\n"
   "export ONIKA_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/plugins\n"
   "export ONIKA_DATA_PATH=${ONIKA_DEFAULT_DATA_DIRS}\n"
+  "${ONIKA_INSTALL_PYTHON_ENV}"
   "[ \$ONIKA_DEBUG ] && echo \"Onika environment setup : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
 
@@ -561,6 +571,7 @@ file(WRITE ${ONIKA_RUN}
   "export ONIKA_CONFIG_PATH=${CMAKE_CURRENT_SOURCE_DIR}/data/config\n"
   "export ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins\n"
   "export ONIKA_DATA_PATH=${ONIKA_DEFAULT_DATA_DIRS}\n"
+  "${ONIKA_BUILD_PYTHON_ENV}"
   "[ \$ONIKA_DEBUG ] && echo \"Onika build : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n"
   "${ONIKA_EXEC} \$*\n")
 file(CHMOD ${CMAKE_CURRENT_BINARY_DIR}/onikarun FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
@@ -590,10 +601,18 @@ install(DIRECTORY cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(DIRECTORY include/onika DESTINATION include)
 install(DIRECTORY data DESTINATION ${CMAKE_INSTALL_PREFIX})
 
+option(ONIKA_ENABLE_TESTS "ONIKA enable tests" ON)
+
+# ===========================
+# === Python bindings     ===
+# ===========================
+if(ONIKA_BUILD_PYTHON)
+  add_subdirectory(python)
+endif()
+
 # ==================
 # === test suite ===
 # ==================
-option(ONIKA_ENABLE_TESTS "ONIKA enable tests" ON)
 if(ONIKA_ENABLE_TESTS)
 
   file(GLOB test_sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/tests ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cu)
