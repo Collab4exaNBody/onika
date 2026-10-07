@@ -5,11 +5,9 @@
 
 namespace py = pybind11;
 
-// Translate any std::exception that escapes an onika call into RuntimeError.
-// OperatorCreationException is already registered as OnikaError in module.cpp
-// and will be translated before this catch fires.
-#define ONIKA_PY_TRY   try {
-#define ONIKA_PY_CATCH } catch (const std::exception& e) { throw std::runtime_error(e.what()); }
+// Exceptions escaping onika calls are translated by pybind11 itself:
+// OperatorCreationException -> pyonika.OnikaError (registered in module.cpp),
+// any other std::exception -> RuntimeError (or the matching builtin, e.g. IndexError).
 
 void bind_app(py::module_& m)
 {
@@ -26,31 +24,23 @@ void bind_app(py::module_& m)
          py::arg("enabled"));
 
   m.def("init", [](std::vector<std::string> argv) {
-    ONIKA_PY_TRY
-      return onika::app::init(argv);
-    ONIKA_PY_CATCH
+    return onika::app::init(argv);
   }, py::arg("argv"));
 
   m.def("run", [](std::shared_ptr<onika::app::ApplicationContext> ctx) {
-    ONIKA_PY_TRY
-      py::gil_scoped_release release;
-      onika::app::run(ctx);
-    ONIKA_PY_CATCH
+    py::gil_scoped_release release;
+    onika::app::run(ctx);
   }, py::arg("ctx"));
 
   m.def("run_node", [](std::shared_ptr<onika::app::ApplicationContext> ctx,
                        onika::scg::OperatorNode* node) {
-    ONIKA_PY_TRY
-      py::gil_scoped_release release;
-      onika::app::run(ctx, node);
-    ONIKA_PY_CATCH
+    py::gil_scoped_release release;
+    onika::app::run(ctx, node);
   }, py::arg("ctx"), py::arg("node"));
 
   m.def("end", [](std::shared_ptr<onika::app::ApplicationContext> ctx) {
-    ONIKA_PY_TRY
-      py::gil_scoped_release release;
-      onika::app::end(ctx);
-    ONIKA_PY_CATCH
+    py::gil_scoped_release release;
+    onika::app::end(ctx);
   }, py::arg("ctx"));
 
   // Build a simulation graph from a Python list, equivalent to the simulation:
@@ -65,54 +55,52 @@ void bind_app(py::module_& m)
   // up by name without this pre-resolution step.
   m.def("build_simulation_graph",
     [](std::shared_ptr<onika::app::ApplicationContext> ctx, py::object simulation) {
-      ONIKA_PY_TRY
-        YAML::Node sim_yaml;
-        if(simulation.is_none())
+      YAML::Node sim_yaml;
+      if(simulation.is_none())
+      {
+        // No argument: use the simulation node stored during init(), identical
+        // to what the internal init() → build_simulation_graph path does.
+        sim_yaml = YAML::Clone(ctx->m_simulation_node);
+      }
+      else
+      {
+        sim_yaml = py_to_yaml(simulation);
+        // Resolve "simulation" body items: the "simulation:" key is extracted by
+        // load_yaml_input and removed from operator defaults, so the factory cannot
+        // look it up by name.  Substitute it with ctx->m_simulation_node here.
+        if( sim_yaml.IsSequence() && !ctx->m_simulation_node.IsNull() )
         {
-          // No argument: use the simulation node stored during init(), identical
-          // to what the internal init() → build_simulation_graph path does.
-          sim_yaml = YAML::Clone(ctx->m_simulation_node);
-        }
-        else
-        {
-          sim_yaml = py_to_yaml(simulation);
-          // Resolve "simulation" body items: the "simulation:" key is extracted by
-          // load_yaml_input and removed from operator defaults, so the factory cannot
-          // look it up by name.  Substitute it with ctx->m_simulation_node here.
-          if( sim_yaml.IsSequence() && !ctx->m_simulation_node.IsNull() )
+          const YAML::Node& defaults = onika::scg::OperatorNodeFactory::instance()->get_operator_defaults();
+          if( !defaults["simulation"] )
           {
-            const YAML::Node& defaults = onika::scg::OperatorNodeFactory::instance()->get_operator_defaults();
-            if( !defaults["simulation"] )
+            YAML::Node resolved(YAML::NodeType::Sequence);
+            bool changed = false;
+            for(const auto& item : sim_yaml)
             {
-              YAML::Node resolved(YAML::NodeType::Sequence);
-              bool changed = false;
-              for(const auto& item : sim_yaml)
+              if(item.IsScalar() && item.as<std::string>() == "simulation")
               {
-                if(item.IsScalar() && item.as<std::string>() == "simulation")
+                const YAML::Node& sim_node = ctx->m_simulation_node;
+                if(sim_node.IsScalar())
                 {
-                  const YAML::Node& sim_node = ctx->m_simulation_node;
-                  if(sim_node.IsScalar())
-                  {
-                    resolved.push_back(YAML::Clone(sim_node));
-                  }
-                  else if(sim_node.IsSequence())
-                  {
-                    for(const auto& sub : sim_node)
-                      resolved.push_back(YAML::Clone(sub));
-                  }
-                  changed = true;
+                  resolved.push_back(YAML::Clone(sim_node));
                 }
-                else
+                else if(sim_node.IsSequence())
                 {
-                  resolved.push_back(YAML::Clone(item));
+                  for(const auto& sub : sim_node)
+                    resolved.push_back(YAML::Clone(sub));
                 }
+                changed = true;
               }
-              if(changed) sim_yaml = resolved;
+              else
+              {
+                resolved.push_back(YAML::Clone(item));
+              }
             }
+            if(changed) sim_yaml = resolved;
           }
         }
-        return onika::app::build_simulation_graph(*ctx->m_configuration, sim_yaml);
-      ONIKA_PY_CATCH
+      }
+      return onika::app::build_simulation_graph(*ctx->m_configuration, sim_yaml);
     },
     py::arg("ctx"), py::arg("simulation") = py::none(),
     "Build a simulation graph from a Python list of operator specs. "

@@ -29,8 +29,7 @@ void bind_scg(py::module_& m)
     .def("value_as_string", &OSB::value_as_string)
     .def("value_as_bool",   &OSB::value_as_bool)
     .def("yaml_initialize", [](OSB& slot, py::object cfg) {
-      try { slot.yaml_initialize(py_to_yaml(cfg)); }
-      catch (const std::exception& e) { throw std::runtime_error(e.what()); }
+      slot.yaml_initialize(py_to_yaml(cfg));
     }, py::arg("config"))
     .def("__repr__", [](const OSB& s) {
       std::string dir = s.is_input_only() ? "IN" : s.is_output_only() ? "OUT" : "IN_OUT";
@@ -67,8 +66,7 @@ void bind_scg(py::module_& m)
 
     // Phase 2: configure an operator's slots from a Python dict
     .def("yaml_initialize", [](ON& op, py::object cfg) {
-      try { op.yaml_initialize(py_to_yaml(cfg)); }
-      catch (const std::exception& e) { throw std::runtime_error(e.what()); }
+      op.yaml_initialize(py_to_yaml(cfg));
     }, py::arg("config"))
 
     // Read back the full slot config as a Python dict
@@ -88,10 +86,7 @@ void bind_scg(py::module_& m)
     // Finalise slot resource allocation. NOTE: make_operator() already calls
     // compile() internally via the factory — calling it again will throw
     // "OperatorNode cannot be re-compiled". Exposed for advanced use only.
-    .def("compile", [](ON& op) {
-      try { op.compile(); }
-      catch (const std::exception& e) { throw std::runtime_error(e.what()); }
-    })
+    .def("compile", [](ON& op) { op.compile(); })
 
     // Return a numpy array view of a named slot (works for std::vector<T> types).
     .def("slot_as_array", [](ON& op, const std::string& name) -> py::object {
