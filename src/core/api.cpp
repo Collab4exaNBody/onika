@@ -34,6 +34,13 @@ namespace onika
   namespace app
   {
 
+    static bool s_deferred_mpi_finalize = false;
+
+    void set_deferred_mpi_finalize(bool yn)
+    {
+      s_deferred_mpi_finalize = yn;
+    }
+
     int ApplicationContext::get_error_code() const
     {
       return m_return_code;
@@ -227,8 +234,9 @@ namespace onika
       simulation_graph->apply_graph( [](OperatorNode* op){ op->free_all_resources(); } );
       simulation_graph = nullptr;
 
-      // MPI_Finalize is deferred to an atexit handler registered in initialize_mpi,
-      // so that multiple init/end cycles in a single process (e.g. from Python) work.
+      // in deferred mode (e.g. Python), MPI_Finalize is called by an atexit handler registered
+      // in initialize_mpi, so that multiple init/end cycles in a single process work.
+      if( ! external_mpi_init && ! s_deferred_mpi_finalize ) MPI_Finalize();
     }
 
     std::pair< std::vector<std::string> , YAML::Node >
@@ -509,13 +517,17 @@ namespace onika
       MPI_Initialized( &external_mpi_init );
       MPI_Finalized( &mpi_finalized );
 
-      if( external_mpi_init && !mpi_finalized )
+      if( mpi_finalized )
+      {
+        fatal_error() << "MPI has already been finalized, it cannot be initialized again" << std::endl;
+      }
+
+      if( external_mpi_init )
       {
         MPI_Query_thread( &mt_support );
       }
-      else if( !mpi_finalized )
+      else
       {
-        static bool s_mpi_atexit_registered = false;
         if( configuration.mpimt )
         {
           MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mt_support);
@@ -524,12 +536,12 @@ namespace onika
         {
           MPI_Init(&argc, &argv);
         }
-        if( !s_mpi_atexit_registered )
+        static bool s_mpi_atexit_registered = false;
+        if( s_deferred_mpi_finalize && !s_mpi_atexit_registered )
         {
           std::atexit( []{ int fin=0; MPI_Finalized(&fin); if(!fin) MPI_Finalize(); } );
           s_mpi_atexit_registered = true;
         }
-        external_mpi_init = 0;
       }
       for(int a=0;a<argc;a++) free( argv[a] );
       delete [] argv;

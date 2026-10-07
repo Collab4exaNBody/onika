@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <onika/log.h>
 #include <onika/scg/operator_factory.h>
+#include <onika/app/api.h>
 #include "bind_scg.h"
 #include "bind_factory.h"
 #include "bind_app.h"
@@ -14,6 +15,9 @@ PYBIND11_MODULE(pyonika, m)
 
   // Turn onika fatal errors into Python RuntimeError instead of std::abort().
   onika::FatalErrorLogStream::enable_python_mode(true);
+
+  // Defer MPI_Finalize to process exit so that several init/end cycles can run.
+  onika::app::set_deferred_mpi_finalize(true);
 
   // Register OperatorCreationException as a proper Python exception class.
   py::register_exception<onika::scg::OperatorCreationException>(m, "OnikaError");
