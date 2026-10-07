@@ -45,7 +45,7 @@ onika/
 │   └── app/api.h            ← init / run / end / build_simulation_graph declarations
 ├── src/
 │   ├── core/log.cpp         ← s_fatal_error_python_mode flag
-│   └── core/api.cpp         ← MPI atexit fix for multi-run support
+│   └── core/api.cpp         ← set_deferred_mpi_finalize() for multi-run support
 └── python/
     ├── CMakeLists.txt        ← pybind11 auto-fetch, pyonika target
     ├── module.cpp            ← PYBIND11_MODULE entry point
@@ -273,9 +273,10 @@ stored inside `ctx`.
 #### `pyonika.end(ctx: ApplicationContext)`
 
 Finalise the simulation: flush profiling traces and free all operator
-resources.  MPI is **not** finalised here — it is deferred to an `atexit`
-handler registered on the first `init()` call, so that multiple `init`/`end`
-cycles in one Python process work correctly.
+resources.  MPI is **not** finalised here — importing `pyonika` turns on
+deferred MPI finalisation, and an `atexit` handler registered on the first
+`init()` call finalises MPI, so that multiple `init`/`end` cycles in one Python
+process work correctly.
 
 Must be called once after each `run` or `run_node`.
 
@@ -471,7 +472,7 @@ pyonika.run_node(ctx, graph)
 #### `pyonika.slot_as_array(slot: OperatorSlotBase) → numpy.ndarray | None`
 
 Module-level variant of `OperatorNode.slot_as_array`.  Returns a numpy array
-view of a slot's value, or `None` if the type is not registered or the value
+copy of a slot's value, or `None` if the type is not registered or the value
 is not yet initialised.  See [numpy buffer protocol](#numpy-buffer-protocol).
 
 ---
@@ -518,7 +519,7 @@ Represents a node in the simulation computation graph (SCG).
 | `compile()` | — | Allocate slot resources — **not needed after `make_operator()`** (factory already calls it); exposed for advanced use only |
 | `yaml_initialize(config: dict)` | — | Configure input/output slots from a Python dict |
 | `slot_values()` | `dict[str, str]` | String representations of all initialised slot values |
-| `slot_as_array(name: str)` | `ndarray \| None` | numpy view of a named slot (see below) |
+| `slot_as_array(name: str)` | `ndarray \| None` | numpy copy of a named slot (see below) |
 | `apply_graph(callback)` | — | Depth-first traversal; calls `callback(node)` for each node |
 
 ```python
@@ -529,7 +530,7 @@ ctx.node("simulation").apply_graph(lambda op: print(op.pathname()))
 for name, slot in ctx.node("simulation.unit_system").in_slots():
     print(f"  {name}: {slot.value_type()} = {slot.value_as_string()}")
 
-# Look up a named slot and get its numpy view
+# Look up a named slot and get a numpy copy of its value
 arr = ctx.node("simulation.my_extractor").slot_as_array("data")
 if arr is not None:
     print(arr.shape, arr.dtype, arr.mean())
@@ -574,7 +575,7 @@ alive.
 | Exception | Raised when |
 |---|---|
 | `pyonika.OnikaError` | Unknown operator name in `make_operator`, slot type incompatibility, or any `OperatorCreationException` from the factory |
-| `RuntimeError` | Any other `std::exception` escaping an onika call (bad YAML, slot type mismatch, fatal error in Python mode) |
+| `RuntimeError` | Any other `std::exception` escaping an onika call (bad YAML, slot type mismatch, fatal error in Python mode). pybind11 maps a few standard exceptions to more specific builtins (e.g. `std::out_of_range` → `IndexError`, `std::invalid_argument` → `ValueError`) |
 
 ```python
 try:
@@ -588,7 +589,18 @@ mechanism for unrecoverable errors (e.g. incompatible slot types during graph
 compilation).  In normal C++ mode these call `std::abort()`.  The Python
 module enables *Python mode* at load time (`enable_python_mode(true)`), which
 makes `FatalErrorLogStream::~FatalErrorLogStream()` throw `std::runtime_error`
-instead — caught by the `ONIKA_PY_CATCH` macro and re-raised as `RuntimeError`.
+instead, which pybind11 raises as `RuntimeError`.
+
+Throwing is only done when it is safe; otherwise the old behaviour is kept:
+
+- inside an OpenMP parallel region (e.g. task-parallel operators), an exception
+  cannot leave the region, so the process aborts;
+- if another exception is already being propagated, the process aborts;
+- with more than one MPI process, `MPI_Abort` is called so that the other ranks
+  do not wait forever for the rank that failed.
+
+After a `RuntimeError` raised from `run()`/`run_node()`, the simulation graph is
+left half-executed: call `end(ctx)` and start again with a new `init()`.
 
 ---
 
@@ -644,8 +656,8 @@ pyonika.end(ctx)
 ## Running multiple simulations
 
 Each `init()` call reloads YAML, re-reads plugins, and resets the operator
-defaults.  Thanks to the MPI `atexit` fix, MPI stays alive across all cycles
-and is finalised exactly once at process exit.
+defaults.  Because `pyonika` defers MPI finalisation, MPI stays alive across
+all cycles and is finalised exactly once at process exit.
 
 ```python
 import pyonika, sys, os
@@ -672,8 +684,9 @@ for nsteps in [10, 50, 100]:
 
 ## numpy buffer protocol
 
-`slot_as_array()` returns a **non-owning numpy array** backed by the slot's
-in-memory C++ storage.  No data is copied.
+`slot_as_array()` returns a numpy array holding a **copy** of the slot's
+in-memory C++ storage (pybind11 copies a raw buffer when no owner object is
+given).  Writing to the array does not modify the slot.
 
 **Supported slot types (registered in `bind_soatl.cpp` at module load time):**
 
@@ -701,9 +714,8 @@ in-memory C++ storage.  No data is copied.
 
 Returns `None` for unregistered types or uninitialised slots.
 
-**Lifetime constraint:** the array's memory is owned by the C++ operator slot.
-Keep the `ApplicationContext` alive for as long as you use the array.  Assigning
-`arr = None` releases the Python reference but does not free the C++ memory.
+**Lifetime:** since the data is copied, the array stays valid after `end(ctx)`
+or after the operator is destroyed.  The cost is one copy of the vector per call.
 
 **Standalone operators:** nodes created with `make_operator()` are already
 compiled by the factory — `slot_as_array()` can be called on them immediately.
@@ -762,7 +774,7 @@ reading defaults.
 | `float` | scalar string | formatted with 17 significant digits; `.0` appended when no decimal/exponent present (see below) |
 | `str` | scalar string | |
 | `dict` | Map | keys must be strings |
-| `list` / `tuple` | Sequence | |
+| `list` / `tuple` / other sequences (e.g. `numpy.ndarray`) | Sequence | `str` and `bytes` excluded |
 | anything else | scalar string | `str(obj)` fallback |
 
 ### `yaml_to_py()` — type mapping
@@ -816,17 +828,21 @@ PYBIND11_MODULE(pyonika, m)
 Two things happen at module load time:
 
 1. **Python mode** is activated.  `FatalErrorLogStream::~FatalErrorLogStream()`
-   is marked `noexcept(false)` and, when Python mode is on, throws
-   `std::runtime_error` instead of calling `std::abort()`.  This makes onika
-   fatal errors recoverable from Python (they surface as `RuntimeError`).
+   is marked `noexcept(false)` and, when Python mode is on and it is safe to do so
+   (see [Exceptions](#exceptions)), throws `std::runtime_error` instead of calling
+   `std::abort()`.  This makes onika fatal errors recoverable from Python (they
+   surface as `RuntimeError`).  Deferred MPI finalisation is also turned on
+   (`onika::app::set_deferred_mpi_finalize(true)`).
 
 2. **`OnikaError`** is registered as a proper Python exception class that maps
    to `onika::scg::OperatorCreationException`.  It is raised by `make_operator`
    for unknown operator names and by the factory for slot type incompatibilities.
 
-All other `std::exception` instances that escape any onika call are caught by
-the `ONIKA_PY_TRY` / `ONIKA_PY_CATCH` macros in each binding file and
-re-raised as `RuntimeError`.
+All other `std::exception` instances that escape any onika call are translated
+by pybind11's default exception translator (`RuntimeError` in most cases).  The
+bindings deliberately do not catch and re-throw exceptions themselves, because
+that would turn `OperatorCreationException` into a plain `RuntimeError` before
+the `OnikaError` translator could see it.
 
 ---
 
@@ -836,18 +852,16 @@ re-raised as `RuntimeError`.
 type so Python shares ownership with the C++ side.  All attributes are
 read-only (`def_readonly` / `def_property_readonly`).
 
-**`init`** wraps `onika::app::init(argv)` in a `ONIKA_PY_TRY`/`ONIKA_PY_CATCH`
-block.  The returned `shared_ptr<ApplicationContext>` is immediately owned by
+**`init`** calls `onika::app::init(argv)`; exceptions are translated by
+pybind11 (see [Exceptions](#exceptions)).  The returned `shared_ptr<ApplicationContext>` is immediately owned by
 Python.
 
 **`run` and `end`** both release the GIL before calling into C++:
 
 ```cpp
 m.def("run", [](std::shared_ptr<ApplicationContext> ctx) {
-  ONIKA_PY_TRY
-    py::gil_scoped_release release;
-    onika::app::run(ctx);
-  ONIKA_PY_CATCH
+  py::gil_scoped_release release;
+  onika::app::run(ctx);
 }, py::arg("ctx"));
 ```
 
@@ -934,7 +948,7 @@ returns exactly this mangled name, making the O(1) lookup correct without any
 **`register_vector<T>`** creates an extractor that:
 1. `static_cast`s `OSB&` to `OperatorSlot<vector<T>>*` (safe: the type string already matched)
 2. Checks `has_value()`
-3. Wraps `vec.data()` in a `py::buffer_info` and returns a zero-copy `py::array_t<T>`
+3. Wraps `vec.data()` in a `py::buffer_info` and returns a `py::array_t<T>` (pybind11 copies the data, since no base object is given)
 
 **`register_vector_of_array<T,N>`** does the same for `vector<array<T,N>>`,
 producing a 2-D array of shape `(N_elements, N)` with strides `(sizeof(T)*N, sizeof(T))`.
@@ -998,26 +1012,24 @@ goes out of scope (i.e. when the C++ call returns).
 
 ### MPI multi-run support
 
-The MPI standard forbids calling any MPI routine after `MPI_Finalize()`,
-including `MPI_Initialized()`.  When `end()` called `MPI_Finalize()` directly,
-any subsequent `init()` in the same process would see `MPI_Initialized() == 1`
-(true — MPI was initialised) and enter the "external MPI" branch, which calls
-`MPI_Query_thread()` — crashing immediately.
+MPI cannot be initialised again once `MPI_Finalize()` has been called.  If
+`end()` finalised MPI, a second `init()` in the same process would fail.
 
-Two changes in `src/core/api.cpp` fix this:
+`src/core/api.cpp` provides `onika::app::set_deferred_mpi_finalize(bool)`
+(off by default; `pyonika` turns it on at import time):
 
-1. **`initialize_mpi`** now also checks `MPI_Finalized()`.  When onika calls
-   `MPI_Init` for the first time, it registers a one-shot `atexit` handler
-   that calls `MPI_Finalize()` (guarded by a `MPI_Finalized()` check).  On
-   subsequent `init()` calls, MPI is already initialised and not yet finalised,
-   so the code takes the "external MPI" path safely.
+1. **`initialize_mpi`**: when onika calls `MPI_Init` itself and deferred mode is
+   on, it registers a one-shot `atexit` handler that calls `MPI_Finalize()`
+   (guarded by a `MPI_Finalized()` check).  Later `init()` calls see MPI already
+   initialised and take the "external MPI" path.  If MPI has already been
+   finalised, `initialize_mpi` stops with a clear fatal error.
 
-2. **`finalize`** (called by `end()`) no longer calls `MPI_Finalize()` directly.
-   The `atexit` handler takes sole responsibility, ensuring `MPI_Finalize` is
-   called exactly once when the Python process exits.
+2. **`finalize`** (called by `end()`) calls `MPI_Finalize()` only when onika
+   initialised MPI itself **and** deferred mode is off.
 
-This has no observable effect on single-run C++ programs: `MPI_Finalize` is
-still called exactly once, just deferred to the natural process-exit sequence.
+C++ programs such as the `onika` executable are unchanged: they do not turn on
+deferred mode, so MPI is still finalised in `end()`, before CUDA and static
+objects are torn down at process exit.
 
 ---
 
