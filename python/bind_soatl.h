@@ -4,7 +4,7 @@
 #include <functional>
 #include <typeindex>
 
-// Returns a numpy array view of the slot's value if its type is registered,
+// Returns a numpy array copy of the slot's value if its type is registered,
 // or py::none() if the type is unknown or the value is not yet initialised.
 pybind11::object slot_as_array(onika::scg::OperatorSlotBase& slot);
 

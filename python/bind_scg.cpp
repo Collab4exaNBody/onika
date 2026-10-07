@@ -88,7 +88,7 @@ void bind_scg(py::module_& m)
     // "OperatorNode cannot be re-compiled". Exposed for advanced use only.
     .def("compile", [](ON& op) { op.compile(); })
 
-    // Return a numpy array view of a named slot (works for std::vector<T> types).
+    // Return a numpy array copy of a named slot (works for std::vector<T> types).
     .def("slot_as_array", [](ON& op, const std::string& name) -> py::object {
       OSB* slot = op.in_slot(name);
       if (!slot) slot = op.out_slot(name);

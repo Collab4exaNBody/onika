@@ -15,19 +15,21 @@ namespace py = pybind11;
 using OSB = onika::scg::OperatorSlotBase;
 
 // ---------------------------------------------------------------------------
-// Registry: mangled type name → function that turns a slot into a Python object.
-// Keyed by typeid(T).name() (ABI-stable string) rather than std::type_index so
+// Registry: mangled type name (typeid(T).name()) → function that turns a slot
+// into a Python object.  Keyed by the name string rather than std::type_index so
 // that extractors registered from RTLD_LOCAL extension modules (e.g. _exanb_data)
-// can match slots whose RTTI lives in a different DSO.  slot_as_array() does an
-// O(1) lookup via OperatorSlotBase::value_type() and then calls the extractor
-// with static_cast — no dynamic_cast required.
+// can match slots whose RTTI lives in a different DSO.  register_slot_extractor()
+// takes a std::type_index for convenience and stores its name().  slot_as_array()
+// does an O(1) lookup via OperatorSlotBase::value_type() (which is the same
+// typeid name) and then calls the extractor with static_cast — no dynamic_cast.
 // ---------------------------------------------------------------------------
 using SlotToArray = std::function<py::object(OSB&)>;
 static std::unordered_map<std::string, SlotToArray> g_extractors;
 
 // Register a 1-D array extractor for std::vector<T>.
-// The returned numpy array is a non-owning VIEW of the vector's storage;
-// keep the owning ApplicationContext alive for as long as the array is used.
+// The returned numpy array is a COPY of the vector's storage: pybind11 copies the
+// buffer when no base object is given.  It stays valid after the graph is freed,
+// and writing to it does not modify the slot.
 template<typename T>
 static void register_vector()
 {
@@ -116,7 +118,7 @@ void bind_soatl(py::module_& m)
   // slot_as_array(slot) — module-level helper.
   m.def("slot_as_array", [](OSB& slot) { return slot_as_array(slot); },
         py::arg("slot"),
-        "Return a numpy array view of a slot's value, or None if the type is "
+        "Return a numpy array copy of a slot's value, or None if the type is "
         "not registered or the value is not yet initialised.");
 
   // Expose register_slot_extractor as a PyCapsule so other pybind11 extensions
