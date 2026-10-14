@@ -275,7 +275,11 @@ namespace onika
 #   define ONIKA_STATIC_INLINE_KERNEL static inline
 #   define ONIKA_DEVICE_KERNEL_FUNC /**/
 #   define ONIKA_DEVICE_KERNEL_BOUNDS(MaxThreadsPerBlock,MinBlocksPerSM) /**/
-#   define ONIKA_BUILTIN_ASSUME_ALIGNED(p,a) __builtin_assume_aligned(p,a)
+#   if defined(__cray__)
+#     define ONIKA_BUILTIN_ASSUME_ALIGNED(p,a) p  // CCE 20 crashes evaluating the alignment argument
+#   else
+#     define ONIKA_BUILTIN_ASSUME_ALIGNED(p,a) __builtin_assume_aligned(p,a)
+#   endif
 #   define ONIKA_CU_LAUNCH_KERNEL(GDIM,BDIM,SHMEM,STREAM,FUNC, ... ) do{ \
 	FAKE_USE_OF_VARIABLES(__VA_ARGS__) \
 	printf("Illegal call to Kernel %s<<<%d,%d,%d,%ld>>>(...) with no GPU support, in %s at %s:%d\n",#FUNC,int(::onika::cuda::onika_dim3_size(GDIM)),int(::onika::cuda::onika_dim3_size(BDIM)),int(SHMEM),long(STREAM),__FUNCTION__,__FILE__,__LINE__); \

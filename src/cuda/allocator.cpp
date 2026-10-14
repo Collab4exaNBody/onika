@@ -160,7 +160,13 @@ namespace onika
           {
             std::cerr << "cudaMallocManaged returned a pointer that is not aligned on a "<<a<<" bytes boundary"<<std::endl;
             std::abort();
-          }          
+          }
+          // ---- added: coarse-grained managed memory on AMD (MI250 hardware FP64 atomics) ----
+#         ifdef ONIKA_HIP_VERSION
+          { int dev = 0; (void) hipGetDevice(&dev);
+            (void) hipMemAdvise( ptr, s + add_info_size, hipMemAdviseSetCoarseGrain, dev ); }
+#         endif
+          // ---- end added ----	  
           if( s_enable_debug_log ) { _Pragma("omp critical(dbg_mesg)") std::cout<<"CUDA: alloc "<<s + add_info_size<<" ("<<s<<"+"<<add_info_size<<") bytes @"<<ptr<< " , align="<<a<<std::endl; }
           // lout << "cudaMallocManaged("<<s<<","<<a<<") -> @"<<ptr<<std::endl;
 #         else
