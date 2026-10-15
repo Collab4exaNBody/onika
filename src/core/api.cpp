@@ -311,7 +311,11 @@ namespace onika
 
       // ======== process debugging options =============
       OperatorNodeFactory::set_debug_verbose_level( configuration.debug.verbose );
+#     ifdef __APPLE__
+      if( configuration.debug.fpe ) { lerr << "FPE trapping (debug.fpe) is not supported on macOS, ignoring" << std::endl; }
+#     else
       if( configuration.debug.fpe ) { feenableexcept( FE_ALL_EXCEPT & ~FE_INEXACT ); }
+#     endif
       // ===============================================
 
       // dump input files loaded
@@ -399,6 +403,19 @@ namespace onika
       // ============= CPU Core counting and thread pining =============
       int cpucount = 0;
       std::vector<int> cpu_ids;
+#     ifdef __APPLE__
+      {
+        // macOS has no pthread affinity API (no cpu_set_t, no CPU pinning);
+        // just report every hardware thread as available.
+        cpucount = (int) std::thread::hardware_concurrency();
+        for (int i=0; i<cpucount; ++i) cpu_ids.push_back(i);
+        if( configuration.pinethreads && allow_openmp_conf )
+        {
+          lerr << "Thread pining is not supported on macOS, ignoring 'pinethreads' option" << std::endl;
+          configuration.pinethreads = false;
+        }
+      }
+#     else
       {
         cpu_set_t cpuaff;
         CPU_ZERO(&cpuaff);
@@ -438,10 +455,12 @@ namespace onika
           configuration.pinethreads = false;
         }
       }
+#     endif
       // get the real core count (not the cpumask)
       int cpu_hw_threads = std::thread::hardware_concurrency();
 
       // =========== optional thread pinning ===========
+#     ifndef __APPLE__
       if( configuration.pinethreads )
       {
 #       pragma omp parallel
@@ -453,6 +472,7 @@ namespace onika
           pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &thread_cpu_aff);
         }
       }
+#     endif
       // ===============================================
 
       onika::parallel::ParallelExecutionContext::s_parallel_task_core_mult = configuration.onika.parallel_task_core_mult;

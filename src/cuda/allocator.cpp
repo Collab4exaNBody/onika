@@ -17,7 +17,6 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <iostream>
-#include <malloc.h>
 
 #ifdef ONIKA_CUDA_VERSION
 #include <onika/cuda/cuda_context.h>
