@@ -464,16 +464,24 @@ list(APPEND ONIKA_LIBRARIES dl)
 list(APPEND ONIKA_COMPILE_OPTIONS -Wall)
 
 # Architecture-specific compile options
+# ONIKA_ARCH_FLAGS is added to onika and to every code built on it (C++ files and host side of Cuda files), so
+# that all of them target the same CPU. Defaults: aarch64 NEON baseline, x86_64 none (compiler default, often
+# SSE2 only). Examples: -mcpu=neoverse-v2 (Grace), -march=znver2 (AMD Rome), -march=znver3 (AMD Milan),
+# -march=x86-64-v3 (any AVX2 CPU). A -march/-mcpu in CMAKE_CXX_FLAGS alone does not reach the codes built on onika.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
-  message(STATUS "Target architecture: aarch64/ARM64 — enabling NEON baseline (-march=armv8-a)")
-  list(APPEND ONIKA_COMPILE_OPTIONS -march=armv8-a)
-  # Note: replace -march=armv8-a with -mcpu=native when building natively for
-  # better auto-tuning (e.g. Apple M-series, AWS Graviton, Ampere Altra).
+  set(ONIKA_ARCH_FLAGS_DEFAULT "-march=armv8-a")
+  set(ONIKA_ARCH_NAME "aarch64/ARM64")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-  message(STATUS "Target architecture: x86_64")
+  set(ONIKA_ARCH_FLAGS_DEFAULT "")
+  set(ONIKA_ARCH_NAME "x86_64")
 else()
-  message(STATUS "Target architecture: ${CMAKE_SYSTEM_PROCESSOR} (no architecture-specific flags set; scalar SIMD fallback will be used)")
+  set(ONIKA_ARCH_FLAGS_DEFAULT "")
+  set(ONIKA_ARCH_NAME "${CMAKE_SYSTEM_PROCESSOR} (scalar SIMD fallback unless ONIKA_ARCH_FLAGS is set)")
 endif()
+set(ONIKA_ARCH_FLAGS "${ONIKA_ARCH_FLAGS_DEFAULT}" CACHE STRING "CPU architecture flags added to onika and to every code built on it (empty: none)")
+message(STATUS "Target architecture: ${ONIKA_ARCH_NAME} — architecture flags: '${ONIKA_ARCH_FLAGS}'")
+separate_arguments(ONIKA_ARCH_FLAGS_LIST UNIX_COMMAND "${ONIKA_ARCH_FLAGS}")
+list(APPEND ONIKA_COMPILE_OPTIONS ${ONIKA_ARCH_FLAGS_LIST})
 
 # compile main lib
 file(GLOB_RECURSE onika_CXX_SRCS src/*.cpp)
