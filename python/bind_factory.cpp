@@ -17,7 +17,9 @@ void bind_factory(py::module_& m)
   // config may be a dict (map node) or a list (sequence node, e.g. for "simulation").
   m.def("make_operator",
     [](const std::string& name, py::object config) {
-      return Factory::instance()->make_operator(name, py_to_yaml(config));
+      YAML::Node yaml_config = py_to_yaml(config);
+      py::gil_scoped_release release;
+      return Factory::instance()->make_operator(name, yaml_config);
     },
     py::arg("name"), py::arg("config") = py::dict(),
     "Create a named operator. config may be a dict or a list (for sequence-type operators).");

@@ -47,14 +47,18 @@ onika/
 │   ├── core/log.cpp         ← s_fatal_error_python_mode flag
 │   └── core/api.cpp         ← set_deferred_mpi_finalize() for multi-run support
 └── python/
-    ├── CMakeLists.txt        ← pybind11 auto-fetch, pyonika target
-    ├── module.cpp            ← PYBIND11_MODULE entry point
+    ├── CMakeLists.txt        ← pybind11 auto-fetch, pyonika._core target, pyproject.toml
+    ├── pyproject.toml.in     ← pip metadata of the installed package
+    ├── pyonika/              ← Python package: __init__, env, mpi, output
+    ├── include/onika/python/slot_extractor_api.h ← extractor API for downstream modules
+    ├── tests/                ← pytest suite (ctest: pyonika_tests)
+    ├── module.cpp            ← PYBIND11_MODULE(_core) entry point
     ├── yaml_conv.h           ← py_to_yaml / yaml_to_py (header-only)
     ├── bind_scg.h / .cpp     ← OperatorNode, OperatorSlotBase bindings
     ├── bind_soatl.h / .cpp   ← numpy buffer registry and slot_as_array
     ├── bind_factory.h / .cpp ← make_operator, available_operators, set/get_operator_defaults
     ├── bind_app.h / .cpp     ← ApplicationContext, init / run / run_node / end / build_simulation_graph
-    └── exemples/
+    └── examples/
         ├── pyonika_dryrun_test_import_pyonika.py      ← import smoke test
         ├── pyonika_run_main_config.py                 ← Pattern A: run + full graph/slot inspection
         ├── pyonika_execute_user_specified_msp_file.py ← Pattern A: interactive .msp launcher
@@ -82,24 +86,30 @@ cmake --build  build-onika -j8
 cmake --install build-onika
 ```
 
-After install, source the generated environment script:
+Then install the package into your Python environment (same interpreter as
+`Python3_EXECUTABLE`):
 
 ```bash
-source /path/to/onika_install/bin/setup-env.sh
+pip install /path/to/onika_install/python
 ```
 
-This sets `PYTHONPATH` (so `import pyonika` works), `ONIKA_CONFIG_PATH`,
-`ONIKA_PLUGIN_PATH`, and `ONIKA_DATA_PATH`.
+The install prefix is baked into the package: `import pyonika` sets
+`ONIKA_PLUGIN_PATH`, `ONIKA_CONFIG_PATH` and `ONIKA_DATA_PATH` itself and
+initializes MPI.  Values already set by the user (e.g. by sourcing
+`bin/setup-env.sh`, which also adds `<prefix>/python` to `PYTHONPATH`) take
+precedence.
 
 **Install layout:**
 
 ```
 <install-prefix>/
 ├── bin/
-│   ├── setup-env.sh       ← source this before running Python scripts
+│   ├── setup-env.sh       ← optional for Python users
 │   └── onika-exec
-├── lib/
-│   └── pyonika.<platform>.so
+├── include/onika/python/slot_extractor_api.h
+├── python/
+│   ├── pyproject.toml     ← pip install <prefix>/python
+│   └── pyonika/           ← __init__.py, env.py, mpi.py, output.py, _paths.py, _core.<platform>.so
 ├── plugins/
 └── data/
 ```
@@ -128,9 +138,9 @@ pyonika.run(ctx)
 pyonika.end(ctx)
 ```
 
-> **Examples:** `exemples/pyonika_dryrun_test_import_pyonika.py` (smoke test),
-> `exemples/pyonika_run_main_config.py` (Pattern A + full graph/slot inspection),
-> `exemples/pyonika_execute_user_specified_msp_file.py` (interactive .msp launcher).
+> **Examples:** `examples/pyonika_dryrun_test_import_pyonika.py` (smoke test),
+> `examples/pyonika_run_main_config.py` (Pattern A + full graph/slot inspection),
+> `examples/pyonika_execute_user_specified_msp_file.py` (interactive .msp launcher).
 
 ```python
 # Pattern B — build the graph entirely from Python
@@ -162,7 +172,7 @@ pyonika.run_node(ctx, graph)
 pyonika.end(ctx)
 ```
 
-> **Example:** `exemples/pyonika_reproduce_print_loop_case.py` — full Python reproduction of
+> **Example:** `examples/pyonika_reproduce_print_loop_case.py` — full Python reproduction of
 > `data/exemples/print_loop.msp` without reading any `.msp` file.
 
 ```python
@@ -203,6 +213,18 @@ pyonika.end(ctx)
 ## API reference
 
 ### Module-level functions
+
+#### Helpers (pure Python)
+
+| Function | Description |
+|---|---|
+| `command_line(msp, *args, program="pyonika", overrides=None, config=None)` | argv for `init()`. `overrides` (nested dict) is merged on top of the input file's operator definitions through `configuration.set`, e.g. `{"global": {"dt": 1e-3}}`; `config` sets `configuration:` options, e.g. `{"omp_num_threads": 4}` |
+| `run_file(msp, *args, program="pyonika", overrides=None, config=None)` | `init`, `run`, `end`; returns 0 on success or the early-exit code |
+| `describe_operator(name)` | `make_operator(name).describe()`: documentation, slot types, directions, defaults (after `init()`) |
+| `capture_output(stream=None, stderr=True)` | context manager sending output written by C++ during the block to `stream` (default `sys.stdout`; use an `io.StringIO` to keep it) |
+| `setup_env(prefixes)` | add install prefixes (plugins, config, data); done at import for onika, by applications for their own prefix |
+| `ensure_mpi_initialized()` | done at import |
+
 
 #### `pyonika.init(argv: list[str]) → ApplicationContext`
 
@@ -396,8 +418,8 @@ graph.apply_graph(print_slots)
 pyonika.end(ctx)
 ```
 
-> **Examples:** `exemples/pyonika_make_operator_usage.py` (slot introspection with `make_operator`),
-> `exemples/pyonika_read_slot_values.py` (reading values via `apply_graph` after `run_node`).
+> **Examples:** `examples/pyonika_make_operator_usage.py` (slot introspection with `make_operator`),
+> `examples/pyonika_read_slot_values.py` (reading values via `apply_graph` after `run_node`).
 
 ---
 
@@ -491,10 +513,13 @@ profiling data.
 | `cpucount` | `int` | Number of CPU cores |
 | `error_code` | `int` | `-1` = normal run; `≥ 0` = early-exit code (pass to `sys.exit`) |
 | `node(path)` | `OperatorNode` | Look up an operator by its dotted pathname, e.g. `"simulation.unit_system"` |
+| `graph` | `OperatorNode` | Root of the graph built by `init()` (`None` after an early exit or `end()`) |
 | `set_multiple_run(bool)` | — | Allow the simulation graph to be executed more than once |
 
-`node()` returns a **non-owning reference** (`return_value_policy::reference`).
-Keep `ctx` alive as long as the returned node is in use.
+Nodes returned by `node()`, `apply_graph()` callbacks and slots returned by
+`in_slots()`/`out_slots()` keep their owner (the graph root, the traversed
+node, the operator) alive, so they never dangle.  After `end()` their
+resources are freed: values read from them are `None`.
 
 `ApplicationContext` is held by `std::shared_ptr` on both the C++ and Python
 sides, so the object is not destroyed until all Python references to it (and to
@@ -510,6 +535,9 @@ Represents a node in the simulation computation graph (SCG).
 |---|---|---|
 | `name()` | `str` | Local operator name |
 | `pathname()` | `str` | Fully qualified dotted path (e.g. `"simulation.compute_loop.my_op"`) |
+| `documentation()` | `str` | Operator description |
+| `describe()` | `dict` | `name`, `pathname`, `documentation`, `slots` (each as `OperatorSlotBase.describe()`) |
+| `is_terminal()` | `bool` | True if the node has no sub-operators |
 | `depth()` | `int` | Depth in the graph tree |
 | `in_slot_count()` | `int` | Number of input slots |
 | `out_slot_count()` | `int` | Number of output slots |
@@ -518,7 +546,7 @@ Represents a node in the simulation computation graph (SCG).
 | `compiled()` | `bool` | Whether slot resources have been allocated |
 | `compile()` | — | Allocate slot resources — **not needed after `make_operator()`** (factory already calls it); exposed for advanced use only |
 | `yaml_initialize(config: dict)` | — | Configure input/output slots from a Python dict |
-| `slot_values()` | `dict[str, str]` | String representations of all initialised slot values |
+| `slot_values(typed=False)` | `dict` | Values of all initialised slots: strings, or parsed as YAML with `typed=True` |
 | `slot_as_array(name: str)` | `ndarray \| None` | numpy copy of a named slot (see below) |
 | `apply_graph(callback)` | — | Depth-first traversal; calls `callback(node)` for each node |
 
@@ -550,7 +578,9 @@ Represents one input or output slot on an operator.
 |---|---|---|
 | `name()` | `str` | Slot name |
 | `pathname()` | `str` | Fully qualified path |
-| `value_type()` | `str` | C++ type name (`typeid(T).name()`, mangled) |
+| `value_type()` | `str` | Mangled C++ type name (`typeid(T).name()`, extractor registry key) |
+| `type_name()` | `str` | Readable C++ type name |
+| `direction()` | `str` | `"in"`, `"out"` or `"inout"` |
 | `documentation()` | `str` | Doc string, if provided by the operator |
 | `is_input()` | `bool` | True for `INPUT` or `INPUT_OUTPUT` |
 | `is_output()` | `bool` | True for `OUTPUT` or `INPUT_OUTPUT` |
@@ -558,15 +588,15 @@ Represents one input or output slot on an operator.
 | `is_output_only()` | `bool` | True for `OUTPUT` only |
 | `has_value()` | `bool` | True if the value has been materialised |
 | `is_required()` | `bool` | True if the slot must have a value |
+| `value()` | object | Current value parsed as YAML (number, list, dict…), or `None` |
 | `value_as_string()` | `str` | String representation of the current value |
 | `value_as_bool()` | `bool` | Boolean interpretation of the current value |
+| `describe()` | `dict` | `name`, `type`, `direction`, `required`, `documentation`, `value` |
 | `yaml_initialize(config)` | — | Set the slot value from a Python object |
 
-`OperatorSlotBase` instances are **non-owning references** — they are only
-valid while the owning operator (and therefore its `ApplicationContext`) is
-alive.
+A slot keeps its operator alive (see `ApplicationContext.node`).
 
-**Repr:** `<Slot 'simulation.my_op.data' [OUT] St6vectorIdSaIdEE>`.
+**Repr:** `<Slot 'simulation.my_op.data' [out] std::vector<double>>`.
 
 ---
 
@@ -574,8 +604,8 @@ alive.
 
 | Exception | Raised when |
 |---|---|
-| `pyonika.OnikaError` | Unknown operator name in `make_operator`, slot type incompatibility, or any `OperatorCreationException` from the factory |
-| `RuntimeError` | Any other `std::exception` escaping an onika call (bad YAML, slot type mismatch, fatal error in Python mode). pybind11 maps a few standard exceptions to more specific builtins (e.g. `std::out_of_range` → `IndexError`, `std::invalid_argument` → `ValueError`) |
+| `pyonika.OnikaError` (subclass of `RuntimeError`) | Unknown operator name in `make_operator`, slot type incompatibility (`OperatorCreationException`), and any `fatal_error()` raised in Python mode: missing or malformed input file, invalid operator parameters, ... |
+| `RuntimeError` and other builtins | Any other `std::exception` escaping an onika call. pybind11 maps a few standard exceptions to more specific builtins (e.g. `std::out_of_range` → `IndexError`, `std::invalid_argument` → `ValueError`) |
 
 ```python
 try:
@@ -588,8 +618,8 @@ except pyonika.OnikaError as e:
 mechanism for unrecoverable errors (e.g. incompatible slot types during graph
 compilation).  In normal C++ mode these call `std::abort()`.  The Python
 module enables *Python mode* at load time (`enable_python_mode(true)`), which
-makes `FatalErrorLogStream::~FatalErrorLogStream()` throw `std::runtime_error`
-instead, which pybind11 raises as `RuntimeError`.
+makes `FatalErrorLogStream::~FatalErrorLogStream()` throw `onika::FatalError`
+instead, which is raised as `pyonika.OnikaError`.
 
 Throwing is only done when it is safe; otherwise the old behaviour is kept:
 
@@ -649,7 +679,7 @@ pyonika.run_node(ctx, graph)
 pyonika.end(ctx)
 ```
 
-> **Example:** `exemples/pyonika_reproduce_print_loop_case.py`.
+> **Example:** `examples/pyonika_reproduce_print_loop_case.py`.
 
 ---
 
@@ -672,13 +702,12 @@ for nsteps in [10, 50, 100]:
     pyonika.end(ctx)
 ```
 
-> When using `pyexanbody`, MPI is pre-initialised at import time so this works
-> out of the box.  When using `pyonika` directly, the first `init()` registers
-> the `atexit` handler — subsequent calls are safe as long as you do not call
-> `MPI_Finalize()` yourself between cycles.
+> `import pyonika` initializes MPI (`pyonika.mpi.ensure_mpi_initialized()`)
+> and registers its finalization at process exit, so this works out of the box
+> as long as you do not call `MPI_Finalize()` yourself between cycles.
 
-> **Example:** `exemples/pyonika_run_simulation.py` — runs several named batch
-> sequences in sequence within a single Python process.
+> **Example:** `examples/pyonika_run_simulation.py` — two init/run/end cycles
+> within a single Python process.
 
 ---
 
@@ -725,35 +754,29 @@ op = pyonika.make_operator("my_op_with_vector_slot")
 arr = op.slot_as_array("input1")   # → np.ndarray or None
 ```
 
-**Extending the registry:** other pybind11 extension modules can register
-additional slot types without linking against `pyonika.so` directly.  The
-`_register_slot_extractor_fn` `PyCapsule` holds the raw function pointer:
+**Extending the registry:** other pybind11 extension modules register
+converters for their own types with `onika/python/slot_extractor_api.h`
+(installed with onika), without linking against pyonika:
 
 ```cpp
-// In another extension module (e.g. _myext.cpp):
-#include <pybind11/pybind11.h>
-#include <functional>
-#include <typeindex>
-
-using SlotExtractorFn = std::function<py::object(onika::scg::OperatorSlotBase&)>;
-using RegisterFn      = void(*)(std::type_index, SlotExtractorFn);
-
+#include <onika/python/slot_extractor_api.h>
 namespace py = pybind11;
 
 PYBIND11_MODULE(_myext, m)
 {
-  py::object pyonika = py::module_::import("pyonika");
-  auto capsule = pyonika.attr("_register_slot_extractor_fn");
-  auto fn = reinterpret_cast<RegisterFn>(
-      PyCapsule_GetPointer(capsule.ptr(), "_register_slot_extractor_fn"));
-
-  fn(typeid(MySlotType), [](onika::scg::OperatorSlotBase& slot) -> py::object {
-    auto* typed = static_cast<onika::scg::OperatorSlot<MySlotType>*>(&slot);
-    if (!typed->has_value()) return py::none();
-    // … build and return a Python object …
-  });
+  onika::python::register_slot_extractor<MySlotType>( [](const MySlotType& v) -> py::object {
+    py::dict d;
+    d["value"] = v.m_value;
+    return d;
+  } );
 }
 ```
+
+The registration function is published in the capsule
+`pyonika._slot_extractor_api` with an API version and the pybind11 internals
+version; a module built against an incompatible pyonika fails at import with
+an `ImportError` instead of crashing.  (`_register_slot_extractor_fn`, the
+former unversioned capsule, is kept for compatibility.)
 
 ---
 
@@ -766,272 +789,98 @@ reading defaults.
 
 ### `py_to_yaml()` — type mapping
 
-| Python type | YAML node type | Notes |
+| Python type | YAML node | Notes |
 |---|---|---|
 | `None` | Null | |
-| `bool` | scalar `true`/`false` | checked before `int` (bool ⊂ int in CPython) |
-| `int` | scalar integer | serialised as `long long` |
-| `float` | scalar string | formatted with 17 significant digits; `.0` appended when no decimal/exponent present (see below) |
-| `str` | scalar string | |
-| `dict` | Map | keys must be strings |
-| `list` / `tuple` / other sequences (e.g. `numpy.ndarray`) | Sequence | `str` and `bytes` excluded |
-| anything else | scalar string | `str(obj)` fallback |
+| `bool` | `true` / `false` | checked before `int` (bool ⊂ int in CPython) |
+| `int` | integer scalar | exact, any size |
+| `float` | float scalar | 17 significant digits, `.0` appended to whole numbers so they stay floats; `nan`/`inf` → `.nan`/`.inf` |
+| `str`, `bytes` | string scalar | |
+| `dict` | Map | keys converted with `str()` |
+| numpy scalar / 0-d array | as its Python value | `np.int64(3)` → `3` |
+| list, tuple, other sequences (numpy arrays) | Sequence | |
+| anything else | string scalar | `str(obj)` |
 
 ### `yaml_to_py()` — type mapping
 
-| YAML scalar | Python type | Detection |
-|---|---|---|
-| `true`/`True`/`yes`/`on` | `bool` | string equality |
-| `false`/`False`/`no`/`off` | `bool` | string equality |
-| parseable integer | `int` | `std::stoll` consuming all chars |
-| parseable float | `float` | `std::stod` consuming all chars |
-| anything else | `str` | |
-| Map | `dict` | |
-| Sequence | `list` | |
-| Null | `None` | |
+Plain (unquoted) scalars follow the YAML 1.2 core schema; quoted scalars are
+always strings:
 
-### Float serialisation fix
+| YAML scalar | Python |
+|---|---|
+| `true` / `True` / `TRUE`, `false` / ... | `bool` |
+| decimal integer (`-12`, `0`, no leading zeros) | `int` (any size) |
+| decimal float (`1.5`, `1e-3`, `.5`), `.inf`, `.nan` | `float` |
+| anything else (`yes`, `007`, `1.0 ang`, `3.0e-3 ps`) | `str` |
+| Null (`null`, `~`, empty) | `None` |
 
-`YAML::Node(double)` in yaml-cpp serialises whole-number floats (e.g. `1.0`)
-as `"1"` with no decimal point.  yaml-cpp's reader then identifies `"1"` as a
-`long`, which breaks slot type matching when the operator expects `double`.
-
-`py_to_yaml()` works around this by formatting Python floats with
-`std::setprecision(17)` and unconditionally appending `.0` when none of `.`,
-`e`, `E`, `n` (nan), or `i` (inf) is present in the string.  This guarantees:
-
-```
-Python 1.0   →  YAML "1.0"   →  C++ double 1.0   ✓
-Python 1e10  →  YAML "1e10"  →  C++ double 1e10  ✓  (already has 'e')
-Python 1     →  YAML "1"     →  C++ long   1     ✓  (int, not float)
-```
+A dict read with `get_operator_defaults()` can therefore be modified and passed
+back to `set_operator_defaults()` without changing the meaning of values
+(e.g. `yes` or `007` are not turned into `True` or `7`).
 
 ---
 
 ## Python bindings — implementation
 
-### `module.cpp` — entry point and fatal-error mode
+### Package layout
 
-```cpp
-PYBIND11_MODULE(pyonika, m)
-{
-  onika::FatalErrorLogStream::enable_python_mode(true);
-  py::register_exception<onika::scg::OperatorCreationException>(m, "OnikaError");
+`pyonika` is a Python package around the compiled module `pyonika._core`:
 
-  bind_scg(m);
-  bind_soatl(m);
-  bind_factory(m);
-  bind_app(m);
-}
-```
+| File | Role |
+|---|---|
+| `module.cpp` | `PYBIND11_MODULE(_core)`: enables Python mode for `fatal_error()`, deferred MPI finalization, registers `OnikaError`, `_flush_output()` |
+| `bind_app.cpp` | `ApplicationContext`, `init`, `run`, `run_node`, `end`, `build_simulation_graph` |
+| `bind_scg.cpp` | `OperatorNode`, `OperatorSlotBase` (`describe()`, typed values) |
+| `bind_factory.cpp` | `make_operator`, `available_operators`, `get/set_operator_defaults` |
+| `bind_soatl.cpp` | slot extractor registry, `slot_as_array`, `_slot_extractor_api` capsule |
+| `yaml_conv.h` | Python ↔ YAML conversion |
+| `pyonika/__init__.py` | re-exports, `run_file`, `command_line`, `describe_operator`; sets up env and MPI at import |
+| `pyonika/env.py` | `setup_env(prefixes)`: `ONIKA_PLUGIN_PATH`, `ONIKA_CONFIG_PATH`, `ONIKA_DATA_PATH` from install prefixes |
+| `pyonika/mpi.py` | `ensure_mpi_initialized()`: locates the libmpi onika is linked with (`dladdr`) and calls `MPI_Init_thread` once |
+| `pyonika/output.py` | `capture_output()`: redirects file descriptors 1/2 written by C++ to a Python stream |
 
-Two things happen at module load time:
+### Errors
 
-1. **Python mode** is activated.  `FatalErrorLogStream::~FatalErrorLogStream()`
-   is marked `noexcept(false)` and, when Python mode is on and it is safe to do so
-   (see [Exceptions](#exceptions)), throws `std::runtime_error` instead of calling
-   `std::abort()`.  This makes onika fatal errors recoverable from Python (they
-   surface as `RuntimeError`).  Deferred MPI finalisation is also turned on
-   (`onika::app::set_deferred_mpi_finalize(true)`).
-
-2. **`OnikaError`** is registered as a proper Python exception class that maps
-   to `onika::scg::OperatorCreationException`.  It is raised by `make_operator`
-   for unknown operator names and by the factory for slot type incompatibilities.
-
-All other `std::exception` instances that escape any onika call are translated
-by pybind11's default exception translator (`RuntimeError` in most cases).  The
-bindings deliberately do not catch and re-throw exceptions themselves, because
-that would turn `OperatorCreationException` into a plain `RuntimeError` before
-the `OnikaError` translator could see it.
-
----
-
-### `bind_app.cpp` — ApplicationContext, init / run / end
-
-**`ApplicationContext`** is registered with `std::shared_ptr` as the holder
-type so Python shares ownership with the C++ side.  All attributes are
-read-only (`def_readonly` / `def_property_readonly`).
-
-**`init`** calls `onika::app::init(argv)`; exceptions are translated by
-pybind11 (see [Exceptions](#exceptions)).  The returned `shared_ptr<ApplicationContext>` is immediately owned by
-Python.
-
-**`run` and `end`** both release the GIL before calling into C++:
-
-```cpp
-m.def("run", [](std::shared_ptr<ApplicationContext> ctx) {
-  py::gil_scoped_release release;
-  onika::app::run(ctx);
-}, py::arg("ctx"));
-```
-
-The GIL release allows OpenMP threads spawned by the simulation kernels to run
-without being serialised by the Python interpreter lock.  It is reacquired
-automatically when `run()` returns.
-
-**`build_simulation_graph`** converts the Python list to a `YAML::Node` via
-`py_to_yaml`, applies the simulation alias resolution (see below), and calls
-`onika::app::build_simulation_graph`.  The `simulation` argument defaults to
-`py::none()` — when `None`, `ctx->m_simulation_node` is used directly (a
-`YAML::Clone` of the node stored during `init()`).
-
----
-
-### `bind_scg.cpp` — OperatorNode and OperatorSlotBase
-
-**`OperatorSlotBase`** is registered without a holder (raw pointer), with
-`return_value_policy::reference` on all methods that return references to
-strings.  `yaml_initialize` converts the Python dict to YAML via `py_to_yaml`
-and calls the C++ method.
-
-**`OperatorNode`** is registered with `std::shared_ptr<OperatorNode>` as the
-holder type.  This is important: factory-created nodes (returned by
-`make_operator`) are owned by the `shared_ptr` in Python, while graph-internal
-nodes (returned by `ctx.node()` and the `apply_graph` callback) are returned
-with `return_value_policy::reference` — Python holds a non-owning view.
-
-**`in_slots` / `out_slots`** build a Python list of `(name, slot)` tuples.
-Each slot is cast with `return_value_policy::reference` since `OperatorSlotBase`
-instances are owned by their operator.
-
-**`slot_as_array`** searches both input and output slots by name and delegates
-to the `slot_as_array(OSB&)` free function from `bind_soatl.cpp`.
-
-**`apply_graph`** wraps the callback in a C++ lambda.  Each visited node is
-cast with `return_value_policy::reference` since the graph owns all nodes.
-
----
-
-### `bind_factory.cpp` — operator factory
-
-**`available_operators`** delegates to `OperatorNodeFactory::instance()->available_operators()`.
-
-**`make_operator`** calls `OperatorNodeFactory::instance()->make_operator(name, yaml)`.
-The returned `shared_ptr<OperatorNode>` is owned by Python.
-
-**`set_operator_defaults`** *merges* the Python dict into the existing defaults
-using `onika::yaml::merge_nodes`, rather than replacing them.  This ensures
-that batch definitions loaded by `init()` from `.msp` files (e.g.
-`default_simulation`) survive a subsequent call to `set_operator_defaults`.
-
-**`get_operator_defaults`** returns the current factory defaults as a Python
-dict via `yaml_to_py`.
-
----
-
-### `bind_soatl.cpp` — numpy buffer registry
-
-The registry is a static `std::unordered_map<std::string, SlotToArray>`:
-
-```cpp
-using SlotToArray = std::function<py::object(OSB&)>;
-static std::unordered_map<std::string, SlotToArray> g_extractors;
-```
-
-**Key design choice — string key instead of `std::type_index`:**
-
-Each entry is keyed by `typeid(T).name()` (the ABI-stable mangled name) rather
-than `std::type_index`.  This is necessary because of `RTLD_LOCAL`:
-
-When `dlopen` loads a pybind11 extension (e.g. `_exanb_data.so`) with
-`RTLD_LOCAL` (the default), its RTTI objects are separate from those in the
-main executable and in `pyonika.so`.  A `std::type_index` comparison uses
-pointer equality on the internal `std::type_info` object — which would differ
-across DSOs for the same logical type (e.g. `OperatorSlot<SimulationStatistics>`).
-
-The mangled name (`typeid(T).name()`) is a plain `const char*` string that is
-identical for a given type regardless of which DSO it comes from, so
-`unordered_map<string, …>` lookup is cross-DSO-safe.  `slot.value_type()`
-returns exactly this mangled name, making the O(1) lookup correct without any
-`dynamic_cast`.
-
-**`register_vector<T>`** creates an extractor that:
-1. `static_cast`s `OSB&` to `OperatorSlot<vector<T>>*` (safe: the type string already matched)
-2. Checks `has_value()`
-3. Wraps `vec.data()` in a `py::buffer_info` and returns a `py::array_t<T>` (pybind11 copies the data, since no base object is given)
-
-**`register_vector_of_array<T,N>`** does the same for `vector<array<T,N>>`,
-producing a 2-D array of shape `(N_elements, N)` with strides `(sizeof(T)*N, sizeof(T))`.
-
-**`slot_as_array(OSB&)`** does the O(1) lookup by `slot.value_type()` and calls
-the matching extractor.
-
-**`_register_slot_extractor_fn` PyCapsule:**
-
-```cpp
-m.attr("_register_slot_extractor_fn") = py::capsule(
-    reinterpret_cast<void*>(&register_slot_extractor),
-    "_register_slot_extractor_fn");
-```
-
-This exposes the `register_slot_extractor(std::type_index, SlotExtractorFn)`
-function pointer as a `PyCapsule` attribute on the `pyonika` module.  Other
-`RTLD_LOCAL` extension modules (e.g. `_exanb_data.so`) retrieve it via
-`PyCapsule_GetPointer` and call it to register their own extractors without
-any link-time dependency on `pyonika.so`.
-
----
-
-### `yaml_conv.h` — Python ↔ YAML conversion
-
-`py_to_yaml(py::handle)` and `yaml_to_py(const YAML::Node&)` are inline
-functions in a header included by all binding files.  See
-[YAML / dict conversion](#yaml--dict-conversion) for the full type mapping and
-the float serialisation fix.
-
----
+`fatal_error()` normally aborts.  In Python mode it throws `onika::FatalError`
+when that is safe (outside OpenMP parallel regions, no exception in flight,
+single MPI process), otherwise it still aborts (`MPI_Abort` with several
+ranks).  `FatalError` and `OperatorCreationException` are translated to
+`pyonika.OnikaError` (subclass of `RuntimeError`).  `init()` without input
+file or with an unreadable/malformed file, and `run()` or `end()` after an
+early exit (`--help`), raise instead of exiting or crashing.
 
 ### Ownership model
 
-| Object | pybind11 holder | Who owns the C++ object |
+| Object | Held by Python as | Keeps alive |
 |---|---|---|
-| `ApplicationContext` | `std::shared_ptr<ApplicationContext>` | Shared between C++ and Python |
-| `OperatorNode` (from `make_operator`) | `std::shared_ptr<OperatorNode>` | Python |
-| `OperatorNode` (from `ctx.node()` / `apply_graph`) | `std::shared_ptr<OperatorNode>`, returned as reference | C++ graph; Python has a non-owning view |
-| `OperatorSlotBase` | raw pointer, `return_value_policy::reference` | C++ operator; Python has a non-owning view |
+| `ApplicationContext` | `shared_ptr` | its graph until `end()` |
+| graph root (`ctx.graph`, `make_operator`, `build_simulation_graph`) | `shared_ptr` | the whole graph |
+| node from `ctx.node()` | reference | the graph root |
+| node passed to an `apply_graph` callback | reference | the node `apply_graph` was called on |
+| slot from `in_slots()` / `out_slots()` | reference | its operator |
 
-The practical implication: **keep `ctx` alive** as long as you hold any
-`OperatorNode` reference obtained from `ctx.node()` or `apply_graph`, and as
-long as you use any numpy array returned by `slot_as_array()`.
-
----
+`end()` frees slot resources and drops the context's reference to the graph;
+nodes still referenced from Python stay valid but hold no values.
+`slot_as_array()` and the extractors always return copies.
 
 ### GIL management
 
-`pyonika.run()`, `pyonika.run_node()`, and `pyonika.end()` all release the
-Python GIL before entering C++ via `py::gil_scoped_release`.  This allows:
-
-- OpenMP parallel regions inside simulation kernels to run on all cores
-  without being serialised by the interpreter lock
-- Other Python threads to make progress while a simulation step is running
-
-The GIL is reacquired automatically when the `py::gil_scoped_release` object
-goes out of scope (i.e. when the C++ call returns).
-
----
+`init`, `run`, `run_node`, `end`, `build_simulation_graph` and `make_operator`
+release the GIL while onika runs (MPI/OpenMP/GPU setup, plugin loading, graph
+execution).  Callbacks of `apply_graph` run with the GIL held.
 
 ### MPI multi-run support
 
-MPI cannot be initialised again once `MPI_Finalize()` has been called.  If
-`end()` finalised MPI, a second `init()` in the same process would fail.
+`import pyonika` initializes MPI (`MPI_THREAD_MULTIPLE`) and registers
+`MPI_Finalize` at exit.  onika then sees MPI as externally initialized and
+never finalizes it in `end()`, so `init()/run()/end()` can be repeated.
+`set_deferred_mpi_finalize(true)` additionally covers the case where MPI was
+not initialized beforehand.
 
-`src/core/api.cpp` provides `onika::app::set_deferred_mpi_finalize(bool)`
-(off by default; `pyonika` turns it on at import time):
-
-1. **`initialize_mpi`**: when onika calls `MPI_Init` itself and deferred mode is
-   on, it registers a one-shot `atexit` handler that calls `MPI_Finalize()`
-   (guarded by a `MPI_Finalized()` check).  Later `init()` calls see MPI already
-   initialised and take the "external MPI" path.  If MPI has already been
-   finalised, `initialize_mpi` stops with a clear fatal error.
-
-2. **`finalize`** (called by `end()`) calls `MPI_Finalize()` only when onika
-   initialised MPI itself **and** deferred mode is off.
-
-C++ programs such as the `onika` executable are unchanged: they do not turn on
-deferred mode, so MPI is still finalised in `end()`, before CUDA and static
-objects are torn down at process exit.
-
----
+With several MPI processes (`mpirun -n N python script.py`), `import pyonika`
+also installs a `sys.excepthook` (`pyonika.mpi.install_abort_on_exception`)
+that calls `MPI_Abort` after printing the traceback of an uncaught exception,
+so that the other processes do not wait forever in a collective operation.
 
 ### Simulation alias resolution
 

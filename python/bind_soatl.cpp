@@ -23,8 +23,7 @@ using OSB = onika::scg::OperatorSlotBase;
 // does an O(1) lookup via OperatorSlotBase::value_type() (which is the same
 // typeid name) and then calls the extractor with static_cast — no dynamic_cast.
 // ---------------------------------------------------------------------------
-using SlotToArray = std::function<py::object(OSB&)>;
-static std::unordered_map<std::string, SlotToArray> g_extractors;
+static std::unordered_map<std::string, onika::python::SlotExtractorFn> g_extractors;
 
 // Register a 1-D array extractor for std::vector<T>.
 // The returned numpy array is a COPY of the vector's storage: pybind11 copies the
@@ -77,7 +76,7 @@ static void register_vector_of_array()
 }
 
 // Public registration API — callable from other pybind11 extensions.
-void register_slot_extractor(std::type_index ti, SlotExtractorFn fn)
+void register_slot_extractor(std::type_index ti, onika::python::SlotExtractorFn fn)
 {
   g_extractors[ti.name()] = std::move(fn);
 }
@@ -121,10 +120,16 @@ void bind_soatl(py::module_& m)
         "Return a numpy array copy of a slot's value, or None if the type is "
         "not registered or the value is not yet initialised.");
 
-  // Expose register_slot_extractor as a PyCapsule so other pybind11 extensions
-  // (e.g. pyexanbody._exanb_data) can call it without requiring RTLD_GLOBAL or
-  // explicit linking against pyonika.  The capsule holds the raw function
-  // pointer and is retrieved via pyonika._register_slot_extractor_fn.
+  // Expose register_slot_extractor to other pybind11 extensions (e.g.
+  // pyexanbody._exanb_data) without RTLD_GLOBAL or linking against pyonika.
+  // Use onika/python/slot_extractor_api.h to retrieve it: the capsule carries
+  // version numbers checked at import time.
+  static const onika::python::SlotExtractorAPI api {
+    onika::python::SLOT_EXTRACTOR_API_VERSION, PYBIND11_INTERNALS_VERSION, &register_slot_extractor };
+  m.attr("_slot_extractor_api") = py::capsule(&api, onika::python::SLOT_EXTRACTOR_API_CAPSULE);
+
+  // Deprecated: unversioned raw function pointer, kept for modules built before
+  // _slot_extractor_api existed.
   m.attr("_register_slot_extractor_fn") = py::capsule(
       reinterpret_cast<void*>(&register_slot_extractor),
       "_register_slot_extractor_fn");

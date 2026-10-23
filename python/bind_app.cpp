@@ -18,12 +18,24 @@ void bind_app(py::module_& m)
     .def_readonly("ngpus",      &onika::app::ApplicationContext::m_ngpus)
     .def_readonly("cpucount",   &onika::app::ApplicationContext::m_cpucount)
     .def_property_readonly("error_code", &onika::app::ApplicationContext::get_error_code)
-    .def("node", &onika::app::ApplicationContext::node,
-         py::return_value_policy::reference, py::keep_alive<0, 1>(), py::arg("path"))
+    .def_property_readonly("graph", [](const onika::app::ApplicationContext& ctx) { return ctx.m_simulation_graph; },
+         "Root node of the simulation graph built by init(), or None after an early exit or end()")
+    // the returned node keeps the graph root alive (not the context: end()
+    // releases the context's reference to the graph)
+    .def("node", [](const onika::app::ApplicationContext& ctx, const std::string& path) -> py::object {
+      if (ctx.m_simulation_graph == nullptr) return py::none();
+      onika::scg::OperatorNode* node = ctx.node(path);
+      if (node == nullptr) return py::none();
+      py::object root = py::cast(ctx.m_simulation_graph);
+      if (node == ctx.m_simulation_graph.get()) return root;
+      return py::cast(node, py::return_value_policy::reference_internal, root);
+    }, py::arg("path"))
     .def("set_multiple_run", &onika::app::ApplicationContext::set_multiple_run,
          py::arg("enabled"));
 
+  // init loads plugins, sets up MPI/OpenMP/GPU and builds the graph: release the GIL meanwhile
   m.def("init", [](std::vector<std::string> argv) {
+    py::gil_scoped_release release;
     return onika::app::init(argv);
   }, py::arg("argv"));
 
@@ -100,6 +112,7 @@ void bind_app(py::module_& m)
           }
         }
       }
+      py::gil_scoped_release release;
       return onika::app::build_simulation_graph(*ctx->m_configuration, sim_yaml);
     },
     py::arg("ctx"), py::arg("simulation") = py::none(),
