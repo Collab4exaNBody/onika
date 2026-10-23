@@ -219,7 +219,7 @@ namespace onika
         if( mpi_init && !mpi_fin ) MPI_Comm_size( MPI_COMM_WORLD , &nprocs );
         if( can_throw && nprocs == 1 )
         {
-          throw std::runtime_error( m_oss.str() );
+          throw FatalError( m_oss.str() );
         }
         if( nprocs > 1 ) MPI_Abort( MPI_COMM_WORLD , 1 );
       }
