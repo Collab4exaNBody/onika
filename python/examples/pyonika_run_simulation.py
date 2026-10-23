@@ -1,33 +1,35 @@
 #!/usr/bin/env python3
 """
-Python reproduction of data/exemples/print_loop.msp using pyonika.
+Run the simulation defined by main-config.msp twice in the same process, to
+check that several init/run/end cycles work:
 
-Requires the pyonika module installed (make install with -DONIKA_BUILD_PYTHON=ON)
-and the environment sourced:
+1. with a graph built from ["simulation"], the "simulation:" entry of the
+   input files (resolved by build_simulation_graph),
+2. with the graph built from the default simulation node (no argument).
 
-    source <install-prefix>/bin/setup-env.sh
-    python exemples/print_loop.py
+Usage:
+    python examples/pyonika_run_simulation.py
 """
 import os
 import sys
 import pyonika
 
 # ---------------------------------------------------------------------------
-# 1. WORKING
+# 1. graph built from ["simulation"]
 # ---------------------------------------------------------------------------
 main_config = os.path.join(os.environ["ONIKA_CONFIG_PATH"], "main-config.msp")
 ctx = pyonika.init([sys.argv[0], main_config])
 if ctx.error_code >= 0:
     sys.exit(ctx.error_code)
 
-# "simulation" is an alias to "default_simulation" in main-config.msp.
-# build_simulation_graph resolves it via ctx.m_simulation_node before passing to the factory.
+# "simulation" is the "simulation:" entry of main-config.msp, which the factory does
+# not know by name: build_simulation_graph substitutes it before building the graph.
 graph = pyonika.build_simulation_graph(ctx, ["simulation"])
 pyonika.run_node(ctx, graph)
 pyonika.end(ctx)
 
 # ---------------------------------------------------------------------------
-# 4. WORKING
+# 2. graph built from the default simulation node
 # ---------------------------------------------------------------------------
 main_config = os.path.join(os.environ["ONIKA_CONFIG_PATH"], "main-config.msp")
 ctx = pyonika.init([sys.argv[0], main_config])
