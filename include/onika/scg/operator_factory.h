@@ -43,7 +43,8 @@ namespace onika { namespace scg
   };
 
   // an operator flavor is a set of prefereed types corresponding to slot names
-  class OperatorCreationException : public std::exception
+  // default visibility: caught by type in Python extension modules built with -fvisibility=hidden
+  class __attribute__((visibility("default"))) OperatorCreationException : public std::exception
   {
   public:
     inline OperatorCreationException(const std::string& mesg) noexcept : m_mesg(mesg) {}

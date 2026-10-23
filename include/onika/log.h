@@ -19,6 +19,8 @@ under the License.
 
 #pragma once
 
+#include <stdexcept>
+
 #include <fstream>
 #include <iostream>
 #include <functional>
@@ -167,6 +169,13 @@ namespace onika
   inline auto& lerr_stream() { return lerr; }
   inline auto& ldbg_stream() { return ldbg; }
 
+  // thrown by fatal_error() in Python mode, translated to pyonika.OnikaError
+  // default visibility: caught by type in Python extension modules built with -fvisibility=hidden
+  struct __attribute__((visibility("default"))) FatalError : public std::runtime_error
+  {
+    using std::runtime_error::runtime_error;
+  };
+
   struct FatalErrorLogStream
   {
     std::ostringstream m_oss = std::ostringstream {
@@ -191,7 +200,7 @@ namespace onika
     // noexcept(false) allows Python mode to throw instead of abort.
     ~FatalErrorLogStream() noexcept(false);
 
-    // When enabled, the destructor throws std::runtime_error instead of
+    // When enabled, the destructor throws FatalError instead of
     // calling std::abort(). Call once at Python module initialisation.
     static void enable_python_mode(bool on = true);
   };
