@@ -203,6 +203,11 @@ namespace onika
     s_fatal_error_python_mode = on;
   }
 
+  bool FatalErrorLogStream::python_mode()
+  {
+    return s_fatal_error_python_mode;
+  }
+
   FatalErrorLogStream::~FatalErrorLogStream() noexcept(false)
   {
     if( ! m_oss.view().empty() )

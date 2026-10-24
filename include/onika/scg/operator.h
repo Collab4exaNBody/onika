@@ -145,6 +145,8 @@ namespace onika { namespace scg
     
     // populate user given inputs from YAML config file
     virtual void yaml_initialize(const YAML::Node&);
+    // keys of the last map given to yaml_initialize that match no slot (typos, misplaced parameters)
+    inline const std::vector<std::string>& unknown_yaml_keys() const { return m_unknown_yaml_keys; }
     
     // tells if operator is terminal (true) or is a batch operator which holds other operators (false)
     virtual bool is_terminal() const;
@@ -321,6 +323,7 @@ namespace onika { namespace scg
     std::string m_name;
     std::unique_ptr<char[]> m_tag = nullptr; // a unique string pointer equivalent to pathname()
     OperatorNode* m_parent = nullptr;
+    std::vector<std::string> m_unknown_yaml_keys;
 
     std::string m_backtrace; // stored to facilitate debugging
 

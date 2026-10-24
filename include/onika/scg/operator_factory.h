@@ -75,6 +75,9 @@ namespace onika { namespace scg
     static OperatorNodeFactory* instance();
     static inline int debug_verbose_level() { return s_debug_verbose_level; }
     static inline void set_debug_verbose_level(int l) { s_debug_verbose_level = l; }
+    // unknown keys in the definition of a (non-batch) operator: warning, or fatal error when strict
+    static inline bool strict_slot_keys() { return s_strict_slot_keys; }
+    static inline void set_strict_slot_keys(bool yn) { s_strict_slot_keys = yn; }
 
   private:
 
@@ -89,6 +92,7 @@ namespace onika { namespace scg
 
     static OperatorNodeFactory* s_instance;
     static int s_debug_verbose_level;
+    static bool s_strict_slot_keys;
   };
 
   struct OperatorNodeIncompatibility

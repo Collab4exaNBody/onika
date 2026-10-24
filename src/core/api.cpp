@@ -253,7 +253,10 @@ namespace onika
       {
         lerr<<"Usage: "<<argv[0]<<" <input-file> [opt1,opt2...]"<<std::endl;
         lerr<<"   Or: "<<argv[0]<<" --help [operator-name]"<<std::endl;
-        fatal_error() << "missing input file" << std::endl; // throws in Python mode, aborts otherwise
+        // Python callers get an exception; command-line runs exit quietly (launchers
+        // are sourced without arguments just to set up the environment)
+        if( FatalErrorLogStream::python_mode() ) fatal_error() << "missing input file" << std::endl;
+        std::exit(1);
       }
 
       std::vector<std::string> main_input_files;
@@ -328,6 +331,7 @@ namespace onika
 
       // ======== process debugging options =============
       OperatorNodeFactory::set_debug_verbose_level( configuration.debug.verbose );
+      OperatorNodeFactory::set_strict_slot_keys( configuration.debug.strict_slots );
 #     ifdef __APPLE__
       if( configuration.debug.fpe ) { lerr << "FPE trapping (debug.fpe) is not supported on macOS, ignoring" << std::endl; }
 #     else
