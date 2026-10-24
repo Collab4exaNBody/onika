@@ -44,6 +44,14 @@ configure_file(pyproject.toml.in ${PYONIKA_BUILD_ROOT}/pyproject.toml @ONLY)
 install(FILES ${PYONIKA_PY_SOURCES} ${PYONIKA_BUILD_ROOT}/pyonika/_paths.py DESTINATION ${PYONIKA_INSTALL_ROOT}/pyonika)
 install(FILES ${PYONIKA_BUILD_ROOT}/pyproject.toml DESTINATION ${PYONIKA_INSTALL_ROOT})
 
+# onika_mcp: pure Python building blocks for MCP servers of onika-based applications
+file(GLOB ONIKA_MCP_PY_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/onika_mcp/*.py)
+file(MAKE_DIRECTORY ${PYONIKA_BUILD_ROOT}/onika_mcp)
+foreach(f ${ONIKA_MCP_PY_SOURCES})
+  configure_file(${f} ${PYONIKA_BUILD_ROOT}/onika_mcp/ COPYONLY)
+endforeach()
+install(FILES ${ONIKA_MCP_PY_SOURCES} DESTINATION ${PYONIKA_INSTALL_ROOT}/onika_mcp)
+
 if(ONIKA_ENABLE_TESTS)
   set(PYONIKA_TEST_ENV
     "PYTHONPATH=${PYONIKA_BUILD_ROOT}:$ENV{PYTHONPATH}"
