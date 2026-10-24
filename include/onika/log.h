@@ -203,6 +203,7 @@ namespace onika
     // When enabled, the destructor throws FatalError instead of
     // calling std::abort(). Call once at Python module initialisation.
     static void enable_python_mode(bool on = true);
+    static bool python_mode();
   };
 
   inline FatalErrorLogStream fatal_error() { return {}; }

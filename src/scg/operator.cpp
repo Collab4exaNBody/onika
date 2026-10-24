@@ -871,8 +871,17 @@ namespace onika { namespace scg
 
   void OperatorNode::yaml_initialize(const YAML::Node& node)
   {  
+    m_unknown_yaml_keys.clear();
     if( node.IsMap() )
     {
+      // structural keys of batch definitions, also seen by an operator when a batch reduces to it
+      static const std::set<std::string> structural_keys = { "body", "rebind", "loop", "unroll", "condition", "name", "profiling", "parallel", "cores", "task_group" };
+      for(const auto& kv : node)
+      {
+        const std::string k = kv.first.as<std::string>();
+        if( in_slot(k) == nullptr && out_slot(k) == nullptr && structural_keys.count(k) == 0 ) m_unknown_yaml_keys.push_back( k );
+      }
+
       std::set<OperatorSlotBase*> yaml_initialized_slots;
       for(auto& p : in_slots() )
       {

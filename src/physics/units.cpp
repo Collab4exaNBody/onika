@@ -19,6 +19,7 @@ under the License.
 
 #include <onika/cuda/cuda.h>
 #include <onika/physics/units.h>
+#include <onika/log.h>
 
 #include <cstring>
 #include <string>
@@ -113,8 +114,13 @@ namespace onika
       Quantity q = { value , SI };
       for(const auto& pair : unities_list)
       {
-        //Protection : if the unity doesn't exist, exit the code
         UnitDefinition u = unit_from_symbol(pair.first);
+        if( std::string(u.m_name) == std::string(unknown.m_name) )
+        {
+          std::ostringstream valid;
+          for(int i=0;i<number_of_units;i++) valid << " " << all_units[i].m_short_name;
+          fatal_error() << "unknown unit '" << pair.first << "' in '" << units_and_powers << "'. Valid units are:" << valid.str() << std::endl;
+        }
         Quantity mq = u ^ pair.second;
         //std::cout<<"Unit^Power: "<<std::defaultfloat<<pair.first<<" ^ "<<pair.second<<" (unit="<<u.m_name<<") => "<< mq <<std::endl;
         //std::cout<<q<<" * "<<mq;
