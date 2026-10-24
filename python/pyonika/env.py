@@ -17,9 +17,15 @@ import os
 
 __all__ = ["setup_env", "prefixes"]
 
+_VARIABLES = ("ONIKA_PLUGIN_PATH", "ONIKA_CONFIG_PATH", "ONIKA_DATA_PATH")
+
+# Variables set by setup_env() are listed in ONIKA_ENV_AUTO, so that a child
+# process (which inherits them) does not take them for user settings.
+_AUTO = set(filter(None, os.environ.get("ONIKA_ENV_AUTO", "").split(":")))
+
 # Values of the variables before any setup_env() call: these come from the
 # user (e.g. a sourced setup-env.sh) and always take precedence.
-_USER_ENV = {k: os.environ.get(k) for k in ("ONIKA_PLUGIN_PATH", "ONIKA_CONFIG_PATH", "ONIKA_DATA_PATH")}
+_USER_ENV = {k: (None if k in _AUTO else os.environ.get(k)) for k in _VARIABLES}
 
 _prefixes = []
 
@@ -51,6 +57,9 @@ def _data_dirs(prefix):
     data = os.path.join(prefix, "data")
     if os.path.isdir(data):
         dirs.append(data)
+    potentials = os.path.join(data, "potentials")  # potential files are referenced by bare name
+    if os.path.isdir(potentials):
+        dirs.append(potentials)
     return dirs
 
 
@@ -72,18 +81,22 @@ def setup_env(prefix_list):
             _prefixes.append(p)
 
     if not _USER_ENV["ONIKA_PLUGIN_PATH"]:
-        os.environ["ONIKA_PLUGIN_PATH"] = _merge(
-            os.environ.get("ONIKA_PLUGIN_PATH"),
-            [os.path.join(p, "plugins") for p in _prefixes if os.path.isdir(os.path.join(p, "plugins"))])
+        os.environ["ONIKA_PLUGIN_PATH"] = ":".join(
+            os.path.join(p, "plugins") for p in _prefixes if os.path.isdir(os.path.join(p, "plugins")))
+        _AUTO.add("ONIKA_PLUGIN_PATH")
 
     if not _USER_ENV["ONIKA_CONFIG_PATH"]:
         configs = [os.path.join(p, "data", "config") for p in _prefixes
                    if os.path.isfile(os.path.join(p, "data", "config", "main-config.msp"))]
         if configs:
             os.environ["ONIKA_CONFIG_PATH"] = configs[-1]
+            _AUTO.add("ONIKA_CONFIG_PATH")
 
     if not _USER_ENV["ONIKA_DATA_PATH"]:
         dirs = ["."]
         for p in _prefixes:
             dirs += _data_dirs(p)
-        os.environ["ONIKA_DATA_PATH"] = _merge(os.environ.get("ONIKA_DATA_PATH"), dirs)
+        os.environ["ONIKA_DATA_PATH"] = _merge(None, dirs)
+        _AUTO.add("ONIKA_DATA_PATH")
+
+    os.environ["ONIKA_ENV_AUTO"] = ":".join(sorted(_AUTO))
