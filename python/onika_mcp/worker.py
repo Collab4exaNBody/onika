@@ -40,6 +40,18 @@ def _warnings(log):
     return sorted({l.strip() for l in log.splitlines() if l.strip().startswith("Warning:")})
 
 
+def _error_causes(log):
+    """'ERR:' lines printed before a fatal error (e.g. why a batch could not be built),
+    without the lines of the FATAL ERROR banner itself."""
+    causes = []
+    for l in log.splitlines():
+        if l.startswith("ERR:"):
+            msg = l[4:].strip()
+            if msg and not msg.startswith("*") and msg not in causes:
+                causes.append(msg)
+    return causes
+
+
 # ---------------------------------------------------------------------------
 # parent side
 # ---------------------------------------------------------------------------
@@ -79,6 +91,9 @@ def run_worker(package, command, payload=None, timeout=300, cwd=None):
             else:
                 error = f"process exited with code {proc.returncode} without result"
             result = {"ok": False, "error": error}
+        causes = _error_causes(log)
+        if not result.get("ok") and causes and not any(c in result.get("error", "") for c in causes):
+            result["error"] = "\n".join(causes[-3:] + [result.get("error", "")])
         result.setdefault("warnings", _warnings(log))
         result["log"] = log[-4000:]
         result["elapsed"] = round(elapsed, 2)

@@ -13,6 +13,7 @@ while outputs written by the run do not land among the user's files.
 """
 
 import os
+import re
 import shutil
 import tempfile
 
@@ -35,13 +36,31 @@ def merge(base, extra):
     return out
 
 
+# a path token going up from the input's directory: '../common.yaml', "../../data/x.xyz"
+_PARENT_PATH = re.compile(r"""(?<![\w./-])(\.\./[\w./+-]*)""")
+
+
+def _absolute_parent_paths(text, workdir):
+    """Make the '../' paths of ``text`` that exist relative to ``workdir`` absolute.
+
+    The run directory only holds links to the entries of ``workdir``, so a path
+    going up from it (an ``includes:`` entry, a data file) would not be found.
+    """
+    def repl(m):
+        path = os.path.normpath(os.path.join(workdir, m.group(1)))
+        return path if os.path.exists(path) else m.group(1)
+    return _PARENT_PATH.sub(repl, text)
+
+
 class _RunDir:
     def __init__(self, text, workdir, name):
         self.path = tempfile.mkdtemp(prefix="onika-run-")
         if workdir and os.path.isdir(workdir):
+            workdir = os.path.abspath(workdir)
+            text = _absolute_parent_paths(text, workdir)
             for entry in os.listdir(workdir):
                 if entry != name:
-                    os.symlink(os.path.join(os.path.abspath(workdir), entry), os.path.join(self.path, entry))
+                    os.symlink(os.path.join(workdir, entry), os.path.join(self.path, entry))
         self.input = os.path.join(self.path, name)
         with open(self.input, "w") as f:
             f.write(text)
