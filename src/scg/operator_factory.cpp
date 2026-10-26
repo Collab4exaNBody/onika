@@ -266,8 +266,10 @@ namespace onika { namespace scg
       ldbg << "factory has "<<it_range.size()<<" candidates" <<std::endl;
     }
     
+    bool implicit_batch = false;
     if( std::ranges::empty(it_range) )
     {
+      implicit_batch = true;
       // if operator name is not known, it indicates it's implicitly a batch operator.
       if( OperatorNodeFactory::debug_verbose_level() >= 2 )
       {
@@ -343,7 +345,12 @@ namespace onika { namespace scg
     
     // populate slot values from YAML
     op->yaml_initialize( node );
-    check_unknown_slot_keys( name, *op, s_strict_slot_keys );
+    // an implicit batch reduced to its only child (trivial encapsulation) is a terminal operator,
+    // but node is the batch's definition, already applied to the children: nothing to check
+    if( ! implicit_batch )
+    {
+      check_unknown_slot_keys( name, *op, s_strict_slot_keys );
+    }
     
     // finalize inner resources, knowing that slots won't be modified anymore
     if( ! op->compiled() )
