@@ -10,13 +10,37 @@ import difflib
 import hashlib
 import json
 import os
+import re
 
 from .worker import run_worker
 
-__all__ = ["Catalog"]
+__all__ = ["Catalog", "is_scalar_type"]
 
 
-_CACHE_VERSION = 2   # bump when the cached content changes
+_CACHE_VERSION = 3   # bump when the cached content changes
+
+# slot types a user writes in YAML as plain values (numbers, strings, small vectors, lists of them)
+_SCALAR = re.compile(r"^(bool|char|short|int|long|long long|unsigned( \w+)*|u?int\d+(_t)?|size_t|ssize_t|float|double|"
+                     r"string|std::string|Vec3d|IJK|Mat3d|Quantity)$")
+
+
+def is_scalar_type(type_name):
+    """True for slot types given as plain YAML values (also vectors and maps of them)."""
+    t = type_name.replace("std::", "").replace("onika::math::", "").replace("exanb::", "").strip()
+    m = re.match(r"^(vector|set|list|map)<(.*)>$", t)
+    if m:
+        return all(is_scalar_type(a) for a in m.group(2).split(","))
+    return bool(_SCALAR.match(t))
+
+
+def _clean_default(slot):
+    """Default value as given in YAML: bools as bools, no pointers or unprintable values."""
+    v = slot.get("value")
+    if isinstance(v, str) and (v.startswith(("0x", "<")) or v == ""):
+        v = None
+    elif slot.get("type") == "bool" and v in (0, 1):
+        v = bool(v)
+    slot["value"] = v
 
 
 def _fingerprint(*search_paths):
@@ -90,6 +114,9 @@ class Catalog:
         defaults = run_worker(self.package, "defaults", timeout=600)
         if not defaults.get("ok"):
             raise RuntimeError(f"cannot read the default configuration: {defaults.get('error')}")
+        for op in result["operators"].values():
+            for slot in op.get("slots", []):
+                _clean_default(slot)
         data = {"operators": result["operators"], "defaults": defaults["defaults"], "env": env["env"],
                 "paths": env.get("paths", {})}
         with open(path, "w") as f:

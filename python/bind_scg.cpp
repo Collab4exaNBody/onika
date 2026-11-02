@@ -23,9 +23,13 @@ static const char* direction_name(const OSB& s)
 }
 
 // Slot value parsed as YAML (numbers, lists, maps...), or its string form if
-// it is not valid YAML.  None when the slot has no value.
+// it is not valid YAML.  None when the slot has no value.  The default value of
+// an unconnected input slot is built on first access: an input-only slot has an
+// allocator only when its declaration provides a default.
 static py::object slot_value(OSB& s)
 {
+  if (!s.has_value() && s.is_input_only() && s.input() == nullptr && s.resource() && s.resource()->has_allocator())
+    s.initialize_resource_pointer();
   if (!s.has_value()) return py::none();
   const std::string str = s.value_as_string();
   try { return yaml_to_py(YAML::Load(str)); }
