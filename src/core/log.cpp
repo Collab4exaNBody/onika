@@ -22,6 +22,10 @@ under the License.
 #include <chrono>
 #include <thread>
 #include <unistd.h>
+#include <exception>
+#include <stdexcept>
+#include <omp.h>
+#include <mpi.h>
 
 #include <onika/log.h>
 #include <onika/string_utils.h>
@@ -192,12 +196,34 @@ namespace onika
     m_oss << manip;
     return *this;
   }
-  FatalErrorLogStream::~FatalErrorLogStream()
+  static bool s_fatal_error_python_mode = false;
+
+  void FatalErrorLogStream::enable_python_mode(bool on)
+  {
+    s_fatal_error_python_mode = on;
+  }
+
+  FatalErrorLogStream::~FatalErrorLogStream() noexcept(false)
   {
     if( ! m_oss.view().empty() )
     {
-      using namespace std::chrono_literals;
       lerr_stream() << m_oss.str() << "*****************************************" << std::endl << std::flush;
+      if( s_fatal_error_python_mode )
+      {
+        // Throwing is only safe outside of OpenMP parallel regions, when no other exception is
+        // in flight, and when a single MPI process runs (otherwise other ranks would hang).
+        bool can_throw = std::uncaught_exceptions() == 0 && ! omp_in_parallel();
+        int mpi_init=0, mpi_fin=0, nprocs=1;
+        MPI_Initialized( &mpi_init );
+        MPI_Finalized( &mpi_fin );
+        if( mpi_init && !mpi_fin ) MPI_Comm_size( MPI_COMM_WORLD , &nprocs );
+        if( can_throw && nprocs == 1 )
+        {
+          throw std::runtime_error( m_oss.str() );
+        }
+        if( nprocs > 1 ) MPI_Abort( MPI_COMM_WORLD , 1 );
+      }
+      using namespace std::chrono_literals;
       std::this_thread::sleep_for(500ms);
       std::abort();
     }
