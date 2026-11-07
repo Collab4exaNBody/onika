@@ -25,6 +25,7 @@ under the License.
 #include <cassert>
 #include <ranges>
 #include <span>
+#include <algorithm>
 
 #include <onika/debug.h>
 #include <onika/deprecated.h>

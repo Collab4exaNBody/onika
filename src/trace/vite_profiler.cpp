@@ -201,7 +201,7 @@ namespace onika
       if( n_events > 0 ) { trace_duration_variance /= n_events; }
       else { trace_duration_variance = 0.0; }
       g_vite_trace_max_duration = std::chrono::nanoseconds{ /*trace_duration_min*/ trace_duration_mean + (trace_duration_variance*3)/2 };
-      g_vite_trace_min_duration = std::chrono::nanoseconds{ /*trace_duration_max*/ std::max( 0l , trace_duration_mean - (trace_duration_variance*3)/2 ) };
+      g_vite_trace_min_duration = std::chrono::nanoseconds{ /*trace_duration_max*/ std::max( int64_t(0) , trace_duration_mean - (trace_duration_variance*3)/2 ) };
       g_vite_trace_start_time = std::chrono::nanoseconds{0};
       
       // ----------------

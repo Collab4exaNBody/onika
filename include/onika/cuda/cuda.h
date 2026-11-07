@@ -290,13 +290,16 @@ namespace onika
 /****************** Cuda hardware intrinsics *******************/
 /***************************************************************/
 
-#   if defined(__CUDA_ARCH__)
+#   if defined(__CUDA_ARCH__) && !defined(__MVCC__)
     __noinline__  __device__ inline unsigned int get_smid(void)
     {
       unsigned int ret;
       asm("mov.u32 %0, %smid;" : "=r"(ret) );
       return ret;
     }
+#   elif defined(__CUDA_ARCH__)
+    // mvcc translates device code to Metal, which has no PTX %smid register.
+    __noinline__  __device__ inline unsigned int get_smid(void) { return 0; }
     
     ONIKA_DEVICE_FUNC inline long long int onika_double_as_longlong(double x) { return __double_as_longlong(x); }
     ONIKA_DEVICE_FUNC inline double onika_longlong_as_double(long long int x) { return __longlong_as_double(x); }
