@@ -13,7 +13,7 @@ requires-python = "==@Python3_VERSION_MAJOR@.@Python3_VERSION_MINOR@.*"
 dependencies = ["numpy"]
 
 [tool.setuptools]
-packages = ["pyonika"]
+packages = ["pyonika", "onika_mcp"]
 
 [tool.setuptools.package-data]
 pyonika = ["*.so", "*.pyd"]
