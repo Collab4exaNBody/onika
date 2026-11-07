@@ -352,13 +352,9 @@ namespace onika { namespace scg
 
       if( m_value_required && p == nullptr )
       {
-        lerr << "Fatal: Slot '"<< OperatorSlotBase::name() <<"' in operator '"<<owner()->pathname()<<"' has no value" << std::endl << std::flush;
-        lerr << "resource: " << *(resource().get()) << std::endl;
-        lerr << "input: ";
-        if( input() != nullptr ) { lerr << input()->pathname(); }
-        else { lerr << "<null>"; }
-        lerr<<std::endl;
-        std::abort();
+        fatal_error() << "Slot '"<< OperatorSlotBase::name() <<"' in operator '"<<owner()->pathname()<<"' has no value" << std::endl
+                      << "resource: " << *(resource().get()) << std::endl
+                      << "input: " << ( input() != nullptr ? input()->pathname() : std::string("<null>") ) << std::endl;
       }
 
       m_data_pointer_cache = nullptr;

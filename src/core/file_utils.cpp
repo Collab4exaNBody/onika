@@ -138,7 +138,7 @@ namespace onika
     bool found = resolve_file_path( dirs , resolved_path );
     if( ! found )
     {
-      ldbg << "Warning: file "<<filepath<<"not found"<<std::endl;
+      lerr << "Warning: data file '"<<filepath<<"' not found (searched: "<<g_data_file_dirs<<", see ONIKA_DATA_PATH)"<<std::endl;
     }
     return resolved_path;
   }

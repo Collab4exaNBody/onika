@@ -732,14 +732,12 @@ namespace onika { namespace scg_builtin
       }
       catch( const OperatorCreationException& e )
       {
-        lerr<<"Unable to add operator '"<<opname<<"' to batch"<<std::endl;
-        lerr<< onika::str_indent( e.what() , 2 , ' ' , "| " );
-        std::abort();
+        fatal_error() << "Unable to add operator '"<<opname<<"' to batch"<<std::endl
+                      << onika::str_indent( e.what() , 2 , ' ' , "| " );
       }
       if( new_op == nullptr )
       {
-        lerr<<"Unable to add operator '"<<opname<<"' to batch (unidentified error)"<<std::endl;
-        std::abort();
+        fatal_error() << "Unable to add operator '"<<opname<<"' to batch (unidentified error)"<<std::endl;
       }
       
       batch->push_back( new_op );

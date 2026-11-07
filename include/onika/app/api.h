@@ -118,6 +118,12 @@ namespace onika
     void
     initialize();
 
+    // When enabled (e.g. by the Python bindings), finalize() does not call MPI_Finalize ;
+    // it is deferred to an atexit handler so that several init/end cycles can run in one process.
+    // Must be called before the first initialize_mpi() call.
+    void
+    set_deferred_mpi_finalize(bool yn);
+
     void
     finalize( const onika::app::ApplicationConfiguration & configuration
                         , std::shared_ptr<onika::scg::OperatorNode> simulation_graph

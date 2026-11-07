@@ -43,7 +43,8 @@ namespace onika { namespace scg
   };
 
   // an operator flavor is a set of prefereed types corresponding to slot names
-  class OperatorCreationException : public std::exception
+  // default visibility: caught by type in Python extension modules built with -fvisibility=hidden
+  class __attribute__((visibility("default"))) OperatorCreationException : public std::exception
   {
   public:
     inline OperatorCreationException(const std::string& mesg) noexcept : m_mesg(mesg) {}
@@ -66,6 +67,7 @@ namespace onika { namespace scg
     std::shared_ptr<OperatorNode> make_operator( const std::string& name, YAML::Node node = YAML::Node(), const OperatorNodeFlavor& flavor = OperatorNodeFlavor() );
     std::string resolve_operator_name(const std::string& proto);
     void set_operator_defaults(YAML::Node node);
+    YAML::Node get_operator_defaults() const { return m_operator_defaults; }
     std::set<std::string> available_operators();
 
     void enable_registration();
@@ -73,6 +75,9 @@ namespace onika { namespace scg
     static OperatorNodeFactory* instance();
     static inline int debug_verbose_level() { return s_debug_verbose_level; }
     static inline void set_debug_verbose_level(int l) { s_debug_verbose_level = l; }
+    // unknown keys in the definition of a (non-batch) operator: warning, or fatal error when strict
+    static inline bool strict_slot_keys() { return s_strict_slot_keys; }
+    static inline void set_strict_slot_keys(bool yn) { s_strict_slot_keys = yn; }
 
   private:
 
@@ -87,6 +92,7 @@ namespace onika { namespace scg
 
     static OperatorNodeFactory* s_instance;
     static int s_debug_verbose_level;
+    static bool s_strict_slot_keys;
   };
 
   struct OperatorNodeIncompatibility
