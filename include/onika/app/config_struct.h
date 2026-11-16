@@ -178,7 +178,8 @@ namespace onika
         else
         {
           std::string subpath;
-          if( level>=1 ) subpath = path + m_key;
+          // nested sections are joined with '-', as parsed by cmdline_option_to_yaml (e.g. --profiling-trace-enable)
+          if( level>=1 ) subpath = path.empty() ? m_key : path + "-" + m_key;
           for(auto item:m_sub_items) item->print_command_line_options(out,level+1,subpath);
         }
         return out;
