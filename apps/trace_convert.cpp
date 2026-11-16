@@ -51,7 +51,17 @@ int main(int argc,char*argv[])
 {
   if( argc < 4 )
   {
-    std::cerr<<"Usage: "<<argv[0]<<" vite|dot|plot [+idle] <yaml-input-file> <output-file>"<<std::endl;
+    std::cerr<<"Usage: "<<argv[0]<<" [-vite|-dot|-plot|-tikz|-yaml] [options] <yaml-input-file> <output-file>"<<std::endl
+             <<"  output format (default: -yaml)"<<std::endl
+             <<"Options:"<<std::endl
+             <<"  -notrace                 do not output the trace itself"<<std::endl
+             <<"  -noidle                  do not output the idle ratio plot"<<std::endl
+             <<"  -color ctx|tag           state coloring scheme"<<std::endl
+             <<"  -start <state> <index>   start at the index-th occurrence of state (negative index counts from the end)"<<std::endl
+             <<"  -end <state> <index>     end at the index-th occurrence of state (negative index counts from the end)"<<std::endl
+             <<"  -shift                   shift times so that the trace starts at zero"<<std::endl
+             <<"  -pad <state>             fill each thread with given state up to the end of the trace"<<std::endl
+             <<"  -threads <first> <end>   keep threads in [first;end["<<std::endl;
     return 1;
   }
 

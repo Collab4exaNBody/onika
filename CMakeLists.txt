@@ -547,7 +547,7 @@ install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/onikarun
   "#!/bin/bash\n"
   "source ${CMAKE_INSTALL_PREFIX}/bin/setup-env.sh\n"
-  "${CMAKE_INSTALL_PREFIX}/bin/onika-exec \$*\n")
+  "${CMAKE_INSTALL_PREFIX}/bin/onika-exec \"\$@\"\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/onikarun DESTINATION bin)
 
 # generate helper script to setup environment to allow running from build directory without install
@@ -562,7 +562,7 @@ file(WRITE ${ONIKA_RUN}
   "export ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins\n"
   "export ONIKA_DATA_PATH=${ONIKA_DEFAULT_DATA_DIRS}\n"
   "[ \$ONIKA_DEBUG ] && echo \"Onika build : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n"
-  "${ONIKA_EXEC} \$*\n")
+  "${ONIKA_EXEC} \"\$@\"\n")
 file(CHMOD ${CMAKE_CURRENT_BINARY_DIR}/onikarun FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 
 # compile tools and apps
