@@ -1,10 +1,9 @@
 name: CMake HIP
 on:
   push:
-    branches:
-      - main
-    pull_request:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
   
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -27,10 +26,11 @@ jobs:
 
     # Containers run as root, so no "sudo" is needed (and it isn't installed
     # in the rocm/dev-* image).
-    - name: Install build dependencies (yaml-cpp, lcov, MPI)
+    # python3-dev and git are for the Python bindings (pybind11 is fetched with git).
+    - name: Install build dependencies (yaml-cpp, lcov, MPI, Python)
       run: |
         apt-get update
-        apt-get install -y libyaml-cpp-dev lcov mpich
+        apt-get install -y libyaml-cpp-dev lcov mpich python3-dev git
 
     # The rocm/dev-ubuntu-22.04 image ships no CMake, and apt's Ubuntu 22.04
     # CMake (3.22) is older than onika's cmake_minimum_required (3.26).
@@ -54,7 +54,8 @@ jobs:
               -DONIKA_BUILD_CUDA=ON \
               -DONIKA_ENABLE_HIP=ON \
               -DCMAKE_HIP_ARCHITECTURES=${{env.HIP_ARCH}} \
-              -DONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE=ON
+              -DONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE=ON \
+              -DONIKA_BUILD_PYTHON=ON
 
     - name: Build Onika
       run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8

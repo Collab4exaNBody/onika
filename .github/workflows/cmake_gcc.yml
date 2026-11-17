@@ -1,10 +1,9 @@
 name: CMake GCC
 on:
   push:
-    branches:
-      - main
-    pull_request:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -33,3 +32,46 @@ jobs:
     - name: Run onika Tests
       working-directory: ${{github.workspace}}/build
       run: ctest -E "onika_test_omp_tasks_(5|6|7|8|9|10|11)$|(np[4-9](_|$)|np[0-9]{2,}(_|$))"
+
+  # Python bindings (pyonika), built for the oldest and newest supported Python versions.
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{matrix.python-version}}
+    - name: Install dependencies (yaml-cpp, MPI, numpy, pytest)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libyaml-cpp-dev mpich
+        python -m pip install numpy pytest
+
+    - name: Configure Onika (Python bindings enabled)
+      run: |
+        cmake -B ${{github.workspace}}/build \
+              -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
+              -DONIKA_BUILD_PYTHON=ON \
+              -DPython3_EXECUTABLE=$(which python)
+    - name: Build Onika
+      run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
+    - name: Run pyonika Tests
+      working-directory: ${{github.workspace}}/build
+      run: ctest -R pyonika --output-on-failure
+
+    # The ctest entries use the build tree; this checks the installed package, as documented:
+    # pip install <prefix>/python, then no environment setup at all.
+    - name: Run pyonika Tests from the installed package
+      working-directory: ${{runner.temp}}
+      run: |
+        python -m pip install ${{github.workspace}}/install/python
+        python -c 'import pyonika, sys; assert not pyonika.__file__.startswith(sys.argv[1]), pyonika.__file__' ${{github.workspace}}
+        python -m pytest -q -p no:cacheprovider ${{github.workspace}}/python/tests
