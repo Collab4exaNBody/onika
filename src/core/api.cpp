@@ -20,6 +20,7 @@ under the License.
 #include <onika/app/api.h>
 #include <filesystem>
 #include <fenv.h>
+#include <cstdlib>
 
 #include "tinyexpr.h" // for te_random_seed function
 
@@ -33,6 +34,13 @@ namespace onika
   namespace app
   {
 
+    static bool s_deferred_mpi_finalize = false;
+
+    void set_deferred_mpi_finalize(bool yn)
+    {
+      s_deferred_mpi_finalize = yn;
+    }
+
     int ApplicationContext::get_error_code() const
     {
       return m_return_code;
@@ -45,6 +53,7 @@ namespace onika
 
     void ApplicationContext::set_multiple_run(bool yn)
     {
+      if( m_simulation_graph == nullptr ) { fatal_error() << "set_multiple_run: no simulation graph (init returned early)" << std::endl; }
       m_simulation_graph->set_multiple_run( yn );
     }
 
@@ -82,6 +91,7 @@ namespace onika
       auto [ main_input_files , cmdline ] = onika::app::parse_command_args( argc , argv );
       auto [ input_data , simulation_node , configuration_ptr ] = onika::app::load_yaml_input( main_input_files , cmdline );
       auto & configuration = * configuration_ptr;
+      ctx->m_configuration = configuration_ptr;
 
       // ========= optionally override debug mode from env. variable ==========
       const char * env_debug_mode = std::getenv("ONIKA_DEBUG"); // where to look for component plugins to load
@@ -99,6 +109,9 @@ namespace onika
 
       // ============= MPI Initialization =============
       const auto [ rank, nb_procs, mt_support, external_mpi_init ] = initialize_mpi( configuration , argc, argv /* , MPI_COMM_WORLD */ );
+      ctx->m_mpi_rank = rank;
+      ctx->m_mpi_nprocs = nb_procs;
+      ctx->m_mpi_external_init = external_mpi_init;
 
       // =========== OpenMP Initialization ============
       // third parameter may be be 'false' if configuration is driven by external application
@@ -141,7 +154,6 @@ namespace onika
       // prepare operator assembly strategy
       auto simulation_graph = onika::app::build_simulation_graph( configuration , simulation_node );
 
-      ctx->m_configuration = configuration_ptr; //std::make_shared<onika::app::ApplicationConfiguration>(configuration);
       ctx->m_input_files = main_input_files;
       ctx->m_cmdline_config = cmdline;
       ctx->m_input_data = input_data;
@@ -168,6 +180,7 @@ namespace onika
     void
     run(std::shared_ptr<ApplicationContext> ctx)
     {
+      if( ctx->m_simulation_graph == nullptr ) { fatal_error() << "run: no simulation graph (init returned early)" << std::endl; }
       onika::app::run_simulation_graph( ctx->m_simulation_graph.get() , ctx->m_need_profiling );
     }
 
@@ -181,7 +194,9 @@ namespace onika
     void
     end(std::shared_ptr<ApplicationContext> ctx)
     {
+      if( ctx->m_configuration == nullptr ) return; // init failed before configuration was loaded
       onika::app::finalize( * (ctx->m_configuration.get()) , ctx->m_simulation_graph , ctx->m_prof_trace , ctx->m_mpi_external_init );
+      ctx->m_simulation_graph = nullptr;
     }
 
     void
@@ -204,14 +219,14 @@ namespace onika
       using namespace onika::scg;
 
       // produce vite trace output
-      if( configuration.profiling.trace.enable )
+      if( configuration.profiling.trace.enable && otf != nullptr )
       {
         vite_end_trace( configuration.profiling.trace );
         delete otf;
       }
 
       //  print simulation execution summary
-      if( configuration.profiling.summary )
+      if( configuration.profiling.summary && simulation_graph != nullptr )
       {
         lout<<std::endl<<"Profiling .........................................  tot. time  ( GPU )   avginb  maxinb     count  percent"<<std::endl;
         auto statsfunc = []( const std::vector<double>& x, int& np, int& r, std::vector<double>& minval, std::vector<double>& maxval, std::vector<double>& avg )
@@ -223,10 +238,12 @@ namespace onika
       }
 
       // free all resources before exit
-      simulation_graph->apply_graph( [](OperatorNode* op){ op->free_all_resources(); } );
+      if( simulation_graph != nullptr ) simulation_graph->apply_graph( [](OperatorNode* op){ op->free_all_resources(); } );
       simulation_graph = nullptr;
 
-      if( ! external_mpi_init ) MPI_Finalize();
+      // in deferred mode (e.g. Python), MPI_Finalize is called by an atexit handler registered
+      // in initialize_mpi, so that multiple init/end cycles in a single process work.
+      if( ! external_mpi_init && ! s_deferred_mpi_finalize ) MPI_Finalize();
     }
 
     std::pair< std::vector<std::string> , YAML::Node >
@@ -236,6 +253,9 @@ namespace onika
       {
         lerr<<"Usage: "<<argv[0]<<" <input-file> [opt1,opt2...]"<<std::endl;
         lerr<<"   Or: "<<argv[0]<<" --help [operator-name]"<<std::endl;
+        // Python callers get an exception; command-line runs exit quietly (launchers
+        // are sourced without arguments just to set up the environment)
+        if( FatalErrorLogStream::python_mode() ) fatal_error() << "missing input file" << std::endl;
         std::exit(1);
       }
 
@@ -311,6 +331,7 @@ namespace onika
 
       // ======== process debugging options =============
       OperatorNodeFactory::set_debug_verbose_level( configuration.debug.verbose );
+      OperatorNodeFactory::set_strict_slot_keys( configuration.debug.strict_slots );
 #     ifdef __APPLE__
       if( configuration.debug.fpe ) { lerr << "FPE trapping (debug.fpe) is not supported on macOS, ignoring" << std::endl; }
 #     else
@@ -523,7 +544,14 @@ namespace onika
       int rank=0, nb_procs=0;
       int mt_support = 0;
       int external_mpi_init = 0;
+      int mpi_finalized = 0;
       MPI_Initialized( &external_mpi_init );
+      MPI_Finalized( &mpi_finalized );
+
+      if( mpi_finalized )
+      {
+        fatal_error() << "MPI has already been finalized, it cannot be initialized again" << std::endl;
+      }
 
       if( external_mpi_init )
       {
@@ -538,6 +566,12 @@ namespace onika
         else
         {
           MPI_Init(&argc, &argv);
+        }
+        static bool s_mpi_atexit_registered = false;
+        if( s_deferred_mpi_finalize && !s_mpi_atexit_registered )
+        {
+          std::atexit( []{ int fin=0; MPI_Finalized(&fin); if(!fin) MPI_Finalize(); } );
+          s_mpi_atexit_registered = true;
         }
       }
       for(int a=0;a<argc;a++) free( argv[a] );
