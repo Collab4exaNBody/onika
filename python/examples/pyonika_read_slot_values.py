@@ -67,7 +67,7 @@ if global_op is not None:
     for name, slot in global_op.out_slots():
         if slot.has_value():
             print(f"  out {name} = {slot.value_as_string()}")
-    # Expected: dt=1, nsteps=10, timestep=10 (after 10 iterations), ...
+    # Expected: dt=1, nsteps=10, timestep=11 (the loop runs while timestep <= nsteps), ...
 else:
     print("  'global' operator not found in graph")
 

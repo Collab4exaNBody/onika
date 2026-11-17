@@ -49,11 +49,23 @@ if(ONIKA_ENABLE_TESTS)
     "PYTHONPATH=${PYONIKA_BUILD_ROOT}:$ENV{PYTHONPATH}"
     "ONIKA_CONFIG_PATH=${PROJECT_SOURCE_DIR}/data/config"
     "ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins")
-  add_test(NAME pyonika_import
-           COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/examples/pyonika_dryrun_test_import_pyonika.py)
-  add_test(NAME pyonika_run_simulation
-           COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/examples/pyonika_run_simulation.py)
   add_test(NAME pyonika_tests
            COMMAND ${Python3_EXECUTABLE} -m pytest -q -p no:cacheprovider ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-  set_tests_properties(pyonika_import pyonika_run_simulation pyonika_tests PROPERTIES ENVIRONMENT "${PYONIKA_TEST_ENV}")
+  add_test(NAME pyonika_tests_mpi_np2
+           COMMAND ${ONIKA_MPIRUN_CMD} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+                   ${Python3_EXECUTABLE} -m pytest -q -p no:cacheprovider ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_mpi.py
+                   ${MPIEXEC_POSTFLAGS})
+  set(PYONIKA_TESTS pyonika_tests pyonika_tests_mpi_np2)
+
+  # every example must keep working, except the interactive one (it asks for a file name)
+  file(GLOB pyonika_examples ${CMAKE_CURRENT_SOURCE_DIR}/examples/*.py)
+  list(FILTER pyonika_examples EXCLUDE REGEX "pyonika_execute_user_specified_msp_file\\.py$")
+  foreach(script ${pyonika_examples})
+    get_filename_component(tn ${script} NAME_WE)
+    add_test(NAME pyonika_example_${tn} COMMAND ${Python3_EXECUTABLE} ${script})
+    list(APPEND PYONIKA_TESTS pyonika_example_${tn})
+  endforeach()
+
+  set_tests_properties(${PYONIKA_TESTS} PROPERTIES ENVIRONMENT "${PYONIKA_TEST_ENV}")
+  set_tests_properties(pyonika_tests_mpi_np2 PROPERTIES ENVIRONMENT "${PYONIKA_TEST_ENV};PYONIKA_TEST_NPROCS=2")
 endif()
