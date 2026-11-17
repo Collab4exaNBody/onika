@@ -94,12 +94,24 @@ static inline constexpr auto onikaDevAttrClockRate           = hipDeviceAttribut
 // Cuda runtime API
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+// not every CUDA-compatible toolchain ships the profiler/NVTX headers
+// (e.g. mvcc's Metal-backed toolkit on macOS does not); fall back to no-ops.
+#if __has_include(<cuda_profiler_api.h>)
 #include <cuda_profiler_api.h>
+#define ONIKA_CU_PROF_START()                          cudaProfilerStart()
+#define ONIKA_CU_PROF_STOP()                            cudaProfilerStop()
+#else
+#define ONIKA_CU_PROF_START()                          cudaSuccess
+#define ONIKA_CU_PROF_STOP()                            cudaSuccess
+#endif
+#if __has_include(<nvtx3/nvToolsExt.h>)
 #include <nvtx3/nvToolsExt.h>
 #define ONIKA_CU_PROF_RANGE_PUSH(s)                    nvtxRangePush(s)
 #define ONIKA_CU_PROF_RANGE_POP()                      nvtxRangePop()
-#define ONIKA_CU_PROF_START()                          cudaProfilerStart()
-#define ONIKA_CU_PROF_STOP()                           cudaProfilerStop()
+#else
+#define ONIKA_CU_PROF_RANGE_PUSH(s)                    ((void)0)
+#define ONIKA_CU_PROF_RANGE_POP()                       ((void)0)
+#endif
 #define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st)             cudaMemPrefetchAsync((const void*)(ptr),sz,0,st)
 #define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) cudaStreamCreateWithFlags( & streamref, cudaStreamNonBlocking )
 #define ONIKA_CU_STREAM_ADD_CALLBACK(stream,cb,udata)  cudaStreamAddCallback(stream,cb,udata,0u)

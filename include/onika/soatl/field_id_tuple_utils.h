@@ -68,7 +68,7 @@ namespace onika
     ONIKA_HOST_DEVICE_FUNC
     inline size_t field_id_tuple_size_bytes( const onika::FlatTuple<FieldT...> & ft )
     {
-      return field_id_tuple_size_bytes( ft , std::make_index_sequence< ft.size() >{} );
+      return field_id_tuple_size_bytes( ft , std::make_index_sequence< onika::FlatTuple<FieldT...>::size() >{} );
     }
 
   }

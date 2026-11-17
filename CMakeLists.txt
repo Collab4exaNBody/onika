@@ -152,6 +152,11 @@ if(LSCPU_EXECUTABLE)
   math(EXPR ONIKA_HOST_HW_CORES "1+${ONIKA_HOST_HW_CORES}")
   set(ONIKA_ADVISED_HW_THREADS ${ONIKA_HOST_HW_THREADS})
   message(STATUS "lscpu : threads=${ONIKA_HOST_HW_THREADS} cores=${ONIKA_HOST_HW_CORES}")
+elseif(APPLE)
+  execute_process(COMMAND sysctl -n hw.physicalcpu OUTPUT_VARIABLE ONIKA_HOST_HW_CORES OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(COMMAND sysctl -n hw.logicalcpu OUTPUT_VARIABLE ONIKA_HOST_HW_THREADS OUTPUT_STRIP_TRAILING_WHITESPACE)
+  set(ONIKA_ADVISED_HW_THREADS ${ONIKA_HOST_HW_THREADS})
+  message(STATUS "sysctl : threads=${ONIKA_HOST_HW_THREADS} cores=${ONIKA_HOST_HW_CORES}")
 else()
   set(ONIKA_HOST_HW_CORES 4)
   set(ONIKA_HOST_HW_THREADS 8)
@@ -408,7 +413,18 @@ else()
     message(STATUS "yaml-cpp_DIR = ${yaml-cpp_DIR}")
     file(APPEND ${ONIKA_CMAKE_PACKAGE} "set(yaml-cpp_DIR ${yaml-cpp_DIR})\n")
   endif()
-  file(APPEND ${ONIKA_CMAKE_PACKAGE} "find_package(yaml-cpp REQUIRED)\n")    
+  file(APPEND ${ONIKA_CMAKE_PACKAGE} "find_package(yaml-cpp REQUIRED)\n")
+  if(YAML_CPP_INCLUDE_DIR)
+    # not on the default search path when yaml-cpp lives under a non-system
+    # prefix (e.g. Homebrew on macOS), unlike typical Linux distro packaging.
+    list(APPEND ONIKA_INCLUDE_DIRS ${YAML_CPP_INCLUDE_DIR})
+    file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_INCLUDE_DIRS \${YAML_CPP_INCLUDE_DIR})\n")
+  endif()
+  if(TARGET yaml-cpp::yaml-cpp)
+    # modern yaml-cpp (>=0.7) only exports the namespaced imported target;
+    # the legacy YAML_CPP_LIBRARIES="yaml-cpp" string has no -L to go with it.
+    set(YAML_CPP_LIBRARIES yaml-cpp::yaml-cpp)
+  endif()
 endif()
 list(APPEND ONIKA_LIBRARIES ${YAML_CPP_LIBRARIES})
 file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_LIBRARIES \${YAML_CPP_LIBRARIES})\n")
@@ -464,16 +480,24 @@ list(APPEND ONIKA_LIBRARIES dl)
 list(APPEND ONIKA_COMPILE_OPTIONS -Wall)
 
 # Architecture-specific compile options
+# ONIKA_ARCH_FLAGS is added to onika and to every code built on it (C++ files and host side of Cuda files), so
+# that all of them target the same CPU. Defaults: aarch64 NEON baseline, x86_64 none (compiler default, often
+# SSE2 only). Examples: -mcpu=neoverse-v2 (Grace), -march=znver2 (AMD Rome), -march=znver3 (AMD Milan),
+# -march=x86-64-v3 (any AVX2 CPU). A -march/-mcpu in CMAKE_CXX_FLAGS alone does not reach the codes built on onika.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
-  message(STATUS "Target architecture: aarch64/ARM64 — enabling NEON baseline (-march=armv8-a)")
-  list(APPEND ONIKA_COMPILE_OPTIONS -march=armv8-a)
-  # Note: replace -march=armv8-a with -mcpu=native when building natively for
-  # better auto-tuning (e.g. Apple M-series, AWS Graviton, Ampere Altra).
+  set(ONIKA_ARCH_FLAGS_DEFAULT "-march=armv8-a")
+  set(ONIKA_ARCH_NAME "aarch64/ARM64")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-  message(STATUS "Target architecture: x86_64")
+  set(ONIKA_ARCH_FLAGS_DEFAULT "")
+  set(ONIKA_ARCH_NAME "x86_64")
 else()
-  message(STATUS "Target architecture: ${CMAKE_SYSTEM_PROCESSOR} (no architecture-specific flags set; scalar SIMD fallback will be used)")
+  set(ONIKA_ARCH_FLAGS_DEFAULT "")
+  set(ONIKA_ARCH_NAME "${CMAKE_SYSTEM_PROCESSOR} (scalar SIMD fallback unless ONIKA_ARCH_FLAGS is set)")
 endif()
+set(ONIKA_ARCH_FLAGS "${ONIKA_ARCH_FLAGS_DEFAULT}" CACHE STRING "CPU architecture flags added to onika and to every code built on it (empty: none)")
+message(STATUS "Target architecture: ${ONIKA_ARCH_NAME} — architecture flags: '${ONIKA_ARCH_FLAGS}'")
+separate_arguments(ONIKA_ARCH_FLAGS_LIST UNIX_COMMAND "${ONIKA_ARCH_FLAGS}")
+list(APPEND ONIKA_COMPILE_OPTIONS ${ONIKA_ARCH_FLAGS_LIST})
 
 # compile main lib
 file(GLOB_RECURSE onika_CXX_SRCS src/*.cpp)
