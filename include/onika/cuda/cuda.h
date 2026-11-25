@@ -299,7 +299,7 @@ namespace onika
       return ret;
     }
 #     else
-    // mvcc translates device code to Metal, which has no PTX %smid register.
+    // no %smid on Metal (mvcc)
     __noinline__  __device__ inline unsigned int get_smid(void) { return 0; }
 #     endif
 

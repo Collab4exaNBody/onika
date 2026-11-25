@@ -37,7 +37,7 @@ namespace onika
     template<> inline MPI_Datatype mpi_datatype<unsigned int>() { return MPI_UNSIGNED; }
     template<> inline MPI_Datatype mpi_datatype<long>() { return MPI_LONG; }
     template<> inline MPI_Datatype mpi_datatype<unsigned long>() { return MPI_UNSIGNED_LONG; }
-    // distinct from long on macOS, where int64_t/uint64_t are long long/unsigned long long
+    // int64_t is long long on macOS
     template<> inline MPI_Datatype mpi_datatype<long long>() { return MPI_LONG_LONG; }
     template<> inline MPI_Datatype mpi_datatype<unsigned long long>() { return MPI_UNSIGNED_LONG_LONG; }
     template<> inline MPI_Datatype mpi_datatype<signed char>() { return MPI_SIGNED_CHAR; }

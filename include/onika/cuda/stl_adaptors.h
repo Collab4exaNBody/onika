@@ -71,9 +71,7 @@ namespace onika
     struct CudaStdVectorAccess : public std::vector<T,A>
     {
 #     ifdef __APPLE__
-      // libc++ (macOS) doesn't expose the libstdc++ _M_impl layout used below;
-      // use the public accessors instead (no device-side compilation happens
-      // in this configuration).
+      // libc++ has no _M_impl
       ONIKA_HOST_DEVICE_FUNC inline const T* _cudata() const { return this->std::vector<T,A>::data(); }
       ONIKA_HOST_DEVICE_FUNC inline T* _cudata() { return this->std::vector<T,A>::data(); }
       ONIKA_HOST_DEVICE_FUNC inline size_t _cusize() const { return this->std::vector<T,A>::size(); }

@@ -405,8 +405,7 @@ namespace onika
       std::vector<int> cpu_ids;
 #     ifdef __APPLE__
       {
-        // macOS has no pthread affinity API (no cpu_set_t, no CPU pinning);
-        // just report every hardware thread as available.
+        // no thread affinity API on macOS
         cpucount = (int) std::thread::hardware_concurrency();
         for (int i=0; i<cpucount; ++i) cpu_ids.push_back(i);
         if( configuration.pinethreads && allow_openmp_conf )

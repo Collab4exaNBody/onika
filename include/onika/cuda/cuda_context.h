@@ -94,8 +94,7 @@ static inline constexpr auto onikaDevAttrClockRate           = hipDeviceAttribut
 // Cuda runtime API
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
-// not every CUDA-compatible toolchain ships the profiler/NVTX headers
-// (e.g. mvcc's Metal-backed toolkit on macOS does not); fall back to no-ops.
+// profiler/NVTX headers may be missing (e.g. mvcc)
 #if __has_include(<cuda_profiler_api.h>)
 #include <cuda_profiler_api.h>
 #define ONIKA_CU_PROF_START()                          cudaProfilerStart()

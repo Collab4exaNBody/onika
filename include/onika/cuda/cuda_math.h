@@ -59,8 +59,7 @@ namespace onika
       static inline constexpr uint64_t max = std::numeric_limits<uint64_t>::max();
     };
 #   ifdef __APPLE__
-    // on Darwin, size_t/unsigned long is a distinct type from uint64_t
-    // (unsigned long long), unlike Linux where they're the same type.
+    // on Darwin, unsigned long != uint64_t
     template<> struct numeric_limits<unsigned long>
     {
       static inline constexpr unsigned long max = std::numeric_limits<unsigned long>::max();

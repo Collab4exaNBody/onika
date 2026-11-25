@@ -75,9 +75,7 @@ function(onika_add_plugin PluginName dirname)
       #message(STATUS "component create shared lib target ${${PluginName}_SHARED_LIB}")
       add_library(${${PluginName}_SHARED_LIB} SHARED ${${PluginName}_SCRS_LIB})
       if(APPLE)
-        # exported cmake packages (e.g. exanbody-config.cmake) hardcode a
-        # "lib<name>.so" IMPORTED_LOCATION for these component libs; match it
-        # instead of the platform-default .dylib suffix.
+        # exported packages expect lib<name>.so
         set_target_properties(${${PluginName}_SHARED_LIB} PROPERTIES SUFFIX ".so")
       endif()
       target_include_directories(${${PluginName}_SHARED_LIB} PRIVATE ${dirname}/lib PUBLIC ${${PluginName}_INCLUDE_DIRS} ${dirname}/include)
@@ -111,8 +109,7 @@ function(onika_add_plugin PluginName dirname)
       #message(STATUS "create plugin lib target ${${PluginName}_PLUGIN_LIB}")
       add_library(${${PluginName}_PLUGIN_LIB} SHARED ${${PluginName}_SCRS})
       if(APPLE)
-        # plugin loading (src/core/plugin.cpp) hardcodes a "lib<name>.so" pattern
-        # for dlopen/directory scanning; match it instead of the default .dylib suffix.
+        # plugin loader expects lib<name>.so
         set_target_properties(${${PluginName}_PLUGIN_LIB} PROPERTIES SUFFIX ".so")
       endif()
       target_include_directories(${${PluginName}_PLUGIN_LIB} PRIVATE ${dirname} ${${PluginName}_INCLUDE_DIRS} ${dirname}/include)
@@ -122,11 +119,7 @@ function(onika_add_plugin PluginName dirname)
       target_link_directories(${${PluginName}_PLUGIN_LIB} PRIVATE ${${PluginName}_LINK_DIRECTORIES})
       target_link_libraries(${${PluginName}_PLUGIN_LIB} PRIVATE ${ONIKA_LIBRARIES} ${${PluginName}_LINK_LIBRARIES} ${${PluginName}_SHARED_LIB})
       if(APPLE)
-        # plugins reference symbols defined in sibling plugins that aren't
-        # explicit link dependencies; on Linux this is fine because undefined
-        # symbols in a .so are resolved later via dlopen(RTLD_GLOBAL) against
-        # whatever else is already loaded. macOS's linker insists on resolving
-        # every symbol when the dylib itself is built unless told otherwise.
+        # plugins use symbols from sibling plugins, resolved at dlopen time
         target_link_options(${${PluginName}_PLUGIN_LIB} PRIVATE -undefined dynamic_lookup)
       endif()
       target_link_options(${${PluginName}_PLUGIN_LIB} PRIVATE ${${PluginName}_LINK_OPTIONS})

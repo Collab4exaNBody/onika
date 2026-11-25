@@ -415,14 +415,12 @@ else()
   endif()
   file(APPEND ${ONIKA_CMAKE_PACKAGE} "find_package(yaml-cpp REQUIRED)\n")
   if(YAML_CPP_INCLUDE_DIR)
-    # not on the default search path when yaml-cpp lives under a non-system
-    # prefix (e.g. Homebrew on macOS), unlike typical Linux distro packaging.
+    # needed for non-system prefixes (e.g. Homebrew)
     list(APPEND ONIKA_INCLUDE_DIRS ${YAML_CPP_INCLUDE_DIR})
     file(APPEND ${ONIKA_CMAKE_PACKAGE} "list(APPEND ONIKA_INCLUDE_DIRS \${YAML_CPP_INCLUDE_DIR})\n")
   endif()
   if(TARGET yaml-cpp::yaml-cpp)
-    # modern yaml-cpp (>=0.7) only exports the namespaced imported target;
-    # the legacy YAML_CPP_LIBRARIES="yaml-cpp" string has no -L to go with it.
+    # yaml-cpp >= 0.7 only exports the namespaced target
     set(YAML_CPP_LIBRARIES yaml-cpp::yaml-cpp)
   endif()
 endif()
@@ -480,10 +478,7 @@ list(APPEND ONIKA_LIBRARIES dl)
 list(APPEND ONIKA_COMPILE_OPTIONS -Wall)
 
 # Architecture-specific compile options
-# ONIKA_ARCH_FLAGS is added to onika and to every code built on it (C++ files and host side of Cuda files), so
-# that all of them target the same CPU. Defaults: aarch64 NEON baseline, x86_64 none (compiler default, often
-# SSE2 only). Examples: -mcpu=neoverse-v2 (Grace), -march=znver2 (AMD Rome), -march=znver3 (AMD Milan),
-# -march=x86-64-v3 (any AVX2 CPU). A -march/-mcpu in CMAKE_CXX_FLAGS alone does not reach the codes built on onika.
+# ONIKA_ARCH_FLAGS: CPU flags propagated to onika and dependent codes (e.g. -march=x86-64-v3, -mcpu=neoverse-v2)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
   set(ONIKA_ARCH_FLAGS_DEFAULT "-march=armv8-a")
   set(ONIKA_ARCH_NAME "aarch64/ARM64")
