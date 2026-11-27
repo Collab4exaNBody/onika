@@ -108,7 +108,6 @@ def test_several_runs(tmp_path, monkeypatch):
         assert pyonika.run_file(main_config) == 0
 
 
-
 def test_no_value_after_end_of_a_run(tmp_path, monkeypatch):
     """end() frees the slot values of the graph built by init(), also after it has run:
     they read as None, not from released memory."""
