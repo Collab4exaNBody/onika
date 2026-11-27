@@ -162,6 +162,7 @@ namespace onika { namespace scg
   void OperatorSlotBase::free_resource()
   {
     if( m_resource != nullptr ) m_resource->free();
+    reset_value_pointer();
   }
 
   bool OperatorSlotBase::reachable_output( OperatorSlotBase* slot )

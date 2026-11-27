@@ -106,3 +106,39 @@ def test_several_runs(tmp_path, monkeypatch):
     main_config = os.path.join(os.environ["ONIKA_CONFIG_PATH"], "main-config.msp")
     for _ in range(3):
         assert pyonika.run_file(main_config) == 0
+
+
+
+def test_no_value_after_end_of_a_run(tmp_path, monkeypatch):
+    """end() frees the slot values of the graph built by init(), also after it has run:
+    they read as None, not from released memory."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "loop.msp").write_text(
+        "global: { dt: 1.0, nsteps: 2, timestep: 0, compute_loop_continue: true }\n"
+        "compute_loop_stop: { rebind: { end_at: nsteps, result: compute_loop_continue }, body: [ sim_continue ] }\n"
+        "compute_loop: { loop: true, condition: compute_loop_continue, body: [ next_time_step, compute_loop_stop ] }\n"
+        f"simulation: [ global, mpi_comm_world, compute_loop, {VECTOR_OP} ]\n")
+    c = pyonika.init(["pyonika", "loop.msp"])
+    pyonika.run(c)
+    timestep = dict(c.node("simulation.global").out_slots())["timestep"]
+    vector_node = c.node(f"simulation.{VECTOR_OP}")
+    vector = dict(vector_node.in_slots())["input1"]
+    assert timestep.value() == 3 and vector.has_value()
+    pyonika.end(c)
+    for s in (timestep, vector):
+        assert not s.has_value()
+        assert s.value() is None
+    assert vector_node.slot_as_array("input1") is None
+
+
+def test_reading_a_default_does_not_change_the_slot(ctx):
+    """describe() / value() build the default value of an unconnected input only to read it."""
+    graph = pyonika.build_simulation_graph(ctx, ["unit_system"])
+    node = find_node(graph, "unit_system")
+    slot = dict(node.in_slots())["verbose"]
+    assert not slot.has_value()
+    assert slot.value() == 0      # default: false (bool values read as 0 / 1)
+    assert {s["name"]: s["value"] for s in node.describe()["slots"]}["verbose"] == 0
+    assert not slot.has_value()
+    pyonika.run_node(ctx, graph)
+    assert slot.has_value() and slot.value() == 0
