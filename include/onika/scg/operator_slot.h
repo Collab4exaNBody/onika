@@ -377,6 +377,12 @@ namespace onika { namespace scg
       m_data_pointer_cache = nullptr;
     }
 
+    inline void reset_value_pointer() override final
+    {
+      m_pointer_cache_intialized = false;
+      m_data_pointer_cache = nullptr;
+    }
+
     inline std::shared_ptr<OperatorSlotBase> new_instance(OperatorNode* opnode, const std::string& k, SlotDirection dir) override final
     {
       return make_operator_slot<T>( opnode, k, dir );
