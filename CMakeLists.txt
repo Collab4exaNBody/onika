@@ -675,6 +675,11 @@ if(ONIKA_ENABLE_TESTS)
   onika_add_test(soatl_serialize ${CMAKE_CURRENT_BINARY_DIR}/soatlserializetest 10000)
   onika_add_test(soatl_tuple ${CMAKE_CURRENT_BINARY_DIR}/soatupletest 10)
 
+  # slot values after their resources are freed (OperatorNode::free_all_resources, onika::app::end)
+  onika_add_test(slot_free_resource ${CMAKE_CURRENT_BINARY_DIR}/slot_free_resource)
+  set_tests_properties(onika_test_slot_free_resource PROPERTIES ENVIRONMENT
+    "ONIKA_CONFIG_PATH=${PROJECT_SOURCE_DIR}/data/config;ONIKA_PLUGIN_PATH=${PROJECT_BINARY_DIR}/plugins")
+
   option(SOATL_ENABLE_BENCHMARKS "SOATL benchmarks" ON)
   if(SOATL_ENABLE_BENCHMARKS)
     set(SOATL_BENCHMARKS_SIZE 10000000 CACHE STRING "SOATL benchmarks number of elements")
