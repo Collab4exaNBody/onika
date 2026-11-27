@@ -94,7 +94,7 @@ namespace onika
       ctx->m_configuration = configuration_ptr;
 
       // ========= optionally override debug mode from env. variable ==========
-      const char * env_debug_mode = std::getenv("ONIKA_DEBUG"); // where to look for component plugins to load
+      const char * env_debug_mode = std::getenv("ONIKA_DEBUG"); // enables startup debug output (logging, plugins, files, verbose=2)
       if( env_debug_mode != nullptr )
       {
         std::string s(env_debug_mode);
@@ -283,9 +283,9 @@ namespace onika
       using namespace onika;
       using namespace onika::scg;
 
-      // load user file and all subsequent include includes.
-      // when no includes is specified, USTAMP_DEFAULT_CONFIG_FILE is loaded as if it has been included.
-      // to prevent any file from being included, write "includes: []" in your input file
+      // load main-config.msp (always first, with its own includes), then the user files and
+      // all their includes, recursively, each file only once (see resolve_config_file_includes).
+      // "includes: []" in a user file does not prevent main-config.msp from being loaded.
       std::vector<std::string> files_to_load = onika::yaml::resolve_config_file_includes( main_input_files );
       assert( ! files_to_load.empty() );
 
