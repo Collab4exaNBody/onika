@@ -101,6 +101,10 @@ namespace onika { namespace scg
     const std::set<OperatorSlotBase*> & outputs() const { return m_outputs; }
     virtual void reset_input() =0;
 
+    // forget the cached pointer to the slot's value (after its resource has been freed),
+    // so that has_value() is false and the value is not read from released memory
+    virtual void reset_value_pointer() =0;
+
     // slot loop connections ( when a batch loops, it's ouputs may be connected to its inputs )
     inline OperatorSlotBase* loop_input() const { return m_loop_input; }
     inline OperatorSlotBase* loop_output() const { return m_loop_output; }
@@ -165,6 +169,7 @@ namespace onika { namespace scg
 
     // slot graph traversal
     void set_resource( std::shared_ptr<OperatorSlotResource> resource );
+    // frees the memory of the slot's resource and forgets the cached value pointer
     void free_resource();
     bool reachable_output( OperatorSlotBase* slot );
     
