@@ -19,6 +19,9 @@ under the License.
 #pragma once
 
 #include <fstream>
+#include <vector>
+#include <utility>
+#include <string>
 #include <onika/color_scale.h>
 //#include "vite_event_color.h"
 
