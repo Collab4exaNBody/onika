@@ -19,6 +19,7 @@ under the License.
 #include <onika/scg/operator_slot_resource.h>
 #include <onika/log.h>
 #include <cassert>
+#include <exception>
 
 namespace onika { namespace scg
 {
@@ -63,11 +64,16 @@ namespace onika { namespace scg
 
   void* OperatorSlotResource::check_allocate()
   {
+    // an exception cannot leave an OpenMP structured block (std::terminate):
+    // errors of the allocator (e.g. YAML decoding, fatal_error in Python mode) are rethrown after it
+    std::exception_ptr error = nullptr;
 #   pragma omp critical(OperatorSlotResource_check_allocate)
     if( m_memory_ptr==nullptr && m_allocate!=nullptr )
     {
-      m_memory_ptr = m_allocate();
+      try { m_memory_ptr = m_allocate(); }
+      catch(...) { error = std::current_exception(); }
     }
+    if( error ) std::rethrow_exception( error );
 
     return m_memory_ptr;
   }

@@ -28,6 +28,8 @@ under the License.
 #include <onika/plugin.h>
 
 #include <cassert>
+#include <sstream>
+#include <vector>
 #include <iostream>
 #include <memory>
 #include <ranges>
@@ -36,6 +38,23 @@ namespace onika { namespace scg
 {
   OperatorNodeFactory* OperatorNodeFactory::s_instance = nullptr;
   int OperatorNodeFactory::s_debug_verbose_level = 0;
+  bool OperatorNodeFactory::s_strict_slot_keys = false;
+
+  // keys of an operator definition that match none of its slots (typos, misplaced parameters),
+  // as recorded by OperatorNode::yaml_initialize. Batches are skipped: their slots come from their children.
+  static void check_unknown_slot_keys( const std::string& name, const OperatorNode& op, bool strict )
+  {
+    if( ! op.is_terminal() ) return;
+    const auto& unknown = op.unknown_yaml_keys();
+    if( unknown.empty() ) return;
+    std::ostringstream oss;
+    oss << "operator '" << name << "' has no parameter";
+    for(const auto& k : unknown) oss << " '" << k << "'";
+    oss << ". Valid parameters are:";
+    for(const auto& p : op.named_slots()) oss << " " << p.first;
+    if( strict ) { fatal_error() << oss.str() << std::endl; }
+    else { lerr << "Warning: " << oss.str() << " (unknown keys are ignored)" << std::endl; }
+  }
 
   OperatorNodeFactory* OperatorNodeFactory::instance()
   {
@@ -247,8 +266,10 @@ namespace onika { namespace scg
       ldbg << "factory has "<<it_range.size()<<" candidates" <<std::endl;
     }
     
+    bool implicit_batch = false;
     if( std::ranges::empty(it_range) )
     {
+      implicit_batch = true;
       // if operator name is not known, it indicates it's implicitly a batch operator.
       if( OperatorNodeFactory::debug_verbose_level() >= 2 )
       {
@@ -324,6 +345,12 @@ namespace onika { namespace scg
     
     // populate slot values from YAML
     op->yaml_initialize( node );
+    // an implicit batch reduced to its only child (trivial encapsulation) is a terminal operator,
+    // but node is the batch's definition, already applied to the children: nothing to check
+    if( ! implicit_batch )
+    {
+      check_unknown_slot_keys( name, *op, s_strict_slot_keys );
+    }
     
     // finalize inner resources, knowing that slots won't be modified anymore
     if( ! op->compiled() )

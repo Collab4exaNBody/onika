@@ -92,6 +92,7 @@ namespace onika
       ONIKA_APP_CONFIG_Item( bool         , fpe            , false   , "enable floating point exceptions");
       ONIKA_APP_CONFIG_Item( int          , verbose        , 0       , "verbosity level");
       ONIKA_APP_CONFIG_Item( bool         , graph_exec     , false   , "component graph execution debug traces");
+      ONIKA_APP_CONFIG_Item( bool         , strict_slots   , false   , "unknown keys in an operator definition are fatal errors instead of warnings");
     ONIKA_APP_CONFIG_End();
 
     ONIKA_APP_CONFIG_Begin( onika                                                                    , "Onika sub-system configuration" );
