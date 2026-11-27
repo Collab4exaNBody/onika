@@ -128,3 +128,16 @@ def test_no_value_after_end_of_a_run(tmp_path, monkeypatch):
         assert not s.has_value()
         assert s.value() is None
     assert vector_node.slot_as_array("input1") is None
+
+
+def test_reading_a_default_does_not_change_the_slot(ctx):
+    """describe() / value() build the default value of an unconnected input only to read it."""
+    graph = pyonika.build_simulation_graph(ctx, ["unit_system"])
+    node = find_node(graph, "unit_system")
+    slot = dict(node.in_slots())["verbose"]
+    assert not slot.has_value()
+    assert slot.value() == 0      # default: false (bool values read as 0 / 1)
+    assert {s["name"]: s["value"] for s in node.describe()["slots"]}["verbose"] == 0
+    assert not slot.has_value()
+    pyonika.run_node(ctx, graph)
+    assert slot.has_value() and slot.value() == 0
